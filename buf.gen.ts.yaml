@@ -1,0 +1,15 @@
+# TypeScript generation template driven by tools/generate.py, which passes
+# the output directory (ts/src/proto) with `buf generate -o`. ts-proto with grpc-js service stubs (A03); the plugin
+# binary comes from the pinned ts-proto devDependency of that package
+# (pnpm install --frozen-lockfile). Managed mode is off: ts-proto derives
+# module paths from the proto file paths.
+version: v2
+plugins:
+  - local: ts/node_modules/.bin/protoc-gen-ts_proto
+    out: .
+    opt:
+      - outputServices=grpc-js
+      - outputTypeRegistry=true
+      - esModuleInterop=true
+      - importSuffix=.js
+      - env=node

@@ -1,0 +1,97 @@
+{
+  "schema": "urn:anvilkit:events:v1",
+  "cases": [
+    {
+      "name": "operation.changed with inline payload",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "eventType": "operation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.operation.changed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-14T12:00:00Z",
+        "correlationId": "req_01J9",
+        "payload": { "kind": "operation.changed", "lifecycle": "running", "phase": "launching", "control": "none", "cleanup": "pending", "finance": "not_funded", "revision": "4" }
+      }
+    },
+    {
+      "name": "attempt.result-accepted with payloadRef",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5c", "eventType": "attempt.result-accepted", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.attempt.result-accepted", "tenantId": "tenant_a",
+        "aggregateType": "attempt", "aggregateId": "att_01J9", "aggregateRevision": "2", "occurredAt": "2026-09-14T12:00:01Z",
+        "correlationId": "req_01J9", "payloadRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "name": "envelope with both payload and payloadRef is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "eventType": "operation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.operation.changed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-14T12:00:00Z",
+        "correlationId": "req_01J9", "payloadRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "payload": { "kind": "operation.changed", "lifecycle": "running", "phase": "launching", "control": "none", "cleanup": "pending", "finance": "not_funded", "revision": "4" }
+      }
+    },
+    {
+      "name": "subject that disagrees with the event type is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "eventType": "operation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.knowledge.memory.fact-confirmed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-14T12:00:00Z",
+        "correlationId": "req_01J9", "payloadRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "name": "envelope carrying a token field is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "eventType": "operation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.operation.changed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-14T12:00:00Z",
+        "correlationId": "req_01J9", "payloadRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "accessToken": "secret"
+      }
+    },
+    {
+      "name": "non-UUID eventId is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "op_01J9-evt-4", "eventType": "operation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.operation.changed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-14T12:00:00Z",
+        "correlationId": "req_01J9", "payloadRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "name": "schemaVersion other than 1 is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "eventType": "operation.changed", "schemaVersion": 2,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.operation.changed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-14T12:00:00Z",
+        "correlationId": "req_01J9", "payloadRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "name": "background.requested with a stable queue kind",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5d", "eventType": "background.requested", "schemaVersion": 1,
+        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.background.requested", "tenantId": "tenant_a",
+        "aggregateType": "background_request", "aggregateId": "task_01J9", "aggregateRevision": "1", "occurredAt": "2026-09-14T12:00:02Z",
+        "correlationId": "req_01J9",
+        "payload": { "kind": "background.requested", "taskId": "task_01J9", "generation": "1", "taskKind": "knowledge-ingest", "inputDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Buf module for the internal RPC contracts (contracts.md §1). Lint uses the
+# STANDARD rules; breaking checks compare only against an explicitly recorded
+# new-system baseline (tools/check.py --against <git-ref>).
+version: v2
+modules:
+  - path: proto
+deps:
+  - buf.build/bufbuild/protovalidate
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

@@ -1,0 +1,9 @@
+{
+  "name": "@anvilkit/contracts",
+  "private": true,
+  "description": "Workspace root of anvilkit-agent-contracts: the generated TypeScript consumer lives in ts/ (see README.md).",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,524 @@
+// MCP owns the reviewed catalog, grants and logical tool calls (DD-08). Control
+// owns final effect admission through anvilkit.control.v1.DispatchService and
+// the grant policy projection/revocation barrier. Catalog visibility is never
+// a grant; a grant is executable only after Control's registration receipt.
+syntax = "proto3";
+
+package anvilkit.mcp.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+// ---------------------------------------------------------------------------
+// Shared values (same textual rules as anvilkit.control.v1)
+// ---------------------------------------------------------------------------
+
+message CommandIdentity {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string command_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string actor_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string request_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message Scope {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string project_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  string actor_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message Money {
+  string currency = 1 [(buf.validate.field).string.pattern = "^[A-Z]{3}$"];
+  string amount = 2 [(buf.validate.field).string.pattern = "^-?(0|[1-9][0-9]{0,29})$"];
+}
+
+// ---------------------------------------------------------------------------
+// Catalog and review
+// ---------------------------------------------------------------------------
+
+enum CatalogState {
+  CATALOG_STATE_UNSPECIFIED = 0;
+  CATALOG_STATE_DISCOVERED = 1;
+  CATALOG_STATE_REVIEW_PENDING = 2;
+  CATALOG_STATE_APPROVED = 3;
+  CATALOG_STATE_REJECTED = 4;
+  CATALOG_STATE_DISABLED = 5;
+}
+
+enum ReviewDecision {
+  REVIEW_DECISION_UNSPECIFIED = 0;
+  REVIEW_DECISION_APPROVE = 1;
+  REVIEW_DECISION_REJECT = 2;
+}
+
+message ToolSchema {
+  string method = 1;
+  string input_schema_digest = 2;
+  string output_schema_digest = 3;
+  bool side_effecting = 4;
+  Money unit_price = 5;
+}
+
+// Descriptor is one reviewed revision of a server; a changed descriptor is a
+// new revision and existing grants do not migrate automatically.
+message Descriptor {
+  string server_id = 1;
+  string revision = 2;
+  string canonical_resource = 3;
+  string transport = 4;
+  string protocol_version = 5;
+  string provenance = 6;
+  string descriptor_digest = 7;
+  repeated ToolSchema tools = 8;
+  CatalogState state = 9;
+  optional string review_id = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+service CatalogService {
+  rpc ListCatalog(ListCatalogRequest) returns (ListCatalogResponse);
+  rpc GetDescriptor(GetDescriptorRequest) returns (GetDescriptorResponse);
+  // Records a discovered server descriptor; discovery never launches a package
+  // or grants execution.
+  rpc DiscoverServer(DiscoverServerRequest) returns (DiscoverServerResponse);
+  // Authorized reviewer decision bound to the exact descriptor digest.
+  rpc ReviewDescriptor(ReviewDescriptorRequest) returns (ReviewDescriptorResponse);
+  // Disables a revision for new grants and new calls; existing sent effects
+  // are unaffected.
+  rpc DisableDescriptor(DisableDescriptorRequest) returns (DisableDescriptorResponse);
+}
+
+message ListCatalogRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  CatalogState state = 2 [(buf.validate.field).enum.defined_only = true];
+  string cursor = 3 [(buf.validate.field).string = {max_len: 512}];
+  uint32 limit = 4 [(buf.validate.field).uint32.lte = 200];
+}
+
+message ListCatalogResponse {
+  repeated Descriptor descriptors = 1;
+  string next_cursor = 2;
+}
+
+message GetDescriptorRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string server_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string revision = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+}
+
+message GetDescriptorResponse {
+  Descriptor descriptor = 1;
+}
+
+message DiscoverServerRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string canonical_resource = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string transport = 4 [(buf.validate.field).string = {
+    in: [
+      "streamable-http",
+      "stdio"
+    ]
+  }];
+  string protocol_version = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 32
+  }];
+  string provenance = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  string descriptor_digest = 7 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  repeated ToolSchema tools = 8 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 512
+  }];
+}
+
+message DiscoverServerResponse {
+  Descriptor descriptor = 1;
+  bool existing = 2;
+}
+
+message ReviewDescriptorRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string server_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string descriptor_digest = 5 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  ReviewDecision decision = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional string reason_code = 7 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message ReviewDescriptorResponse {
+  Descriptor descriptor = 1;
+  bool existing = 2;
+}
+
+message DisableDescriptorRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string server_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  optional string reason_code = 5 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message DisableDescriptorResponse {
+  Descriptor descriptor = 1;
+  bool existing = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Grants and revocation
+// ---------------------------------------------------------------------------
+
+enum GrantState {
+  GRANT_STATE_UNSPECIFIED = 0;
+  GRANT_STATE_PENDING = 1;
+  GRANT_STATE_ACTIVE = 2;
+  GRANT_STATE_REVOKING = 3;
+  GRANT_STATE_REVOKED = 4;
+  GRANT_STATE_EXPIRED = 5;
+  GRANT_STATE_REGISTRATION_FAILED = 6;
+}
+
+message Grant {
+  string grant_id = 1;
+  string revision = 2;
+  string tenant_id = 3;
+  string subject_type = 4;
+  string subject_id = 5;
+  string server_id = 6;
+  string descriptor_revision = 7;
+  string descriptor_digest = 8;
+  repeated string methods = 9;
+  string purpose = 10;
+  Money cost_cap = 11;
+  GrantState state = 12;
+  optional string control_receipt_id = 13;
+  optional google.protobuf.Timestamp expires_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+}
+
+service GrantService {
+  // Persists PENDING, registers the policy with Control and marks ACTIVE only
+  // after the receipt; intermediate failure stays non-executable.
+  rpc CreateGrant(CreateGrantRequest) returns (CreateGrantResponse);
+  rpc GetGrant(GetGrantRequest) returns (GetGrantResponse);
+  rpc ListGrants(ListGrantsRequest) returns (ListGrantsResponse);
+  // Commits REVOKING and denies new admission immediately, then installs the
+  // Control barrier; REVOKED is final only after in-flight calls converge.
+  rpc RevokeGrant(RevokeGrantRequest) returns (RevokeGrantResponse);
+  rpc GetRevocationProgress(GetRevocationProgressRequest) returns (GetRevocationProgressResponse);
+}
+
+message CreateGrantRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string subject_type = 3 [(buf.validate.field).string = {
+    in: [
+      "tenant",
+      "project",
+      "actor",
+      "role"
+    ]
+  }];
+  string subject_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string server_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string descriptor_revision = 6 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string descriptor_digest = 7 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  repeated string methods = 8 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+  }];
+  string purpose = 9 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  Money cost_cap = 10 [(buf.validate.field).required = true];
+  optional google.protobuf.Timestamp expires_at = 11;
+}
+
+message CreateGrantResponse {
+  Grant grant = 1;
+  bool existing = 2;
+}
+
+message GetGrantRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string grant_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetGrantResponse {
+  Grant grant = 1;
+}
+
+message ListGrantsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  GrantState state = 2 [(buf.validate.field).enum.defined_only = true];
+  string cursor = 3 [(buf.validate.field).string = {max_len: 512}];
+  uint32 limit = 4 [(buf.validate.field).uint32.lte = 200];
+}
+
+message ListGrantsResponse {
+  repeated Grant grants = 1;
+  string next_cursor = 2;
+}
+
+message RevokeGrantRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string grant_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  optional string reason_code = 5 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message RevokeGrantResponse {
+  Grant grant = 1;
+  bool existing = 2;
+}
+
+message GetRevocationProgressRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string grant_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetRevocationProgressResponse {
+  Grant grant = 1;
+  // Blocked new admission is distinct from all previous senders converged.
+  bool new_admission_blocked = 2;
+  bool senders_converged = 3;
+  string in_flight_calls = 4;
+  string unknown_calls = 5;
+}
+
+// ---------------------------------------------------------------------------
+// Tool calls
+// ---------------------------------------------------------------------------
+
+enum CallState {
+  CALL_STATE_UNSPECIFIED = 0;
+  CALL_STATE_ACCEPTED = 1;
+  CALL_STATE_ADMITTED = 2;
+  CALL_STATE_SENT = 3;
+  CALL_STATE_SUCCEEDED = 4;
+  CALL_STATE_FAILED = 5;
+  CALL_STATE_DENIED = 6;
+  CALL_STATE_UNKNOWN = 7;
+  CALL_STATE_CANCELED = 8;
+}
+
+message ToolCall {
+  string call_id = 1;
+  string tenant_id = 2;
+  string grant_id = 3;
+  string grant_revision = 4;
+  string server_id = 5;
+  string method = 6;
+  string argument_digest = 7;
+  CallState state = 8;
+  optional string control_dispatch_id = 9;
+  optional string result_ref = 10;
+  optional string result_digest = 11;
+  optional string failure_code = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+service CallService {
+  // Persists a tracked ToolRequest; the trusted adapter then requests a
+  // single-use AdmitTool from Control. Same command/digest returns the original.
+  rpc CreateCall(CreateCallRequest) returns (CreateCallResponse);
+  // Querying a call never sends again.
+  rpc GetCall(GetCallRequest) returns (GetCallResponse);
+}
+
+message CreateCallRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string grant_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string grant_revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string method = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string argument_ref = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  string argument_digest = 7 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string operation_id = 8 [(buf.validate.field).string = {max_len: 128}];
+  string attempt_id = 9 [(buf.validate.field).string = {max_len: 128}];
+  google.protobuf.Timestamp deadline = 10 [(buf.validate.field).required = true];
+}
+
+message CreateCallResponse {
+  ToolCall call = 1;
+  bool existing = 2;
+}
+
+message GetCallRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string call_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetCallResponse {
+  ToolCall call = 1;
+}
+
+// ---------------------------------------------------------------------------
+// BackgroundTaskService: identical owner contract to anvilkit.knowledge.v1.
+// ---------------------------------------------------------------------------
+
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_STATE_PENDING = 1;
+  TASK_STATE_LEASED = 2;
+  TASK_STATE_RESULT_SUBMITTED = 3;
+  TASK_STATE_ACCEPTED = 4;
+  TASK_STATE_RETRY_SCHEDULED = 5;
+  TASK_STATE_DEAD = 6;
+  TASK_STATE_STALE = 7;
+  TASK_STATE_CANCELED = 8;
+}
+
+message BackgroundTask {
+  string task_id = 1;
+  string generation = 2;
+  string task_kind = 3;
+  string input_digest = 4;
+  TaskState state = 5;
+  optional string worker_id = 6;
+  optional google.protobuf.Timestamp lease_until = 7;
+  string attempt_count = 8;
+}
+
+service BackgroundTaskService {
+  rpc ClaimTask(ClaimTaskRequest) returns (ClaimTaskResponse);
+  rpc HeartbeatTask(HeartbeatTaskRequest) returns (HeartbeatTaskResponse);
+  rpc SubmitTaskResult(SubmitTaskResultRequest) returns (SubmitTaskResultResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+}
+
+message ClaimTaskRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  uint32 lease_seconds = 4 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 3600
+  }];
+}
+
+message ClaimTaskResponse {
+  BackgroundTask task = 1;
+  bytes input = 2 [(buf.validate.field).bytes.max_len = 65536];
+}
+
+message HeartbeatTaskRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message HeartbeatTaskResponse {
+  BackgroundTask task = 1;
+}
+
+message SubmitTaskResultRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string input_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  bool succeeded = 5;
+  string result_ref = 6 [(buf.validate.field).string = {max_len: 512}];
+  string result_digest = 7 [(buf.validate.field).string.pattern = "^(sha256:[0-9a-f]{64})?$"];
+  optional string failure_code = 8 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message SubmitTaskResultResponse {
+  BackgroundTask task = 1;
+  bool accepted = 2;
+  bool existing = 3;
+}
+
+message GetTaskRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetTaskResponse {
+  BackgroundTask task = 1;
+}

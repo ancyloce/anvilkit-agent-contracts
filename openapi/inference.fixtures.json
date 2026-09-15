@@ -1,0 +1,144 @@
+{
+  "$comment": "Cross-runtime vectors for contracts/openapi/inference.yaml, the compute HTTP contract between Knowledge (caller, P15) and the Python Inference service (provider). `instance` cases are validated against the named component schema by tools/check-contracts.py (Python) and tests/contracts (Go, kin-openapi over the source document); `raw` cases must be rejected by the strict parser before schema validation.",
+  "cases": [
+    {
+      "name": "embedding request bound to a compute identity",
+      "schema": "EmbeddingRequest",
+      "valid": true,
+      "instance": {
+        "compute": { "taskId": "task_01J9ABCDEF", "generation": "3", "profileId": "embed-bge-m3-v1" },
+        "inputKind": "passage",
+        "inputs": [ "AnvilKit turns requirements into component source.", "Pi is the only source writer." ],
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"
+      }
+    },
+    {
+      "name": "embedding request with a model path is rejected (fixed weights only)",
+      "schema": "EmbeddingRequest",
+      "valid": false,
+      "instance": {
+        "compute": { "taskId": "task_01J9ABCDEF", "generation": "3", "profileId": "embed-bge-m3-v1" },
+        "inputKind": "passage",
+        "inputs": [ "x" ],
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "modelPath": "/weights/other"
+      }
+    },
+    {
+      "name": "embedding request with an empty input list is rejected",
+      "schema": "EmbeddingRequest",
+      "valid": false,
+      "instance": {
+        "compute": { "taskId": "task_01J9ABCDEF", "generation": "3", "profileId": "embed-bge-m3-v1" },
+        "inputKind": "query",
+        "inputs": [],
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"
+      }
+    },
+    {
+      "name": "embedding request with a numeric generation is rejected (counters are decimal strings)",
+      "schema": "EmbeddingRequest",
+      "valid": false,
+      "instance": {
+        "compute": { "taskId": "task_01J9ABCDEF", "generation": 3, "profileId": "embed-bge-m3-v1" },
+        "inputKind": "query",
+        "inputs": [ "x" ],
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"
+      }
+    },
+    {
+      "name": "embedding response binds model revision and input digest",
+      "schema": "EmbeddingResponse",
+      "valid": true,
+      "instance": {
+        "modelId": "bge-m3",
+        "modelRevision": "5617a9f61b028005a4858fdac845db406aefb181",
+        "dimensions": 1024,
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "dense": [ [ 0.0123, -0.5 ], [ 0.25, 0.75 ] ],
+        "sparse": [ { "indices": [ 12, 907 ], "values": [ 0.31, 0.02 ] }, { "indices": [], "values": [] } ]
+      }
+    },
+    {
+      "name": "embedding response from an unlisted model is rejected",
+      "schema": "EmbeddingResponse",
+      "valid": false,
+      "instance": {
+        "modelId": "text-embedding-3-large",
+        "modelRevision": "1",
+        "dimensions": 3072,
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "dense": [ [ 0.1 ] ],
+        "sparse": [ { "indices": [], "values": [] } ]
+      }
+    },
+    {
+      "name": "sparse vector with a negative index is rejected",
+      "schema": "SparseVector",
+      "valid": false,
+      "instance": { "indices": [ -1 ], "values": [ 0.5 ] }
+    },
+    {
+      "name": "rerank request with bounded candidates",
+      "schema": "RerankRequest",
+      "valid": true,
+      "instance": {
+        "compute": { "taskId": "task_01J9ABCDEF", "generation": "3", "profileId": "rerank-bge-v2-m3-v1" },
+        "query": "hero component brief",
+        "candidates": [ { "candidateId": "chunk_1", "text": "Hero section with headline and CTA." }, { "candidateId": "chunk_2", "text": "Footer links." } ],
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"
+      }
+    },
+    {
+      "name": "rerank request with an empty query is rejected",
+      "schema": "RerankRequest",
+      "valid": false,
+      "instance": {
+        "compute": { "taskId": "task_01J9ABCDEF", "generation": "3", "profileId": "rerank-bge-v2-m3-v1" },
+        "query": "",
+        "candidates": [ { "candidateId": "chunk_1", "text": "x" } ],
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"
+      }
+    },
+    {
+      "name": "rerank response scores in input order",
+      "schema": "RerankResponse",
+      "valid": true,
+      "instance": {
+        "modelId": "bge-reranker-v2-m3",
+        "modelRevision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "scores": [ { "candidateId": "chunk_1", "score": 0.91 }, { "candidateId": "chunk_2", "score": -3.2 } ]
+      }
+    },
+    {
+      "name": "rerank response score without a candidate identity is rejected",
+      "schema": "RerankResponse",
+      "valid": false,
+      "instance": {
+        "modelId": "bge-reranker-v2-m3",
+        "modelRevision": "1",
+        "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "scores": [ { "score": 0.91 } ]
+      }
+    },
+    {
+      "name": "error envelope with a business code is rejected (compute has no business errors)",
+      "schema": "ErrorEnvelope",
+      "valid": false,
+      "instance": { "error": { "code": "STALE_EXECUTION", "message": "x", "requestId": "req_1", "retryable": false } }
+    },
+    {
+      "name": "trailing document is rejected by the strict parser",
+      "schema": "EmbeddingRequest",
+      "valid": false,
+      "raw": "{\"inputKind\":\"query\"} {}"
+    },
+    {
+      "name": "NaN score is rejected by the strict parser",
+      "schema": "RerankResponse",
+      "valid": false,
+      "raw": "{\"scores\":[{\"candidateId\":\"c\",\"score\":NaN}]}"
+    }
+  ]
+}

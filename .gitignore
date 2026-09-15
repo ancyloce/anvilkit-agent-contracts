@@ -30,3 +30,12 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Node, Python and tool caches of the generated consumers and the verification tools
+node_modules/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Pinned Python verification environment created by tools/verification-env.sh
+/.local/

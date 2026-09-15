@@ -1,0 +1,348 @@
+// Single-use physical-send admission (DD-02 §4), commercial authorization
+// evidence (DD-02 §3) and the MCP grant policy projection (DD-08 §2).
+//
+// Only the first request that completes the permission transition receives
+// dispatch_allowed=true. Querying a dispatch, lost responses, TTLs, retries
+// and restarts never return a second permission.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum DispatchState {
+  DISPATCH_STATE_UNSPECIFIED = 0;
+  DISPATCH_STATE_PREPARED = 1;
+  DISPATCH_STATE_AUTHORIZED = 2;
+  DISPATCH_STATE_OBSERVED = 3;
+  DISPATCH_STATE_UNKNOWN = 4;
+  DISPATCH_STATE_CONFIRMED_NOT_SENT = 5;
+  DISPATCH_STATE_DENIED = 6;
+}
+
+enum DispatchOutcome {
+  DISPATCH_OUTCOME_UNSPECIFIED = 0;
+  DISPATCH_OUTCOME_SUCCEEDED = 1;
+  DISPATCH_OUTCOME_FAILED = 2;
+  DISPATCH_OUTCOME_CANCELED = 3;
+  DISPATCH_OUTCOME_UNKNOWN = 4;
+}
+
+// ExecutionBinding identifies the sender's current operation/attempt/instance
+// and epochs; Control verifies each against its registries.
+message ExecutionBinding {
+  string operation_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string attempt_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string instance_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  string execution_epoch = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+// Usage categories are cumulative counters reported by the sender; Control
+// applies deltas and never increments twice for the same sequence.
+message Usage {
+  string input_units = 1 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string output_units = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string reasoning_units = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string cached_input_units = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+message Dispatch {
+  string dispatch_id = 1;
+  string call_id = 2;
+  string owner = 3;
+  DispatchState state = 4;
+  DispatchOutcome outcome = 5;
+  Money reserved_exposure = 6;
+  string meter_revision = 7;
+  google.protobuf.Timestamp deadline = 8;
+  google.protobuf.Timestamp admitted_at = 9;
+  optional google.protobuf.Timestamp observed_at = 10;
+}
+
+service DispatchService {
+  // Model-dispatch obligation: inventory before permission. Same call/digest
+  // returns the existing dispatch with dispatch_allowed=false.
+  rpc AdmitModel(AdmitModelRequest) returns (AdmitModelResponse);
+  // Tool-dispatch obligation for paid reads and every side effect.
+  rpc AdmitTool(AdmitToolRequest) returns (AdmitToolResponse);
+  // Idempotent outcome/usage observation; a lost observation is resubmitted
+  // with the same source sequence.
+  rpc ObserveDispatch(ObserveDispatchRequest) returns (ObserveDispatchResponse);
+  rpc GetDispatch(GetDispatchRequest) returns (GetDispatchResponse);
+  // Closes an original call as confirmed_not_sent only with independently
+  // checkable evidence; a replacement then needs fresh admission.
+  rpc ConfirmNotSent(ConfirmNotSentRequest) returns (ConfirmNotSentResponse);
+}
+
+message AdmitModelRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  ExecutionBinding binding = 2 [(buf.validate.field).required = true];
+  string call_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string owner = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string route_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string provider = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string model = 7 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  Money max_exposure = 8 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp deadline = 9 [(buf.validate.field).required = true];
+  // supersedes references a confirmed_not_sent original when replacing it.
+  optional string supersedes_call_id = 10 [(buf.validate.field).string = {max_len: 128}];
+  optional string evidence_ref = 11 [(buf.validate.field).string = {max_len: 256}];
+}
+
+message AdmitToolRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  ExecutionBinding binding = 2 [(buf.validate.field).required = true];
+  string call_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string owner = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string grant_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string grant_revision = 6 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string server_id = 7 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string method = 8 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string argument_digest = 9 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  bool side_effecting = 10;
+  Money max_exposure = 11 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp deadline = 12 [(buf.validate.field).required = true];
+  optional string supersedes_call_id = 13 [(buf.validate.field).string = {max_len: 128}];
+  optional string evidence_ref = 14 [(buf.validate.field).string = {max_len: 256}];
+}
+
+// Admission is the shared shape of both admission responses. dispatch_allowed
+// is true only for the request that consumed the single first-use permission.
+message Admission {
+  Dispatch dispatch = 1;
+  bool dispatch_allowed = 2;
+  optional string denial_code = 3;
+}
+
+message AdmitModelResponse {
+  Admission admission = 1;
+}
+
+message AdmitToolResponse {
+  Admission admission = 1;
+}
+
+message ObserveDispatchRequest {
+  string dispatch_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string source = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string sequence = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  DispatchOutcome outcome = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  Usage cumulative_usage = 5;
+  string native_reference = 6 [(buf.validate.field).string = {max_len: 256}];
+  google.protobuf.Timestamp observed_at = 7 [(buf.validate.field).required = true];
+}
+
+message ObserveDispatchResponse {
+  Dispatch dispatch = 1;
+  bool existing = 2;
+}
+
+message GetDispatchRequest {
+  string dispatch_id = 1 [(buf.validate.field).string = {max_len: 128}];
+  string call_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  string owner = 3 [(buf.validate.field).string = {max_len: 128}];
+}
+
+message GetDispatchResponse {
+  Dispatch dispatch = 1;
+}
+
+message ConfirmNotSentRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string dispatch_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string evidence_ref = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string evidence_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message ConfirmNotSentResponse {
+  Dispatch dispatch = 1;
+}
+
+// ---------------------------------------------------------------------------
+// AuthorizationService: Control is the sole reader of external commercial
+// evidence; decisions carry a revision and an absolute fresh_until.
+// ---------------------------------------------------------------------------
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_ALLOW = 1;
+  DECISION_DENY = 2;
+}
+
+message AuthorizationDecision {
+  Decision decision = 1;
+  string revision = 2;
+  google.protobuf.Timestamp fresh_until = 3;
+  optional string reason_code = 4;
+}
+
+service AuthorizationService {
+  rpc CheckDisclosure(CheckDisclosureRequest) returns (CheckDisclosureResponse);
+  rpc CheckExecution(CheckExecutionRequest) returns (CheckExecutionResponse);
+}
+
+// AuthorizationQuery is the shared principal/resource/action shape.
+message AuthorizationQuery {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string resource_type = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string resource_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string action = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+}
+
+message CheckDisclosureRequest {
+  AuthorizationQuery query = 1 [(buf.validate.field).required = true];
+}
+
+message CheckDisclosureResponse {
+  AuthorizationDecision decision = 1;
+}
+
+message CheckExecutionRequest {
+  AuthorizationQuery query = 1 [(buf.validate.field).required = true];
+}
+
+message CheckExecutionResponse {
+  AuthorizationDecision decision = 1;
+}
+
+// ---------------------------------------------------------------------------
+// GrantPolicyService: MCP owns grants; Control owns the policy projection,
+// registration receipt and the revocation barrier.
+// ---------------------------------------------------------------------------
+
+enum RevocationState {
+  REVOCATION_STATE_UNSPECIFIED = 0;
+  REVOCATION_STATE_FENCED = 1;
+  REVOCATION_STATE_CONVERGING = 2;
+  REVOCATION_STATE_CONVERGED = 3;
+}
+
+service GrantPolicyService {
+  rpc RegisterPolicy(RegisterPolicyRequest) returns (RegisterPolicyResponse);
+  rpc BeginRevocation(BeginRevocationRequest) returns (BeginRevocationResponse);
+  rpc GetRevocation(GetRevocationRequest) returns (GetRevocationResponse);
+}
+
+message RegisterPolicyRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string grant_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string grant_revision = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string policy_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string server_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  repeated string methods = 6 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+  }];
+  Money cost_cap = 7;
+  google.protobuf.Timestamp expires_at = 8;
+}
+
+message RegisterPolicyResponse {
+  string receipt_id = 1;
+  string policy_epoch = 2;
+  bool existing = 3;
+}
+
+message BeginRevocationRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string grant_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string grant_revision = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+message GetRevocationRequest {
+  string grant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string grant_revision = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+message BeginRevocationResponse {
+  RevocationStatus status = 1;
+  bool existing = 2;
+}
+
+message GetRevocationResponse {
+  RevocationStatus status = 1;
+}
+
+message RevocationStatus {
+  string grant_id = 1;
+  string grant_revision = 2;
+  RevocationState state = 3;
+  string in_flight_calls = 4;
+  string unknown_calls = 5;
+  google.protobuf.Timestamp fenced_at = 6;
+  optional google.protobuf.Timestamp converged_at = 7;
+}

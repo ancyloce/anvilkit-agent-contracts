@@ -1,0 +1,511 @@
+// Knowledge owns sources, trusted ACL, ingestion, snapshots, retrieval and
+// MemoryFact (DD-07). Vectors and the Store are rebuildable projections; the
+// decisions here are the authority. Control supplies commercial authorization;
+// Knowledge applies its own domain authorization on every read and send.
+syntax = "proto3";
+
+package anvilkit.knowledge.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+// ---------------------------------------------------------------------------
+// Shared values (same textual rules as anvilkit.control.v1)
+// ---------------------------------------------------------------------------
+
+message CommandIdentity {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string command_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string actor_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string request_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message Scope {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string project_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  string actor_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+// ---------------------------------------------------------------------------
+// Sources, ACL and ingestion
+// ---------------------------------------------------------------------------
+
+enum SourceKind {
+  SOURCE_KIND_UNSPECIFIED = 0;
+  SOURCE_KIND_DOCUMENT = 1;
+  SOURCE_KIND_URL = 2;
+  SOURCE_KIND_REPOSITORY = 3;
+  SOURCE_KIND_BRAND = 4;
+}
+
+enum IngestState {
+  INGEST_STATE_UNSPECIFIED = 0;
+  INGEST_STATE_PENDING = 1;
+  INGEST_STATE_PARSING = 2;
+  INGEST_STATE_INDEXING = 3;
+  INGEST_STATE_INDEXED = 4;
+  INGEST_STATE_FAILED = 5;
+  INGEST_STATE_STALE = 6;
+}
+
+// AccessEntry is a trusted ACL row: principals are verified identities,
+// never content-derived strings.
+message AccessEntry {
+  string principal_type = 1 [(buf.validate.field).string = {
+    in: [
+      "tenant",
+      "project",
+      "actor",
+      "role"
+    ]
+  }];
+  string principal_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message Source {
+  string source_id = 1;
+  string tenant_id = 2;
+  string project_id = 3;
+  SourceKind kind = 4;
+  string locator = 5;
+  string current_revision = 6;
+  string content_digest = 7;
+  string acl_revision = 8;
+  repeated AccessEntry access = 9;
+  IngestState ingest = 10;
+  bool deleted = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+service SourceService {
+  // Registers an approved source reference and commits the ingest request and
+  // trusted ACL snapshot in one transaction. Same command/digest is idempotent.
+  rpc RegisterSource(RegisterSourceRequest) returns (RegisterSourceResponse);
+  rpc GetSource(GetSourceRequest) returns (GetSourceResponse);
+  rpc ListSources(ListSourcesRequest) returns (ListSourcesResponse);
+  // Replaces the trusted ACL under expected_acl_revision. Removal takes
+  // effect on the next read; a committed revocation overrides frozen snapshots.
+  rpc UpdateSourceAccess(UpdateSourceAccessRequest) returns (UpdateSourceAccessResponse);
+  // Blocks readability synchronously; projections are cleared asynchronously.
+  rpc DeleteSource(DeleteSourceRequest) returns (DeleteSourceResponse);
+}
+
+message RegisterSourceRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  SourceKind kind = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string locator = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string content_digest = 5 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string media_type = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string size_bytes = 7 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  repeated AccessEntry access = 8 [(buf.validate.field).repeated.max_items = 256];
+}
+
+message RegisterSourceResponse {
+  Source source = 1;
+  string ingest_request_id = 2;
+  bool existing = 3;
+}
+
+message GetSourceRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string source_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetSourceResponse {
+  Source source = 1;
+}
+
+message ListSourcesRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string cursor = 2 [(buf.validate.field).string = {max_len: 512}];
+  uint32 limit = 3 [(buf.validate.field).uint32.lte = 200];
+}
+
+message ListSourcesResponse {
+  repeated Source sources = 1;
+  string next_cursor = 2;
+}
+
+message UpdateSourceAccessRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string source_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_acl_revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  repeated AccessEntry access = 5 [(buf.validate.field).repeated.max_items = 256];
+}
+
+message UpdateSourceAccessResponse {
+  Source source = 1;
+  bool existing = 2;
+}
+
+message DeleteSourceRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string source_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+message DeleteSourceResponse {
+  Source source = 1;
+  bool existing = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Snapshots and retrieval
+// ---------------------------------------------------------------------------
+
+message Snapshot {
+  string snapshot_id = 1;
+  string tenant_id = 2;
+  string project_id = 3;
+  string index_generation = 4;
+  repeated string source_revisions = 5;
+  string content_digest = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+service SnapshotService {
+  // Freezes exact source revisions for a brief; authorization is rechecked on
+  // every later read, a snapshot never freezes permission.
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+  rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
+}
+
+message CreateSnapshotRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  repeated string source_ids = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+  }];
+}
+
+message CreateSnapshotResponse {
+  Snapshot snapshot = 1;
+  bool existing = 2;
+}
+
+message GetSnapshotRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string snapshot_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetSnapshotResponse {
+  Snapshot snapshot = 1;
+}
+
+message Citation {
+  string ordinal = 1;
+  string source_id = 2;
+  string source_revision = 3;
+  string chunk_id = 4;
+  string locator = 5;
+  string content_digest = 6;
+  string score = 7;
+}
+
+message ContextItem {
+  Citation citation = 1;
+  string text = 2;
+}
+
+service RetrievalService {
+  // Hybrid dense/sparse retrieval with both prefetch branches filtered by the
+  // current allowed-source set; insufficient evidence returns no_answer=true.
+  rpc Search(SearchRequest) returns (SearchResponse);
+}
+
+message SearchRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string snapshot_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string query = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+  uint32 max_context_items = 4 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 64
+  }];
+  string retrieval_profile_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  google.protobuf.Timestamp deadline = 6 [(buf.validate.field).required = true];
+}
+
+message SearchResponse {
+  repeated ContextItem items = 1;
+  bool no_answer = 2;
+  string index_generation = 3;
+  string authorization_revision = 4;
+}
+
+// ---------------------------------------------------------------------------
+// MemoryFact
+// ---------------------------------------------------------------------------
+
+enum FactState {
+  FACT_STATE_UNSPECIFIED = 0;
+  FACT_STATE_PROPOSED = 1;
+  FACT_STATE_CONFIRMED = 2;
+  FACT_STATE_REJECTED = 3;
+  FACT_STATE_REVOKED = 4;
+  FACT_STATE_EXPIRED = 5;
+}
+
+enum FactDecision {
+  FACT_DECISION_UNSPECIFIED = 0;
+  FACT_DECISION_CONFIRM = 1;
+  FACT_DECISION_REJECT = 2;
+  FACT_DECISION_REVOKE = 3;
+}
+
+message MemoryFact {
+  string fact_id = 1;
+  string tenant_id = 2;
+  string subject_type = 3;
+  string subject_id = 4;
+  string scope_id = 5;
+  string content = 6;
+  string content_digest = 7;
+  FactState state = 8;
+  string revision = 9;
+  string proposer = 10;
+  optional string confirmer = 11;
+  repeated string source_refs = 12;
+  optional google.protobuf.Timestamp expires_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+service MemoryService {
+  // Models and workers may only propose.
+  rpc ProposeFact(ProposeFactRequest) returns (ProposeFactResponse);
+  // Authorized users or reviewed rules confirm/reject/revoke under expected
+  // revision; the decision and outbox commit together.
+  rpc DecideFact(DecideFactRequest) returns (DecideFactResponse);
+  rpc GetFact(GetFactRequest) returns (GetFactResponse);
+  rpc ListFacts(ListFactsRequest) returns (ListFactsResponse);
+}
+
+message ProposeFactRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string subject_type = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string subject_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string content = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 4096
+  }];
+  repeated string source_refs = 6 [(buf.validate.field).repeated.max_items = 32];
+  optional google.protobuf.Timestamp expires_at = 7;
+}
+
+message ProposeFactResponse {
+  MemoryFact fact = 1;
+  bool existing = 2;
+}
+
+message DecideFactRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string fact_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  FactDecision decision = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional string reason_code = 6 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message DecideFactResponse {
+  MemoryFact fact = 1;
+  bool existing = 2;
+}
+
+message GetFactRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string fact_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetFactResponse {
+  MemoryFact fact = 1;
+}
+
+message ListFactsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string subject_type = 2 [(buf.validate.field).string = {max_len: 64}];
+  string subject_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  FactState state = 4 [(buf.validate.field).enum.defined_only = true];
+  string cursor = 5 [(buf.validate.field).string = {max_len: 512}];
+  uint32 limit = 6 [(buf.validate.field).uint32.lte = 200];
+}
+
+message ListFactsResponse {
+  repeated MemoryFact facts = 1;
+  string next_cursor = 2;
+}
+
+// ---------------------------------------------------------------------------
+// BackgroundTaskService: owner Claim/Heartbeat/Submit/Get (DD-09 §1). The
+// Background Worker never writes domain tables.
+// ---------------------------------------------------------------------------
+
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_STATE_PENDING = 1;
+  TASK_STATE_LEASED = 2;
+  TASK_STATE_RESULT_SUBMITTED = 3;
+  TASK_STATE_ACCEPTED = 4;
+  TASK_STATE_RETRY_SCHEDULED = 5;
+  TASK_STATE_DEAD = 6;
+  TASK_STATE_STALE = 7;
+  TASK_STATE_CANCELED = 8;
+}
+
+message BackgroundTask {
+  string task_id = 1;
+  string generation = 2;
+  string task_kind = 3;
+  string input_digest = 4;
+  TaskState state = 5;
+  optional string worker_id = 6;
+  optional google.protobuf.Timestamp lease_until = 7;
+  string attempt_count = 8;
+}
+
+service BackgroundTaskService {
+  rpc ClaimTask(ClaimTaskRequest) returns (ClaimTaskResponse);
+  rpc HeartbeatTask(HeartbeatTaskRequest) returns (HeartbeatTaskResponse);
+  rpc SubmitTaskResult(SubmitTaskResultRequest) returns (SubmitTaskResultResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+}
+
+message ClaimTaskRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  uint32 lease_seconds = 4 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 3600
+  }];
+}
+
+message ClaimTaskResponse {
+  BackgroundTask task = 1;
+  // Bounded typed input for the handler; never a credential or a body.
+  bytes input = 2 [(buf.validate.field).bytes.max_len = 65536];
+}
+
+message HeartbeatTaskRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message HeartbeatTaskResponse {
+  BackgroundTask task = 1;
+}
+
+message SubmitTaskResultRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string input_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  bool succeeded = 5;
+  string result_ref = 6 [(buf.validate.field).string = {max_len: 512}];
+  string result_digest = 7 [(buf.validate.field).string.pattern = "^(sha256:[0-9a-f]{64})?$"];
+  optional string failure_code = 8 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message SubmitTaskResultResponse {
+  BackgroundTask task = 1;
+  bool accepted = 2;
+  bool existing = 3;
+}
+
+message GetTaskRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetTaskResponse {
+  BackgroundTask task = 1;
+}

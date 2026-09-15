@@ -1,0 +1,13 @@
+# oapi-codegen v2 configuration for the Model Proxy transport consumer
+# (contracts.md §1): the Go client used by the Workflow's fixed Activities and
+# the trusted sidecar (P11/P13). Models, the typed client and the embedded spec
+# are generated; the provider is the TypeScript Model Proxy (P11), which
+# consumes the same source document. The SSE response of createModelCall is
+# read as a raw body by the client; frames are StreamFrame documents.
+package: modelproxyapi
+generate:
+  models: true
+  client: true
+  embedded-spec: true
+output-options:
+  skip-prune: true

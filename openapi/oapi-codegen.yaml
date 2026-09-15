@@ -1,0 +1,14 @@
+# oapi-codegen v2 configuration for the public API bindings consumed by
+# anvilkit-agent-api. The SSE operation is excluded from the strict
+# server because it streams; the API registers that route by hand and the
+# kin-openapi middleware still validates it against the embedded spec.
+package: agentapi
+generate:
+  models: true
+  gin-server: true
+  strict-server: true
+  embedded-spec: true
+output-options:
+  skip-prune: true
+  exclude-operation-ids:
+    - streamOperationEvents

@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: AnvilKit Model Proxy transport
+  version: "1"
+  description: |
+    Controlled model transport of anvilkit-agent-model-proxy (DD-03 §2/§6, B05). Callers are the
+    Workflow's fixed Go Activities and the trusted access-sidecar of a Job. Every call carries the
+    caller's execution binding; the Proxy requests a single-use AdmitModel from Control before one
+    physical provider send with transparent retries and fallback disabled. Provider keys exist only
+    in the Proxy. The stream is a bounded sequence of typed frames; native provider bodies are
+    private evidence, never returned to candidates. This surface is frozen for P11; it is a contract
+    source, not an implemented endpoint.
+servers:
+  - url: /api/v1
+security:
+  - mtls: []
+paths:
+  /model-calls:
+    post:
+      operationId: createModelCall
+      description: Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ModelCallRequest" }
+      responses:
+        "200":
+          description: SSE frames (StreamFrame per event, `id` is the frame sequence).
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /model-calls/{callId}:
+    get:
+      operationId: getModelCall
+      description: Queries the original call outcome and usage; querying never sends again.
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "200":
+          description: Call record.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelCall" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /model-calls/{callId}/cancellations:
+    post:
+      operationId: cancelModelCall
+      description: Expresses cancel intent; already incurred usage stays in the ledger.
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "202":
+          description: Cancellation recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelCall" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    mtls:
+      type: http
+      scheme: bearer
+      description: Workload mTLS (Workflow) or sidecar-scoped credential; never a user token and never forwarded upstream.
+  responses:
+    Error:
+      description: Error envelope.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  schemas:
+    Id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+    Digest: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
+    Sequence: { type: string, pattern: "^(0|[1-9][0-9]{0,19})$" }
+    Timestamp: { type: string, pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$" }
+    Money:
+      type: object
+      additionalProperties: false
+      required: [currency, amount]
+      properties:
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        amount: { type: string, pattern: "^-?(0|[1-9][0-9]{0,29})$" }
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId, retryable]
+          properties:
+            code: { type: string, enum: [INVALID_ARGUMENT, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, IDEMPOTENCY_CONFLICT, BUDGET_EXHAUSTED, STALE_EXECUTION, PROFILE_UNQUALIFIED, EFFECT_UNCERTAIN, DEPENDENCY_UNAVAILABLE] }
+            message: { type: string, maxLength: 512 }
+            requestId: { $ref: "#/components/schemas/Id" }
+            retryable: { type: boolean }
+    ExecutionBinding:
+      type: object
+      additionalProperties: false
+      required: [tenantId, operationId, attemptId, executionEpoch]
+      properties:
+        tenantId: { $ref: "#/components/schemas/Id" }
+        operationId: { $ref: "#/components/schemas/Id" }
+        attemptId: { $ref: "#/components/schemas/Id" }
+        instanceId: { $ref: "#/components/schemas/Id" }
+        executionEpoch: { $ref: "#/components/schemas/Sequence" }
+    Message:
+      type: object
+      additionalProperties: false
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [system, user, assistant, tool] }
+        content: { type: string, maxLength: 1048576 }
+        toolCallId: { $ref: "#/components/schemas/Id" }
+    ToolDefinition:
+      type: object
+      additionalProperties: false
+      required: [name, inputSchemaDigest]
+      properties:
+        name: { type: string, pattern: "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$" }
+        description: { type: string, maxLength: 4096 }
+        inputSchemaDigest: { $ref: "#/components/schemas/Digest" }
+    ModelCallRequest:
+      type: object
+      additionalProperties: false
+      required: [callId, binding, routeId, requestDigest, messages, maxOutputTokens, maxExposure, deadline]
+      properties:
+        callId: { $ref: "#/components/schemas/Id" }
+        binding: { $ref: "#/components/schemas/ExecutionBinding" }
+        routeId: { $ref: "#/components/schemas/Id" }
+        requestDigest: { $ref: "#/components/schemas/Digest" }
+        messages: { type: array, minItems: 1, maxItems: 512, items: { $ref: "#/components/schemas/Message" } }
+        tools: { type: array, maxItems: 64, items: { $ref: "#/components/schemas/ToolDefinition" } }
+        maxOutputTokens: { type: integer, minimum: 1, maximum: 262144 }
+        maxExposure: { $ref: "#/components/schemas/Money" }
+        deadline: { $ref: "#/components/schemas/Timestamp" }
+        supersedesCallId: { $ref: "#/components/schemas/Id" }
+        evidenceRef: { type: string, maxLength: 256 }
+    Usage:
+      type: object
+      additionalProperties: false
+      required: [inputUnits, outputUnits, reasoningUnits, cachedInputUnits]
+      properties:
+        inputUnits: { $ref: "#/components/schemas/Sequence" }
+        outputUnits: { $ref: "#/components/schemas/Sequence" }
+        reasoningUnits: { $ref: "#/components/schemas/Sequence" }
+        cachedInputUnits: { $ref: "#/components/schemas/Sequence" }
+    StreamFrame:
+      description: One SSE `data` payload; `sequence` is monotonic per call and bounded by the route profile.
+      type: object
+      additionalProperties: false
+      required: [callId, sequence, type]
+      properties:
+        callId: { $ref: "#/components/schemas/Id" }
+        sequence: { $ref: "#/components/schemas/Sequence" }
+        type: { type: string, enum: [admitted, text, tool_call, usage, done, error] }
+        text: { type: string, maxLength: 65536 }
+        toolCall:
+          type: object
+          additionalProperties: false
+          required: [toolCallId, name, argumentsDigest]
+          properties:
+            toolCallId: { $ref: "#/components/schemas/Id" }
+            name: { type: string, maxLength: 64 }
+            argumentsDigest: { $ref: "#/components/schemas/Digest" }
+            arguments: { type: string, maxLength: 262144 }
+        usage: { $ref: "#/components/schemas/Usage" }
+        outcome: { type: string, enum: [succeeded, failed, canceled, unknown] }
+        errorCode: { type: string, maxLength: 64 }
+    ModelCall:
+      type: object
+      additionalProperties: false
+      required: [callId, routeId, state, dispatchId, createdAt, updatedAt]
+      properties:
+        callId: { $ref: "#/components/schemas/Id" }
+        routeId: { $ref: "#/components/schemas/Id" }
+        state: { type: string, enum: [admitting, denied, sending, succeeded, failed, canceled, unknown] }
+        dispatchId: { $ref: "#/components/schemas/Id" }
+        usage: { $ref: "#/components/schemas/Usage" }
+        nativeReference: { type: string, maxLength: 256 }
+        errorCode: { type: string, maxLength: 64 }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }

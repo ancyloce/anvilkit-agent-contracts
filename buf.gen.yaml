@@ -1,0 +1,20 @@
+# Generation template driven by tools/generate.py, which passes the base
+# output directory (go/, the generated Go module) with `buf generate -o`.
+# Managed mode sets go_package so the .proto sources stay language-neutral for
+# the later ts-proto/grpc-js consumers.
+version: v2
+managed:
+  enabled: true
+  disable:
+    - file_option: go_package
+      module: buf.build/bufbuild/protovalidate
+  override:
+    - file_option: go_package_prefix
+      value: github.com/ancyloce/anvilkit-agent-contracts/go
+plugins:
+  - local: protoc-gen-go
+    out: .
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: .
+    opt: paths=source_relative

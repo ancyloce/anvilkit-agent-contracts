@@ -1,0 +1,128 @@
+{
+  "schema": "urn:anvilkit:jobs:v1",
+  "cases": [
+    {
+      "name": "local-check profile: trusted fixture, no candidate code",
+      "ref": "#/$defs/profile",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "profileId": "local-check-v1", "revision": "1", "jobKind": "validator",
+        "description": "Fixed qualification fixture: computes the digest of a fixed input and reports a result manifest through the Pod termination message.",
+        "image": { "repository": "docker.io/library/busybox", "digest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0" },
+        "entrypoint": ["/bin/sh", "-c", "true"],
+        "resources": { "cpu": "100m", "memory": "64Mi" },
+        "deadlineSeconds": 120,
+        "candidateCode": false,
+        "expectedResult": { "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }
+      }
+    },
+    {
+      "name": "candidate profile without runtimeClass is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "profileId": "codegen-v1", "revision": "1", "jobKind": "codegen",
+        "image": { "repository": "registry/codegen", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+        "entrypoint": ["/entrypoint"], "resources": { "cpu": "2", "memory": "4Gi" }, "deadlineSeconds": 3600, "candidateCode": true
+      }
+    },
+    {
+      "name": "profile with a tag instead of a digest is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "profileId": "local-check-v1", "revision": "1", "jobKind": "validator",
+        "image": { "repository": "docker.io/library/busybox", "digest": "1.37.0" },
+        "entrypoint": ["/bin/sh"], "resources": { "cpu": "100m", "memory": "64Mi" }, "deadlineSeconds": 120, "candidateCode": false
+      }
+    },
+    {
+      "name": "launch envelope",
+      "ref": "#/$defs/launchEnvelope",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "launchKey": "validator-01j9abc", "operationId": "op_01J9", "attemptId": "att_01J9",
+        "profileId": "local-check-v1", "profileRevision": "1", "jobKind": "validator", "executionEpoch": "1", "launchEpoch": "1",
+        "deadline": "2026-09-14T12:00:00Z", "inputs": [{ "name": "fixture-input", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" }]
+      }
+    },
+    {
+      "name": "launch envelope carrying a physical identity is rejected",
+      "ref": "#/$defs/launchEnvelope",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "launchKey": "validator-01j9abc", "operationId": "op_01J9", "attemptId": "att_01J9",
+        "profileId": "local-check-v1", "profileRevision": "1", "jobKind": "validator", "executionEpoch": "1", "launchEpoch": "1",
+        "deadline": "2026-09-14T12:00:00Z", "inputs": [], "podUid": "forged"
+      }
+    },
+    {
+      "name": "launch key that is not a DNS label is rejected",
+      "ref": "#/$defs/launchEnvelope",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "launchKey": "Validator_01J9", "operationId": "op_01J9", "attemptId": "att_01J9",
+        "profileId": "local-check-v1", "profileRevision": "1", "jobKind": "validator", "executionEpoch": "1", "launchEpoch": "1",
+        "deadline": "2026-09-14T12:00:00Z", "inputs": []
+      }
+    },
+    {
+      "name": "certified result manifest",
+      "ref": "#/$defs/resultManifest",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "attemptId": "att_01J9", "jobKind": "validator", "profileId": "local-check-v1",
+        "verdict": "certified",
+        "outputs": [{ "class": "result", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "sizeBytes": "64" }],
+        "completedAt": "2026-09-14T11:59:00Z"
+      }
+    },
+    {
+      "name": "invalid verdict without a failure code is rejected",
+      "ref": "#/$defs/resultManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "attemptId": "att_01J9", "jobKind": "validator", "profileId": "local-check-v1",
+        "verdict": "invalid", "outputs": [], "completedAt": "2026-09-14T11:59:00Z"
+      }
+    },
+    {
+      "name": "certified verdict carrying a failure code is rejected",
+      "ref": "#/$defs/resultManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "attemptId": "att_01J9", "jobKind": "validator", "profileId": "local-check-v1",
+        "verdict": "certified", "failureCode": "CANCELED", "outputs": [], "completedAt": "2026-09-14T11:59:00Z"
+      }
+    },
+    {
+      "name": "self-reported exit code field is rejected",
+      "ref": "#/$defs/resultManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "attemptId": "att_01J9", "jobKind": "validator", "profileId": "local-check-v1",
+        "verdict": "certified", "outputs": [], "completedAt": "2026-09-14T11:59:00Z", "exitCode": 0
+      }
+    },
+    {
+      "name": "unknown verdict is rejected",
+      "ref": "#/$defs/resultManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "attemptId": "att_01J9", "jobKind": "validator", "profileId": "local-check-v1",
+        "verdict": "passed", "outputs": [], "completedAt": "2026-09-14T11:59:00Z"
+      }
+    },
+    {
+      "name": "non-canonical sizeBytes is rejected",
+      "ref": "#/$defs/resultManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "attemptId": "att_01J9", "jobKind": "validator", "profileId": "local-check-v1",
+        "verdict": "certified",
+        "outputs": [{ "class": "result", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "sizeBytes": "064" }],
+        "completedAt": "2026-09-14T11:59:00Z"
+      }
+    }
+  ]
+}

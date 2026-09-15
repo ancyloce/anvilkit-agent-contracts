@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:anvilkit:events:v1",
+  "title": "AnvilKit domain events",
+  "description": "EventEnvelope and the versioned payloads of the event catalog (contracts.md §6 and event catalog). eventId is a standard UUID; opaque business identifiers travel in the envelope. No prompts, source bodies, tokens or grants enter an event. schemaVersion is 1.",
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sequence": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$" },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "operation.changed", "attempt.result-accepted", "source.revision-indexed", "source.authorization-revoked",
+        "memory.fact-confirmed", "memory.fact-revoked", "mcp.catalog-reviewed", "mcp.grant-revoked",
+        "background.requested", "background.completed"
+      ]
+    },
+    "subject": { "type": "string", "pattern": "^anvilkit\\.(control|knowledge|mcp)\\.[a-z]+\\.[a-z-]+$" },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "eventType", "schemaVersion", "producer", "subject", "tenantId", "aggregateType", "aggregateId", "aggregateRevision", "occurredAt", "correlationId"],
+      "properties": {
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "eventType": { "$ref": "#/$defs/eventType" },
+        "schemaVersion": { "const": 1 },
+        "producer": { "type": "string", "enum": ["anvilkit-agent-control", "anvilkit-agent-knowledge", "anvilkit-agent-mcp"] },
+        "subject": { "$ref": "#/$defs/subject" },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "aggregateType": { "type": "string", "enum": ["operation", "attempt", "source", "memory_fact", "descriptor", "grant", "background_request"] },
+        "aggregateId": { "$ref": "#/$defs/id" },
+        "aggregateRevision": { "$ref": "#/$defs/sequence" },
+        "occurredAt": { "$ref": "#/$defs/timestamp" },
+        "correlationId": { "$ref": "#/$defs/id" },
+        "traceId": { "type": "string", "pattern": "^[0-9a-f]{32}$", "description": "Correlation only; never authority." },
+        "payloadRef": { "$ref": "#/$defs/digest" },
+        "payload": {
+          "oneOf": [
+            { "$ref": "#/$defs/operationChanged" },
+            { "$ref": "#/$defs/attemptResultAccepted" },
+            { "$ref": "#/$defs/sourceRevisionIndexed" },
+            { "$ref": "#/$defs/sourceAuthorizationRevoked" },
+            { "$ref": "#/$defs/memoryFactDecided" },
+            { "$ref": "#/$defs/mcpCatalogReviewed" },
+            { "$ref": "#/$defs/mcpGrantRevoked" },
+            { "$ref": "#/$defs/backgroundRequested" },
+            { "$ref": "#/$defs/backgroundCompleted" }
+          ]
+        }
+      },
+      "oneOf": [{ "required": ["payloadRef"] }, { "required": ["payload"] }],
+      "allOf": [
+        { "if": { "properties": { "eventType": { "const": "operation.changed" } } }, "then": { "properties": { "aggregateType": { "const": "operation" }, "subject": { "const": "anvilkit.control.operation.changed" } } } },
+        { "if": { "properties": { "eventType": { "const": "attempt.result-accepted" } } }, "then": { "properties": { "aggregateType": { "const": "attempt" }, "subject": { "const": "anvilkit.control.attempt.result-accepted" } } } },
+        { "if": { "properties": { "eventType": { "const": "memory.fact-confirmed" } } }, "then": { "properties": { "aggregateType": { "const": "memory_fact" }, "subject": { "const": "anvilkit.knowledge.memory.fact-confirmed" } } } },
+        { "if": { "properties": { "eventType": { "const": "memory.fact-revoked" } } }, "then": { "properties": { "aggregateType": { "const": "memory_fact" }, "subject": { "const": "anvilkit.knowledge.memory.fact-revoked" } } } },
+        { "if": { "properties": { "eventType": { "const": "mcp.grant-revoked" } } }, "then": { "properties": { "aggregateType": { "const": "grant" }, "subject": { "const": "anvilkit.mcp.mcp.grant-revoked" } } } }
+      ]
+    },
+    "operationChanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "lifecycle", "phase", "control", "cleanup", "finance", "revision"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["operation.changed"] },
+        "lifecycle": { "type": "string", "enum": ["accepted", "running", "waiting", "reconciling", "suspended", "succeeded", "failed", "canceled"] },
+        "phase": { "type": "string", "maxLength": 64 },
+        "control": { "type": "string", "enum": ["none", "cancel_pending", "cancel_applied", "hold_pending", "hold_applied"] },
+        "cleanup": { "type": "string", "enum": ["not_required", "pending", "complete", "unknown"] },
+        "finance": { "type": "string", "enum": ["not_funded", "funded", "settling", "settled", "exposure_unknown"] },
+        "revision": { "$ref": "#/$defs/sequence" },
+        "failureCode": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "attemptResultAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "operationId", "attemptId", "stageId", "verdict", "resultDigest"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["attempt.result-accepted"] },
+        "operationId": { "$ref": "#/$defs/id" },
+        "attemptId": { "$ref": "#/$defs/id" },
+        "stageId": { "$ref": "#/$defs/id" },
+        "verdict": { "type": "string", "enum": ["certified", "repairable", "invalid", "infrastructure_failed", "canceled"] },
+        "resultDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "sourceRevisionIndexed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "sourceId", "sourceRevision", "indexGeneration"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["source.revision-indexed"] },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "sourceRevision": { "$ref": "#/$defs/sequence" },
+        "indexGeneration": { "$ref": "#/$defs/sequence" }
+      }
+    },
+    "sourceAuthorizationRevoked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "sourceId", "aclRevision"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["source.authorization-revoked"] },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "aclRevision": { "$ref": "#/$defs/sequence" }
+      }
+    },
+    "memoryFactDecided": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "factId", "revision", "state"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["memory.fact-confirmed", "memory.fact-revoked"] },
+        "factId": { "$ref": "#/$defs/id" },
+        "revision": { "$ref": "#/$defs/sequence" },
+        "state": { "type": "string", "enum": ["confirmed", "revoked"] }
+      }
+    },
+    "mcpCatalogReviewed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "serverId", "revision", "state"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["mcp.catalog-reviewed"] },
+        "serverId": { "$ref": "#/$defs/id" },
+        "revision": { "$ref": "#/$defs/sequence" },
+        "state": { "type": "string", "enum": ["approved", "rejected", "disabled"] }
+      }
+    },
+    "mcpGrantRevoked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "grantId", "revision", "state"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["mcp.grant-revoked"] },
+        "grantId": { "$ref": "#/$defs/id" },
+        "revision": { "$ref": "#/$defs/sequence" },
+        "state": { "type": "string", "enum": ["revoking", "revoked"] }
+      }
+    },
+    "backgroundRequested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "taskId", "generation", "taskKind", "inputDigest"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["background.requested"] },
+        "taskId": { "$ref": "#/$defs/id" },
+        "generation": { "$ref": "#/$defs/sequence" },
+        "taskKind": { "type": "string", "enum": ["knowledge-ingest", "knowledge-project", "memory-project", "mcp-catalog-refresh"] },
+        "inputDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "backgroundCompleted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "taskId", "generation", "state"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["background.completed"] },
+        "taskId": { "$ref": "#/$defs/id" },
+        "generation": { "$ref": "#/$defs/sequence" },
+        "state": { "type": "string", "enum": ["accepted", "dead", "stale", "canceled"] },
+        "resultDigest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

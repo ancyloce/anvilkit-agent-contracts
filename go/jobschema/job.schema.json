@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:anvilkit:jobs:v1",
+  "title": "AnvilKit Job contracts",
+  "description": "Launch envelope, fixed Job profile and result manifest for the short-lived Job classes (DD-03 §4). The launcher accepts only a reviewed profile id and typed inputs; the result manifest is issued by the trusted observer, never by candidate code. schemaVersion is 1.",
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sequence": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$" },
+    "launchKey": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" },
+    "jobKind": { "type": "string", "enum": ["codegen", "validator", "preview", "parser", "migration"] },
+    "verdict": { "type": "string", "enum": ["certified", "repairable", "invalid", "infrastructure_failed", "canceled"] },
+    "failureCode": {
+      "type": "string",
+      "enum": [
+        "CANDIDATE_BUILD_FAILED", "CANDIDATE_TEST_FAILED", "PROTECTED_FIXTURE_ALTERED", "MISSING_CSS",
+        "INVALID_EXPORTS", "DUPLICATE_RUNTIME", "PATH_ESCAPE", "PROFILE_UNQUALIFIED", "IMAGE_PULL_FAILED",
+        "POD_EVICTED", "DEADLINE_EXCEEDED", "OBSERVER_FAILED", "RESULT_DIGEST_MISMATCH", "CANCELED"
+      ]
+    },
+    "resource": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(m|Mi|Gi)?$" },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "profileId", "revision", "jobKind", "image", "entrypoint", "resources", "deadlineSeconds", "candidateCode"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "profileId": { "$ref": "#/$defs/id" },
+        "revision": { "$ref": "#/$defs/sequence" },
+        "jobKind": { "$ref": "#/$defs/jobKind" },
+        "description": { "type": "string", "maxLength": 512 },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "digest"],
+          "properties": {
+            "repository": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "digest": { "$ref": "#/$defs/digest" }
+          }
+        },
+        "entrypoint": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "type": "string", "maxLength": 4096 } },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpu", "memory"],
+          "properties": { "cpu": { "$ref": "#/$defs/resource" }, "memory": { "$ref": "#/$defs/resource" } }
+        },
+        "deadlineSeconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "runtimeClass": { "type": "string", "enum": ["gvisor"] },
+        "candidateCode": { "type": "boolean", "description": "true only for profiles that execute untrusted candidate code; such profiles require runtimeClass and a qualified isolation layout (P09)." },
+        "expectedResult": {
+          "type": "object",
+          "description": "Fixture-only expectation the trusted observer verifies; present for local-check fixtures.",
+          "additionalProperties": false,
+          "required": ["resultDigest"],
+          "properties": { "resultDigest": { "$ref": "#/$defs/digest" } }
+        }
+      },
+      "if": { "properties": { "candidateCode": { "const": true } } },
+      "then": { "required": ["runtimeClass"] }
+    },
+    "launchEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchId", "launchKey", "operationId", "attemptId", "profileId", "profileRevision", "jobKind", "executionEpoch", "launchEpoch", "deadline", "inputs"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchId": { "$ref": "#/$defs/id" },
+        "launchKey": { "$ref": "#/$defs/launchKey" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "attemptId": { "$ref": "#/$defs/id" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "profileRevision": { "$ref": "#/$defs/sequence" },
+        "jobKind": { "$ref": "#/$defs/jobKind" },
+        "executionEpoch": { "$ref": "#/$defs/sequence" },
+        "launchEpoch": { "$ref": "#/$defs/sequence" },
+        "deadline": { "$ref": "#/$defs/timestamp" },
+        "inputs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "digest"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+              "digest": { "$ref": "#/$defs/digest" },
+              "handle": { "type": "string", "maxLength": 256 }
+            }
+          }
+        }
+      }
+    },
+    "resultManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchId", "attemptId", "jobKind", "profileId", "verdict", "outputs", "completedAt"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchId": { "$ref": "#/$defs/id" },
+        "attemptId": { "$ref": "#/$defs/id" },
+        "jobKind": { "$ref": "#/$defs/jobKind" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "verdict": { "$ref": "#/$defs/verdict" },
+        "failureCode": { "$ref": "#/$defs/failureCode" },
+        "outputs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["class", "digest", "sizeBytes"],
+            "properties": {
+              "class": { "type": "string", "enum": ["source", "npm", "browser", "css", "evidence", "result", "chunks"] },
+              "digest": { "$ref": "#/$defs/digest" },
+              "sizeBytes": { "$ref": "#/$defs/sequence" },
+              "handle": { "type": "string", "maxLength": 256 }
+            }
+          }
+        },
+        "completedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "allOf": [
+        { "if": { "properties": { "verdict": { "const": "certified" } } }, "then": { "not": { "required": ["failureCode"] } } },
+        { "if": { "properties": { "verdict": { "enum": ["invalid", "repairable", "infrastructure_failed"] } } }, "then": { "required": ["failureCode"] } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call.",
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "schemaVersion": 1,
+      "profileId": "local-check-v1",
+      "revision": "1",
+      "jobKind": "validator",
+      "description": "Fixed qualification fixture: computes the digest of a fixed input and reports a result manifest through the Pod termination message; the trusted observer verifies it against expectedResult.",
+      "image": {
+        "repository": "docker.io/library/busybox",
+        "digest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0"
+      },
+      "entrypoint": [
+        "/bin/sh",
+        "-c",
+        "set -e; d=$(printf \"anvilkit-local-check-v1\\n\" | sha256sum | cut -d\" \" -f1); printf '{\"schemaVersion\":1,\"launchId\":\"%s\",\"attemptId\":\"%s\",\"jobKind\":\"validator\",\"profileId\":\"local-check-v1\",\"verdict\":\"certified\",\"outputs\":[{\"class\":\"result\",\"digest\":\"sha256:%s\",\"sizeBytes\":\"24\"}],\"completedAt\":\"%s\"}' \"$ANVILKIT_LAUNCH_ID\" \"$ANVILKIT_ATTEMPT_ID\" \"$d\" \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" > /dev/termination-log"
+      ],
+      "resources": {
+        "cpu": "100m",
+        "memory": "64Mi"
+      },
+      "deadlineSeconds": 120,
+      "candidateCode": false,
+      "expectedResult": {
+        "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"
+      }
+    }
+  ]
+}

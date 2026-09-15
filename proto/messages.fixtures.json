@@ -1,0 +1,269 @@
+{
+  "$comment": "Cross-runtime vectors for the internal RPC surface (contracts/proto/anvilkit/{control,knowledge,mcp}/v1). Each `instance` is the ProtoJSON form of `message`; tests/contracts (Go) parses it strictly (unknown fields rejected) and asserts the protovalidate outcome, which is what the grpc-go servers enforce before any handler runs. tools/check-contracts.py checks that every named message exists in the Buf module. Unknown enum values and unknown fields never grant anything.",
+  "cases": [
+    {
+      "name": "command identity with a canonical digest",
+      "message": "anvilkit.control.v1.CommandIdentity",
+      "valid": true,
+      "instance": { "tenantId": "tenant_a", "commandId": "cmd_01J9ABCDEF", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }
+    },
+    {
+      "name": "command identity with an uppercase digest is rejected",
+      "message": "anvilkit.control.v1.CommandIdentity",
+      "valid": false,
+      "instance": { "tenantId": "tenant_a", "commandId": "cmd_01J9ABCDEF", "actorId": "user_a", "requestDigest": "SHA256:0DC7FA9DB7237A2B5C96F70F59BB00F73BB86A0CA5554E91C312F9ADA26E18B3" }
+    },
+    {
+      "name": "create local_check operation",
+      "message": "anvilkit.control.v1.CreateOperationRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "cmd_01J9ABCDEF", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a" },
+        "kind": "OPERATION_KIND_LOCAL_CHECK",
+        "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }
+      }
+    },
+    {
+      "name": "create operation with an unspecified kind is rejected (an unknown enum authorizes nothing)",
+      "message": "anvilkit.control.v1.CreateOperationRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "cmd_01J9ABCDEF", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "user_a" },
+        "kind": "OPERATION_KIND_UNSPECIFIED",
+        "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }
+      }
+    },
+    {
+      "name": "create operation without a verified scope is rejected",
+      "message": "anvilkit.control.v1.CreateOperationRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "cmd_01J9ABCDEF", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "kind": "OPERATION_KIND_LOCAL_CHECK",
+        "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }
+      }
+    },
+    {
+      "name": "create operation with an unknown field is rejected by the strict parser",
+      "message": "anvilkit.control.v1.CreateOperationRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "cmd_01J9ABCDEF", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "user_a" },
+        "kind": "OPERATION_KIND_LOCAL_CHECK",
+        "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "legacyPayload": { "handler": "old" }
+      }
+    },
+    {
+      "name": "submit cancel with the current revision",
+      "message": "anvilkit.control.v1.SubmitCommandRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "cmd_cancel_1", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "user_a" },
+        "operationId": "op_01J9ABCDEF",
+        "kind": "COMMAND_KIND_CANCEL",
+        "expectedRevision": "7"
+      }
+    },
+    {
+      "name": "submit command with a leading-zero revision is rejected",
+      "message": "anvilkit.control.v1.SubmitCommandRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "cmd_cancel_1", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "user_a" },
+        "operationId": "op_01J9ABCDEF",
+        "kind": "COMMAND_KIND_CANCEL",
+        "expectedRevision": "07"
+      }
+    },
+    {
+      "name": "prepare launch with a DNS-label launch key and an absolute deadline",
+      "message": "anvilkit.control.v1.PrepareLaunchRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "att_1:launch", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "attemptId": "att_01J9ABCDEF", "launchKey": "lc-01j9abcdef", "backend": "kind-anvilkit-dev",
+        "imageDigest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0",
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "prepare launch without a deadline is rejected (the clock is set once)",
+      "message": "anvilkit.control.v1.PrepareLaunchRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "att_1:launch", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "attemptId": "att_01J9ABCDEF", "launchKey": "lc-01j9abcdef", "backend": "kind-anvilkit-dev",
+        "imageDigest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0"
+      }
+    },
+    {
+      "name": "prepare launch with a non-DNS launch key is rejected",
+      "message": "anvilkit.control.v1.PrepareLaunchRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "att_1:launch", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "attemptId": "att_01J9ABCDEF", "launchKey": "LC_01J9ABCDEF", "backend": "kind-anvilkit-dev",
+        "imageDigest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0",
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "observe instance with an unspecified phase is rejected",
+      "message": "anvilkit.control.v1.ObserveInstanceRequest",
+      "valid": false,
+      "instance": { "attemptId": "att_01J9ABCDEF", "instanceId": "inst_01J9ABCDEF", "phase": "INSTANCE_PHASE_UNSPECIFIED", "observedAt": "2026-09-14T12:01:00Z" }
+    },
+    {
+      "name": "admit model with bounded exposure and execution binding",
+      "message": "anvilkit.control.v1.AdmitModelRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "call_1:admit", "actorId": "anvilkit-agent-model-proxy", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "binding": { "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF", "instanceId": "inst_01J9ABCDEF", "executionEpoch": "1" },
+        "callId": "call_01J9ABCDEF", "owner": "anvilkit-agent-model-proxy", "routeId": "route_planner_default",
+        "provider": "anthropic", "model": "claude-sonnet-5",
+        "maxExposure": { "currency": "USD", "amount": "250000" },
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "admit model with a fractional exposure is rejected (money is a scale-6 integer string)",
+      "message": "anvilkit.control.v1.AdmitModelRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "call_1:admit", "actorId": "anvilkit-agent-model-proxy", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "binding": { "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF", "executionEpoch": "1" },
+        "callId": "call_01J9ABCDEF", "owner": "anvilkit-agent-model-proxy", "routeId": "route_planner_default",
+        "provider": "anthropic", "model": "claude-sonnet-5",
+        "maxExposure": { "currency": "USD", "amount": "0.25" },
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "admit model without an execution epoch is rejected",
+      "message": "anvilkit.control.v1.AdmitModelRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "call_1:admit", "actorId": "anvilkit-agent-model-proxy", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "binding": { "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF" },
+        "callId": "call_01J9ABCDEF", "owner": "anvilkit-agent-model-proxy", "routeId": "route_planner_default",
+        "provider": "anthropic", "model": "claude-sonnet-5",
+        "maxExposure": { "currency": "USD", "amount": "250000" },
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "begin a source artifact transfer",
+      "message": "anvilkit.control.v1.BeginTransferRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "xfer_1", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "anvilkit-agent-workflow" },
+        "class": "ARTIFACT_CLASS_SOURCE",
+        "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "expectedSize": "4096", "mediaType": "application/zip",
+        "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF",
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "begin transfer with a negative size is rejected",
+      "message": "anvilkit.control.v1.BeginTransferRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "xfer_1", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "anvilkit-agent-workflow" },
+        "class": "ARTIFACT_CLASS_SOURCE",
+        "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "expectedSize": "-1", "mediaType": "application/zip",
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "register a document source with trusted access entries",
+      "message": "anvilkit.knowledge.v1.RegisterSourceRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "src_1", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a" },
+        "kind": "SOURCE_KIND_DOCUMENT",
+        "locator": "artifact://art_01J9ABCDEF",
+        "contentDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "mediaType": "application/pdf",
+        "sizeBytes": "1048576"
+      }
+    },
+    {
+      "name": "register source with an exponent size is rejected (counters are canonical decimals)",
+      "message": "anvilkit.knowledge.v1.RegisterSourceRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "src_1", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "user_a" },
+        "kind": "SOURCE_KIND_DOCUMENT",
+        "locator": "artifact://art_01J9ABCDEF",
+        "contentDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "mediaType": "application/pdf",
+        "sizeBytes": "1e6"
+      }
+    },
+    {
+      "name": "search with bounded context under a snapshot",
+      "message": "anvilkit.knowledge.v1.SearchRequest",
+      "valid": true,
+      "instance": { "scope": { "tenantId": "tenant_a", "actorId": "user_a" }, "snapshotId": "snap_01J9ABCDEF", "query": "hero component brief", "maxContextItems": 8, "retrievalProfileId": "hybrid-v1", "deadline": "2026-09-14T12:15:00Z" }
+    },
+    {
+      "name": "search requesting zero context items is rejected",
+      "message": "anvilkit.knowledge.v1.SearchRequest",
+      "valid": false,
+      "instance": { "scope": { "tenantId": "tenant_a", "actorId": "user_a" }, "snapshotId": "snap_01J9ABCDEF", "query": "hero", "maxContextItems": 0, "retrievalProfileId": "hybrid-v1", "deadline": "2026-09-14T12:15:00Z" }
+    },
+    {
+      "name": "create a grant bound to an exact descriptor revision and digest",
+      "message": "anvilkit.mcp.v1.CreateGrantRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "grant_1", "actorId": "admin_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "admin_a" },
+        "subjectType": "project", "subjectId": "proj_a", "serverId": "srv_docs",
+        "descriptorRevision": "3", "descriptorDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "methods": [ "tools/call:search_docs" ], "purpose": "retrieval for generation",
+        "costCap": { "currency": "USD", "amount": "1000000" },
+        "expiresAt": "2026-10-14T12:00:00Z"
+      }
+    },
+    {
+      "name": "create grant for an unknown subject type is rejected",
+      "message": "anvilkit.mcp.v1.CreateGrantRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "grant_1", "actorId": "admin_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "admin_a" },
+        "subjectType": "everyone", "subjectId": "*", "serverId": "srv_docs",
+        "descriptorRevision": "3", "descriptorDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "methods": [ "tools/call:search_docs" ], "purpose": "retrieval",
+        "costCap": { "currency": "USD", "amount": "1000000" }
+      }
+    },
+    {
+      "name": "create grant without methods is rejected (a grant never covers every method)",
+      "message": "anvilkit.mcp.v1.CreateGrantRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "grant_1", "actorId": "admin_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "admin_a" },
+        "subjectType": "project", "subjectId": "proj_a", "serverId": "srv_docs",
+        "descriptorRevision": "3", "descriptorDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "methods": [], "purpose": "retrieval",
+        "costCap": { "currency": "USD", "amount": "1000000" }
+      }
+    }
+  ]
+}

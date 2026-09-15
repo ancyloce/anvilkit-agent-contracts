@@ -1,0 +1,574 @@
+// Control is the sole writer of the Control database and the authority for
+// operation intake, tracked control commands, attempts, physical instances,
+// launch inventory and accepted results. Values follow contracts.md §4: IDs are
+// opaque strings, revisions and sequences are canonical unsigned decimal strings,
+// money is a fixed-scale (6) integer quantity carried as a decimal string, and
+// digests are "sha256:" followed by 64 lowercase hexadecimal characters.
+//
+// Public JSON served by the API is mapped from these messages by the API; it is
+// not ProtoJSON. Field numbers are never reused and enums are never reinterpreted.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+// ---------------------------------------------------------------------------
+// Shared values
+// ---------------------------------------------------------------------------
+
+// CommandIdentity makes a durable command reentrant: the same tenant/command
+// pair with the same request digest returns the original outcome, a changed
+// digest is an IDEMPOTENCY_CONFLICT (gRPC ABORTED).
+message CommandIdentity {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string command_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string actor_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string request_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+// Scope is the verified caller scope. It is established by the API from the
+// authenticated principal; a caller-supplied tenant is never authorization.
+message Scope {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string project_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  string actor_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+// Money is an integer quantity at scale 6 carried as a decimal string. It is
+// never a floating point number in any runtime.
+message Money {
+  string currency = 1 [(buf.validate.field).string.pattern = "^[A-Z]{3}$"];
+  string amount = 2 [(buf.validate.field).string.pattern = "^-?(0|[1-9][0-9]{0,29})$"];
+}
+
+enum OperationKind {
+  OPERATION_KIND_UNSPECIFIED = 0;
+  OPERATION_KIND_PREPARATION = 1;
+  OPERATION_KIND_GENERATION = 2;
+  OPERATION_KIND_REFINEMENT = 3;
+  OPERATION_KIND_PREVIEW_BUILD = 4;
+  OPERATION_KIND_RELEASE = 5;
+  // LocalCheck is a fixed qualification fixture, never a business success.
+  OPERATION_KIND_LOCAL_CHECK = 6;
+}
+
+enum Lifecycle {
+  LIFECYCLE_UNSPECIFIED = 0;
+  LIFECYCLE_ACCEPTED = 1;
+  LIFECYCLE_RUNNING = 2;
+  LIFECYCLE_WAITING = 3;
+  LIFECYCLE_RECONCILING = 4;
+  LIFECYCLE_SUSPENDED = 5;
+  LIFECYCLE_SUCCEEDED = 6;
+  LIFECYCLE_FAILED = 7;
+  LIFECYCLE_CANCELED = 8;
+}
+
+// ControlState separates a tracked control intent from its application.
+enum ControlState {
+  CONTROL_STATE_UNSPECIFIED = 0;
+  CONTROL_STATE_NONE = 1;
+  CONTROL_STATE_CANCEL_PENDING = 2;
+  CONTROL_STATE_CANCEL_APPLIED = 3;
+  CONTROL_STATE_HOLD_PENDING = 4;
+  CONTROL_STATE_HOLD_APPLIED = 5;
+}
+
+enum CleanupState {
+  CLEANUP_STATE_UNSPECIFIED = 0;
+  CLEANUP_STATE_NOT_REQUIRED = 1;
+  CLEANUP_STATE_PENDING = 2;
+  CLEANUP_STATE_COMPLETE = 3;
+  CLEANUP_STATE_UNKNOWN = 4;
+}
+
+enum FinanceState {
+  FINANCE_STATE_UNSPECIFIED = 0;
+  FINANCE_STATE_NOT_FUNDED = 1;
+  FINANCE_STATE_FUNDED = 2;
+  FINANCE_STATE_SETTLING = 3;
+  FINANCE_STATE_SETTLED = 4;
+  FINANCE_STATE_EXPOSURE_UNKNOWN = 5;
+}
+
+// OperationSubject binds the exact profile and subject digest an operation was
+// accepted for. A changed subject is a different operation.
+message OperationSubject {
+  string profile_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string subject_digest = 2 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  optional string brief_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  optional string source_revision = 4 [(buf.validate.field).string = {max_len: 128}];
+}
+
+// OperationView is the single committed projection the API exposes.
+message OperationView {
+  string operation_id = 1;
+  string tenant_id = 2;
+  string project_id = 3;
+  string actor_id = 4;
+  OperationKind kind = 5;
+  OperationSubject subject = 6;
+  Lifecycle lifecycle = 7;
+  string phase = 8;
+  ControlState control = 9;
+  CleanupState cleanup = 10;
+  FinanceState finance = 11;
+  string revision = 12;
+  string covered_event_seq = 13;
+  string execution_epoch = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+  google.protobuf.Timestamp deadline = 17;
+  optional string failure_code = 18;
+}
+
+// OperationChangedPayload is the reviewed small payload of operation.changed.
+message OperationChangedPayload {
+  Lifecycle lifecycle = 1;
+  string phase = 2;
+  ControlState control = 3;
+  CleanupState cleanup = 4;
+  FinanceState finance = 5;
+  optional string failure_code = 6;
+}
+
+message OperationEvent {
+  string operation_id = 1;
+  string event_seq = 2;
+  string transition_id = 3;
+  string event_type = 4;
+  string revision = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+  oneof payload {
+    OperationChangedPayload operation_changed = 10;
+  }
+}
+
+enum CommandKind {
+  COMMAND_KIND_UNSPECIFIED = 0;
+  COMMAND_KIND_CANCEL = 1;
+  COMMAND_KIND_HOLD = 2;
+  COMMAND_KIND_RESUME = 3;
+  COMMAND_KIND_CHANGE_DEFINITION = 4;
+}
+
+enum CommandOutcome {
+  COMMAND_OUTCOME_UNSPECIFIED = 0;
+  COMMAND_OUTCOME_PENDING = 1;
+  COMMAND_OUTCOME_APPLIED = 2;
+  COMMAND_OUTCOME_BLOCKED = 3;
+  COMMAND_OUTCOME_REJECTED = 4;
+}
+
+message CommandReceipt {
+  string command_id = 1;
+  string operation_id = 2;
+  CommandKind kind = 3;
+  CommandOutcome outcome = 4;
+  string operation_revision = 5;
+  optional string reason_code = 6;
+  google.protobuf.Timestamp accepted_at = 7;
+  optional google.protobuf.Timestamp settled_at = 8;
+}
+
+// ---------------------------------------------------------------------------
+// OperationService: intake, projection, events and tracked commands
+// ---------------------------------------------------------------------------
+
+service OperationService {
+  // Accepts an operation only after the intake inventory is confirmed. The same
+  // command identity and digest returns the original operation with existing=true.
+  rpc CreateOperation(CreateOperationRequest) returns (CreateOperationResponse);
+  rpc GetOperation(GetOperationRequest) returns (GetOperationResponse);
+  // Lists durable events after a cursor. A cursor before retention returns
+  // reset_required=true with the covered_event_seq of a fresh snapshot.
+  rpc ListOperationEvents(ListOperationEventsRequest) returns (ListOperationEventsResponse);
+  // Streams durable events after a cursor until the operation is terminal or
+  // the caller disconnects; slow consumers are disconnected, never the operation.
+  rpc StreamOperationEvents(StreamOperationEventsRequest) returns (stream StreamOperationEventsResponse);
+  // Records a tracked control command. Acceptance is not application.
+  rpc SubmitCommand(SubmitCommandRequest) returns (SubmitCommandResponse);
+  rpc GetCommand(GetCommandRequest) returns (GetCommandResponse);
+}
+
+message CreateOperationRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  OperationKind kind = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  OperationSubject subject = 4 [(buf.validate.field).required = true];
+}
+
+message CreateOperationResponse {
+  OperationView operation = 1;
+  bool existing = 2;
+}
+
+message GetOperationRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetOperationResponse {
+  OperationView operation = 1;
+}
+
+message ListOperationEventsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // Empty means from the beginning of retained history.
+  string after_event_seq = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+  uint32 limit = 4 [(buf.validate.field).uint32.lte = 1000];
+}
+
+message ListOperationEventsResponse {
+  repeated OperationEvent events = 1;
+  string covered_event_seq = 2;
+  bool reset_required = 3;
+}
+
+message StreamOperationEventsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string after_event_seq = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+}
+
+message StreamOperationEventsResponse {
+  OperationEvent event = 1;
+}
+
+message SubmitCommandRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string operation_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  CommandKind kind = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string expected_revision = 5 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  optional string target_definition_activation = 6 [(buf.validate.field).string = {max_len: 128}];
+}
+
+message SubmitCommandResponse {
+  CommandReceipt receipt = 1;
+  bool existing = 2;
+}
+
+message GetCommandRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string command_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetCommandResponse {
+  CommandReceipt receipt = 1;
+}
+
+// ---------------------------------------------------------------------------
+// ExecutionService: attempts, launch inventory, physical instances, results
+// ---------------------------------------------------------------------------
+
+enum AttemptState {
+  ATTEMPT_STATE_UNSPECIFIED = 0;
+  ATTEMPT_STATE_OPEN = 1;
+  ATTEMPT_STATE_LAUNCH_PREPARED = 2;
+  ATTEMPT_STATE_RUNNING = 3;
+  ATTEMPT_STATE_RESULT_ACCEPTED = 4;
+  ATTEMPT_STATE_CLOSED = 5;
+}
+
+enum AttemptOutcome {
+  ATTEMPT_OUTCOME_UNSPECIFIED = 0;
+  ATTEMPT_OUTCOME_COMPLETED = 1;
+  ATTEMPT_OUTCOME_FAILED = 2;
+  ATTEMPT_OUTCOME_INFRASTRUCTURE_FAILED = 3;
+  ATTEMPT_OUTCOME_CANCELED = 4;
+  ATTEMPT_OUTCOME_UNKNOWN = 5;
+}
+
+enum InstancePhase {
+  INSTANCE_PHASE_UNSPECIFIED = 0;
+  INSTANCE_PHASE_PENDING = 1;
+  INSTANCE_PHASE_RUNNING = 2;
+  INSTANCE_PHASE_SUCCEEDED = 3;
+  INSTANCE_PHASE_FAILED = 4;
+  INSTANCE_PHASE_UNKNOWN = 5;
+}
+
+// Verdict is issued by the trusted observer, never by the candidate.
+enum Verdict {
+  VERDICT_UNSPECIFIED = 0;
+  VERDICT_CERTIFIED = 1;
+  VERDICT_REPAIRABLE = 2;
+  VERDICT_INVALID = 3;
+  VERDICT_INFRASTRUCTURE_FAILED = 4;
+  VERDICT_CANCELED = 5;
+}
+
+message Attempt {
+  string attempt_id = 1;
+  string operation_id = 2;
+  string step_id = 3;
+  string visit_ordinal = 4;
+  string attempt_ordinal = 5;
+  string profile_id = 6;
+  string execution_epoch = 7;
+  AttemptState state = 8;
+  AttemptOutcome outcome = 9;
+  google.protobuf.Timestamp deadline = 10;
+  optional string accepted_stage_id = 11;
+  optional string failure_code = 12;
+}
+
+message PhysicalInstance {
+  string instance_id = 1;
+  string attempt_id = 2;
+  string launch_key = 3;
+  string backend = 4;
+  string job_uid = 5;
+  string pod_uid = 6;
+  string image_digest = 7;
+  string launch_epoch = 8;
+  InstancePhase phase = 9;
+  bool current = 10;
+  optional int32 exit_code = 11;
+  google.protobuf.Timestamp registered_at = 12;
+  optional google.protobuf.Timestamp observed_at = 13;
+}
+
+message AcceptedStage {
+  string stage_id = 1;
+  string attempt_id = 2;
+  string instance_id = 3;
+  string phase_ordinal = 4;
+  Verdict verdict = 5;
+  string result_digest = 6;
+  string observer_identity = 7;
+  string profile_id = 8;
+  google.protobuf.Timestamp accepted_at = 9;
+  optional string failure_code = 10;
+}
+
+service ExecutionService {
+  // Opens a logical attempt for a step visit under the current execution epoch.
+  rpc OpenAttempt(OpenAttemptRequest) returns (OpenAttemptResponse);
+  // Persists the job-launch obligation before any Kubernetes create. A fenced or
+  // terminal operation denies with STALE_EXECUTION (FAILED_PRECONDITION).
+  rpc PrepareLaunch(PrepareLaunchRequest) returns (PrepareLaunchResponse);
+  // Registers real backend identities (Job UID, Pod UID, image) observed by the
+  // trusted launcher. A second Pod for the same launch is registered but only
+  // the first current instance can own results.
+  rpc RegisterInstance(RegisterInstanceRequest) returns (RegisterInstanceResponse);
+  rpc ObserveInstance(ObserveInstanceRequest) returns (ObserveInstanceResponse);
+  // Accepts one result per attempt from the current instance. Same digest is
+  // idempotent; a different digest for the same attempt is ABORTED.
+  rpc AcceptResult(AcceptResultRequest) returns (AcceptResultResponse);
+  rpc GetAcceptedStage(GetAcceptedStageRequest) returns (GetAcceptedStageResponse);
+  // Closes the attempt with its outcome and cleanup evidence and settles the
+  // operation lifecycle for single-attempt profiles.
+  rpc CloseAttempt(CloseAttemptRequest) returns (CloseAttemptResponse);
+}
+
+message OpenAttemptRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string step_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string visit_ordinal = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string profile_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message OpenAttemptResponse {
+  Attempt attempt = 1;
+  bool existing = 2;
+}
+
+message PrepareLaunchRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string attempt_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string launch_key = 3 [(buf.validate.field).string.pattern = "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"];
+  string backend = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string image_digest = 5 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  google.protobuf.Timestamp deadline = 6 [(buf.validate.field).required = true];
+}
+
+message PrepareLaunchResponse {
+  string launch_id = 1;
+  string attempt_id = 2;
+  string launch_key = 3;
+  string launch_epoch = 4;
+  string inventory_version = 5;
+  bool existing = 6;
+}
+
+message RegisterInstanceRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string attempt_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string launch_key = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 63
+  }];
+  string backend = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string job_uid = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string pod_uid = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string image_digest = 7 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message RegisterInstanceResponse {
+  PhysicalInstance instance = 1;
+  bool existing = 2;
+}
+
+message ObserveInstanceRequest {
+  string attempt_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string instance_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  InstancePhase phase = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional int32 exit_code = 4;
+  google.protobuf.Timestamp observed_at = 5 [(buf.validate.field).required = true];
+}
+
+message ObserveInstanceResponse {
+  PhysicalInstance instance = 1;
+}
+
+message AcceptResultRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string attempt_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string instance_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string profile_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  Verdict verdict = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string result_digest = 6 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  // The reviewed small result manifest (contracts/jobs schema); bounded.
+  bytes result_manifest = 7 [(buf.validate.field).bytes.max_len = 16384];
+  string observer_identity = 8 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  optional string failure_code = 9 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message AcceptResultResponse {
+  AcceptedStage stage = 1;
+  bool existing = 2;
+}
+
+message GetAcceptedStageRequest {
+  string attempt_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetAcceptedStageResponse {
+  AcceptedStage stage = 1;
+}
+
+message CloseAttemptRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string attempt_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  AttemptOutcome outcome = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  CleanupState cleanup = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional string failure_code = 5 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message CloseAttemptResponse {
+  Attempt attempt = 1;
+  OperationView operation = 2;
+  bool existing = 3;
+}

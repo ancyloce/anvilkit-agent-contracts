@@ -1,0 +1,120 @@
+// Scoped artifact transfer and acceptance (DD-02 §6). Trusted flows receive an
+// object-scoped capability; candidates receive only an opaque handle. Finalize
+// verifies the actual object version, bytes, size and hash outside DB locks.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum ArtifactClass {
+  ARTIFACT_CLASS_UNSPECIFIED = 0;
+  ARTIFACT_CLASS_PROMPT = 1;
+  ARTIFACT_CLASS_BRIEF = 2;
+  ARTIFACT_CLASS_SOURCE = 3;
+  ARTIFACT_CLASS_STAGE = 4;
+  ARTIFACT_CLASS_RESULT = 5;
+  ARTIFACT_CLASS_EVIDENCE = 6;
+  ARTIFACT_CLASS_ANSWER = 7;
+  ARTIFACT_CLASS_ARGUMENT = 8;
+}
+
+enum TransferState {
+  TRANSFER_STATE_UNSPECIFIED = 0;
+  TRANSFER_STATE_BEGUN = 1;
+  TRANSFER_STATE_FINALIZED = 2;
+  TRANSFER_STATE_REJECTED = 3;
+  TRANSFER_STATE_EXPIRED = 4;
+}
+
+message Transfer {
+  string transfer_id = 1;
+  string handle = 2;
+  ArtifactClass class = 3;
+  string expected_digest = 4;
+  string expected_size = 5;
+  TransferState state = 6;
+  google.protobuf.Timestamp deadline = 7;
+  optional string object_version = 8;
+  optional string reason_code = 9;
+}
+
+service ArtifactService {
+  rpc BeginTransfer(BeginTransferRequest) returns (BeginTransferResponse);
+  // Resolves an opaque handle to a scoped capability for a trusted caller only.
+  rpc ResolveHandle(ResolveHandleRequest) returns (ResolveHandleResponse);
+  rpc FinalizeTransfer(FinalizeTransferRequest) returns (FinalizeTransferResponse);
+  rpc GetTransfer(GetTransferRequest) returns (GetTransferResponse);
+}
+
+message BeginTransferRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  ArtifactClass class = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string expected_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string expected_size = 5 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string media_type = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  optional string operation_id = 7 [(buf.validate.field).string = {max_len: 128}];
+  optional string attempt_id = 8 [(buf.validate.field).string = {max_len: 128}];
+  google.protobuf.Timestamp deadline = 9 [(buf.validate.field).required = true];
+}
+
+message BeginTransferResponse {
+  Transfer transfer = 1;
+  bool existing = 2;
+}
+
+message ResolveHandleRequest {
+  string handle = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string instance_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message ResolveHandleResponse {
+  Transfer transfer = 1;
+  // Scoped capability for the trusted sidecar; never returned to a candidate.
+  string capability = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message FinalizeTransferRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string transfer_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string object_version = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string instance_id = 4 [(buf.validate.field).string = {max_len: 128}];
+}
+
+message FinalizeTransferResponse {
+  Transfer transfer = 1;
+  bool existing = 2;
+}
+
+message GetTransferRequest {
+  string transfer_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetTransferResponse {
+  Transfer transfer = 1;
+}

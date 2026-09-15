@@ -1,0 +1,1323 @@
+openapi: 3.0.3
+info:
+  title: AnvilKit Agent API
+  version: "1"
+  description: |
+    Public REST/SSE contract of anvilkit-agent-api (contracts.md §3). Initial protocol v1.
+    Every object is strict: unknown members, duplicate members and null substitutes for
+    absent optional fields are rejected. IDs are opaque strings; revisions, sequences and
+    64-bit counters are canonical unsigned decimal strings; money is an integer quantity at
+    scale 6 carried as a decimal string; timestamps are UTC RFC3339; digests are
+    "sha256:" plus 64 lowercase hexadecimal characters. Scope comes from the authenticated
+    principal, never from the request body. Public JSON is not ProtoJSON.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: operations
+  - name: preparations
+  - name: knowledge
+  - name: memories
+  - name: mcp
+  - name: artifacts
+
+paths:
+  /preparations:
+    post:
+      tags: [preparations]
+      operationId: createPreparation
+      summary: API-01 accept a prompt into a Preparation operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePreparationRequest" }
+      responses:
+        "202":
+          description: Accepted after intake inventory confirmation; the same commandId and digest return the original operation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationView" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/Exhausted" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /preparations/{operationId}/answers:
+    post:
+      tags: [preparations]
+      operationId: submitAnswer
+      summary: API-06 submit a clarification answer bound to the current question set revision
+      parameters:
+        - $ref: "#/components/parameters/operationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitAnswerRequest" }
+      responses:
+        "202":
+          description: Answer committed with its relay intent; one tracked Update follows.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnswerReceipt" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /operations:
+    post:
+      tags: [operations]
+      operationId: createOperation
+      summary: API-02 create a generation, refinement, preview, release or local-check operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateOperationRequest" }
+      responses:
+        "202":
+          description: Accepted; the same commandId and digest return the original operation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationView" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/Exhausted" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /operations/{operationId}:
+    get:
+      tags: [operations]
+      operationId: getOperation
+      summary: API-03 one committed projection of the operation
+      parameters:
+        - $ref: "#/components/parameters/operationId"
+      responses:
+        "200":
+          description: Current committed projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationView" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /operations/{operationId}/events:
+    get:
+      tags: [operations]
+      operationId: streamOperationEvents
+      summary: API-04 authorized SSE of durable operation events after a cursor
+      description: |
+        Server-Sent Events. `id` carries the eventSeq cursor; reconnect with `Last-Event-ID` or
+        `after`. Each `operation.changed` event's `data` is an OperationEventFrame. A cursor
+        before retention yields one `reset_required` event whose data is a ResetFrame; fetch
+        the snapshot and continue from coveredEventSeq. Slow consumers are disconnected;
+        disconnection never cancels the operation.
+      parameters:
+        - $ref: "#/components/parameters/operationId"
+        - name: after
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Sequence" }
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema: { $ref: "#/components/schemas/Sequence" }
+      responses:
+        "200":
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /operations/{operationId}/commands:
+    post:
+      tags: [operations]
+      operationId: submitCommand
+      summary: API-05 submit a tracked control command
+      parameters:
+        - $ref: "#/components/parameters/operationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitCommandRequest" }
+      responses:
+        "202":
+          description: Tracked; acceptance does not mean execution or spending stopped.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandReceipt" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /operations/{operationId}/commands/{commandId}:
+    get:
+      tags: [operations]
+      operationId: getCommand
+      summary: Query the original tracked command
+      parameters:
+        - $ref: "#/components/parameters/operationId"
+        - name: commandId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "200":
+          description: Original command receipt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommandReceipt" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /knowledge/sources:
+    post:
+      tags: [knowledge]
+      operationId: registerSource
+      summary: API-07 register an approved source reference for ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterSourceRequest" }
+      responses:
+        "202":
+          description: Ingest request committed with the trusted ACL snapshot.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Source" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /knowledge/sources/{sourceId}:
+    get:
+      tags: [knowledge]
+      operationId: getSource
+      summary: Read a source with its current ACL revision and ingest state
+      parameters:
+        - $ref: "#/components/parameters/sourceId"
+      responses:
+        "200":
+          description: Source.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [knowledge]
+      operationId: deleteSource
+      summary: API-14 block readability now; projections are cleared asynchronously
+      parameters:
+        - $ref: "#/components/parameters/sourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeleteSourceRequest" }
+      responses:
+        "200":
+          description: Source marked deleted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Source" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /knowledge/sources/{sourceId}/access:
+    put:
+      tags: [knowledge]
+      operationId: replaceSourceAccess
+      summary: API-13 replace the trusted ACL under an expected ACL revision
+      parameters:
+        - $ref: "#/components/parameters/sourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReplaceSourceAccessRequest" }
+      responses:
+        "200":
+          description: ACL replaced; revocation applies on the next read.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Source" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /knowledge/searches:
+    post:
+      tags: [knowledge]
+      operationId: search
+      summary: API-08 cited context under current authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SearchRequest" }
+      responses:
+        "200":
+          description: Cited context; no unauthorized counts or text.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchResponse" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /memories:
+    post:
+      tags: [memories]
+      operationId: proposeMemory
+      summary: API-09 propose a memory fact; models never confirm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProposeMemoryRequest" }
+      responses:
+        "201":
+          description: Proposed fact.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemoryFact" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /memories/{factId}/decisions:
+    post:
+      tags: [memories]
+      operationId: decideMemory
+      summary: API-09 authorized confirm, reject or revoke under expected revision
+      parameters:
+        - name: factId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemoryDecisionRequest" }
+      responses:
+        "200":
+          description: Fact after the decision.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemoryFact" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /mcp/catalog:
+    get:
+      tags: [mcp]
+      operationId: listCatalog
+      summary: API-10 visible reviewed catalog; visibility is not a grant
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/CatalogState" }
+        - $ref: "#/components/parameters/cursor"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: Catalog page.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CatalogPage" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /mcp/catalog/{serverId}/reviews:
+    post:
+      tags: [mcp]
+      operationId: reviewDescriptor
+      summary: API-15 authorized review decision bound to the exact descriptor digest
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewDescriptorRequest" }
+      responses:
+        "200":
+          description: Descriptor after the review decision.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Descriptor" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /mcp/grants:
+    post:
+      tags: [mcp]
+      operationId: createGrant
+      summary: API-10 create a grant bound to a descriptor revision and method scope
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateGrantRequest" }
+      responses:
+        "201":
+          description: Grant; active only after Control's registration receipt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Grant" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /mcp/grants/{grantId}:
+    get:
+      tags: [mcp]
+      operationId: getGrant
+      summary: Read a grant and its revocation progress
+      parameters:
+        - $ref: "#/components/parameters/grantId"
+      responses:
+        "200":
+          description: Grant.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Grant" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /mcp/grants/{grantId}/revocations:
+    post:
+      tags: [mcp]
+      operationId: revokeGrant
+      summary: API-16 revoke; new admission is blocked immediately, convergence is tracked
+      parameters:
+        - $ref: "#/components/parameters/grantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RevokeGrantRequest" }
+      responses:
+        "202":
+          description: Revocation committed as REVOKING; the receipt distinguishes blocked admission from converged senders.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Grant" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /mcp/calls:
+    post:
+      tags: [mcp]
+      operationId: createToolCall
+      summary: API-11 create a tracked tool call
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateToolCallRequest" }
+      responses:
+        "202":
+          description: Tracked call; querying its outcome never sends again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolCall" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/Exhausted" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /mcp/calls/{callId}:
+    get:
+      tags: [mcp]
+      operationId: getToolCall
+      summary: API-11 query the original call outcome
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "200":
+          description: Call.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolCall" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /artifacts/transfers:
+    post:
+      tags: [artifacts]
+      operationId: beginTransfer
+      summary: API-12 begin a scoped artifact transfer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BeginTransferRequest" }
+      responses:
+        "201":
+          description: Transfer with an opaque handle; trusted flows also receive a scoped capability.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transfer" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /artifacts/{handle}/finalizations:
+    post:
+      tags: [artifacts]
+      operationId: finalizeTransfer
+      summary: API-12 finalize after verifying actual bytes, size, hash and object version
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Handle" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinalizeTransferRequest" }
+      responses:
+        "200":
+          description: Finalized transfer.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transfer" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Verified through the real IdP protocol (A12); a local fixture issuer is development-only.
+
+  parameters:
+    operationId:
+      name: operationId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    sourceId:
+      name: sourceId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    grantId:
+      name: grantId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 512
+    limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+
+  responses:
+    InvalidArgument:
+      description: INVALID_ARGUMENT
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Unauthenticated:
+      description: UNAUTHENTICATED
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Forbidden:
+      description: FORBIDDEN
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: NOT_FOUND (scope-bound; existence outside the caller's scope is not disclosed)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Conflict:
+      description: REVISION_CONFLICT or IDEMPOTENCY_CONFLICT or STALE_EXECUTION
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Exhausted:
+      description: CAPACITY_EXHAUSTED or BUDGET_EXHAUSTED
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Unavailable:
+      description: DEPENDENCY_UNAVAILABLE
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  schemas:
+    # ---- values ----
+    Id:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    Handle:
+      type: string
+      minLength: 1
+      maxLength: 256
+      pattern: "^[A-Za-z0-9._:-]+$"
+    Digest:
+      type: string
+      pattern: "^sha256:[0-9a-f]{64}$"
+    Sequence:
+      description: Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+      type: string
+      pattern: "^(0|[1-9][0-9]{0,19})$"
+    Revision:
+      $ref: "#/components/schemas/Sequence"
+    Timestamp:
+      type: string
+      format: date-time
+      pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+    Money:
+      type: object
+      additionalProperties: false
+      required: [currency, amount]
+      properties:
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        amount:
+          description: Integer quantity at scale 6 as a decimal string; never a float.
+          type: string
+          pattern: "^-?(0|[1-9][0-9]{0,29})$"
+    ArtifactBinding:
+      description: A finalized transfer and the digest the caller expects it to hold.
+      type: object
+      additionalProperties: false
+      required: [transferId, digest]
+      properties:
+        transferId: { $ref: "#/components/schemas/Id" }
+        digest: { $ref: "#/components/schemas/Digest" }
+    SourceReference:
+      type: object
+      additionalProperties: false
+      required: [sourceId, revision]
+      properties:
+        sourceId: { $ref: "#/components/schemas/Id" }
+        revision: { $ref: "#/components/schemas/Revision" }
+
+    # ---- errors ----
+    ErrorCode:
+      type: string
+      enum:
+        - INVALID_ARGUMENT
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - REVISION_CONFLICT
+        - IDEMPOTENCY_CONFLICT
+        - CAPACITY_EXHAUSTED
+        - BUDGET_EXHAUSTED
+        - STALE_EXECUTION
+        - PROFILE_UNQUALIFIED
+        - EFFECT_UNCERTAIN
+        - DEPENDENCY_UNAVAILABLE
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId, retryable]
+          properties:
+            code: { $ref: "#/components/schemas/ErrorCode" }
+            message:
+              type: string
+              maxLength: 512
+            requestId: { $ref: "#/components/schemas/Id" }
+            retryable:
+              type: boolean
+            details:
+              description: Allowlisted detail fields only; never source text, upstream bodies or credentials.
+              type: object
+              additionalProperties: false
+              properties:
+                field:
+                  type: string
+                  maxLength: 128
+                expectedRevision: { $ref: "#/components/schemas/Revision" }
+                currentRevision: { $ref: "#/components/schemas/Revision" }
+                coveredEventSeq: { $ref: "#/components/schemas/Sequence" }
+
+    # ---- operations ----
+    OperationKind:
+      type: string
+      enum: [preparation, generation, refinement, preview_build, release, local_check]
+    Lifecycle:
+      type: string
+      enum: [accepted, running, waiting, reconciling, suspended, succeeded, failed, canceled]
+    ControlState:
+      type: string
+      enum: [none, cancel_pending, cancel_applied, hold_pending, hold_applied]
+    CleanupState:
+      type: string
+      enum: [not_required, pending, complete, unknown]
+    FinanceState:
+      type: string
+      enum: [not_funded, funded, settling, settled, exposure_unknown]
+    OperationSubject:
+      type: object
+      additionalProperties: false
+      required: [profileId, subjectDigest]
+      properties:
+        profileId: { $ref: "#/components/schemas/Id" }
+        subjectDigest: { $ref: "#/components/schemas/Digest" }
+        briefId: { $ref: "#/components/schemas/Id" }
+        sourceRevision: { $ref: "#/components/schemas/Revision" }
+    OperationView:
+      type: object
+      additionalProperties: false
+      required:
+        - operationId
+        - tenantId
+        - actorId
+        - kind
+        - subject
+        - lifecycle
+        - phase
+        - control
+        - cleanup
+        - finance
+        - revision
+        - coveredEventSeq
+        - executionEpoch
+        - createdAt
+        - updatedAt
+        - deadline
+      properties:
+        operationId: { $ref: "#/components/schemas/Id" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        projectId: { $ref: "#/components/schemas/Id" }
+        actorId: { $ref: "#/components/schemas/Id" }
+        kind: { $ref: "#/components/schemas/OperationKind" }
+        subject: { $ref: "#/components/schemas/OperationSubject" }
+        lifecycle: { $ref: "#/components/schemas/Lifecycle" }
+        phase:
+          type: string
+          maxLength: 64
+        control: { $ref: "#/components/schemas/ControlState" }
+        cleanup: { $ref: "#/components/schemas/CleanupState" }
+        finance: { $ref: "#/components/schemas/FinanceState" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        coveredEventSeq: { $ref: "#/components/schemas/Sequence" }
+        executionEpoch: { $ref: "#/components/schemas/Sequence" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+        deadline: { $ref: "#/components/schemas/Timestamp" }
+        failureCode:
+          type: string
+          maxLength: 64
+    CreatePreparationRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, prompt]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        prompt: { $ref: "#/components/schemas/ArtifactBinding" }
+        brandReferences:
+          type: array
+          maxItems: 16
+          items: { $ref: "#/components/schemas/SourceReference" }
+        assetReferences:
+          type: array
+          maxItems: 64
+          items: { $ref: "#/components/schemas/SourceReference" }
+    CreateOperationRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, kind, subject]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        kind:
+          type: string
+          enum: [generation, refinement, preview_build, release, local_check]
+        subject: { $ref: "#/components/schemas/OperationSubject" }
+    CommandKind:
+      type: string
+      enum: [cancel, hold, resume, change_definition]
+    CommandOutcome:
+      type: string
+      enum: [pending, applied, blocked, rejected]
+    SubmitCommandRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, kind, expectedRevision]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        kind: { $ref: "#/components/schemas/CommandKind" }
+        expectedRevision: { $ref: "#/components/schemas/Revision" }
+        targetDefinitionActivation: { $ref: "#/components/schemas/Id" }
+    CommandReceipt:
+      type: object
+      additionalProperties: false
+      required: [commandId, operationId, kind, outcome, operationRevision, acceptedAt]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        operationId: { $ref: "#/components/schemas/Id" }
+        kind: { $ref: "#/components/schemas/CommandKind" }
+        outcome: { $ref: "#/components/schemas/CommandOutcome" }
+        operationRevision: { $ref: "#/components/schemas/Revision" }
+        reasonCode:
+          type: string
+          maxLength: 64
+        acceptedAt: { $ref: "#/components/schemas/Timestamp" }
+        settledAt: { $ref: "#/components/schemas/Timestamp" }
+    OperationEventFrame:
+      description: The `data` of an SSE `operation.changed` event.
+      type: object
+      additionalProperties: false
+      required: [operationId, eventSeq, transitionId, eventType, revision, occurredAt, payload]
+      properties:
+        operationId: { $ref: "#/components/schemas/Id" }
+        eventSeq: { $ref: "#/components/schemas/Sequence" }
+        transitionId: { $ref: "#/components/schemas/Id" }
+        eventType:
+          type: string
+          enum: [operation.changed]
+        revision: { $ref: "#/components/schemas/Revision" }
+        occurredAt: { $ref: "#/components/schemas/Timestamp" }
+        payload:
+          type: object
+          additionalProperties: false
+          required: [lifecycle, phase, control, cleanup, finance]
+          properties:
+            lifecycle: { $ref: "#/components/schemas/Lifecycle" }
+            phase:
+              type: string
+              maxLength: 64
+            control: { $ref: "#/components/schemas/ControlState" }
+            cleanup: { $ref: "#/components/schemas/CleanupState" }
+            finance: { $ref: "#/components/schemas/FinanceState" }
+            failureCode:
+              type: string
+              maxLength: 64
+    ResetFrame:
+      description: The `data` of an SSE `reset_required` event.
+      type: object
+      additionalProperties: false
+      required: [operationId, coveredEventSeq]
+      properties:
+        operationId: { $ref: "#/components/schemas/Id" }
+        coveredEventSeq: { $ref: "#/components/schemas/Sequence" }
+    SubmitAnswerRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, questionSetId, questionSetRevision, answer]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        questionSetId: { $ref: "#/components/schemas/Id" }
+        questionSetRevision: { $ref: "#/components/schemas/Revision" }
+        answer: { $ref: "#/components/schemas/ArtifactBinding" }
+    AnswerReceipt:
+      type: object
+      additionalProperties: false
+      required: [answerId, operationId, questionSetId, questionSetRevision, updateId, acceptedAt]
+      properties:
+        answerId: { $ref: "#/components/schemas/Id" }
+        operationId: { $ref: "#/components/schemas/Id" }
+        questionSetId: { $ref: "#/components/schemas/Id" }
+        questionSetRevision: { $ref: "#/components/schemas/Revision" }
+        updateId: { $ref: "#/components/schemas/Id" }
+        acceptedAt: { $ref: "#/components/schemas/Timestamp" }
+
+    # ---- knowledge ----
+    SourceKind:
+      type: string
+      enum: [document, url, repository, brand]
+    IngestState:
+      type: string
+      enum: [pending, parsing, indexing, indexed, failed, stale]
+    AccessEntry:
+      type: object
+      additionalProperties: false
+      required: [principalType, principalId]
+      properties:
+        principalType:
+          type: string
+          enum: [tenant, project, actor, role]
+        principalId: { $ref: "#/components/schemas/Id" }
+    RegisterSourceRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, kind, locator, contentDigest, mediaType, sizeBytes]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        kind: { $ref: "#/components/schemas/SourceKind" }
+        locator:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        contentDigest: { $ref: "#/components/schemas/Digest" }
+        mediaType:
+          type: string
+          minLength: 1
+          maxLength: 128
+        sizeBytes: { $ref: "#/components/schemas/Sequence" }
+        access:
+          type: array
+          maxItems: 256
+          items: { $ref: "#/components/schemas/AccessEntry" }
+    ReplaceSourceAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, expectedAclRevision, access]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        expectedAclRevision: { $ref: "#/components/schemas/Revision" }
+        access:
+          type: array
+          maxItems: 256
+          items: { $ref: "#/components/schemas/AccessEntry" }
+    DeleteSourceRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, expectedRevision]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        expectedRevision: { $ref: "#/components/schemas/Revision" }
+    Source:
+      type: object
+      additionalProperties: false
+      required: [sourceId, tenantId, kind, locator, currentRevision, contentDigest, aclRevision, access, ingest, deleted, createdAt, updatedAt]
+      properties:
+        sourceId: { $ref: "#/components/schemas/Id" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        projectId: { $ref: "#/components/schemas/Id" }
+        kind: { $ref: "#/components/schemas/SourceKind" }
+        locator:
+          type: string
+          maxLength: 2048
+        currentRevision: { $ref: "#/components/schemas/Revision" }
+        contentDigest: { $ref: "#/components/schemas/Digest" }
+        aclRevision: { $ref: "#/components/schemas/Revision" }
+        access:
+          type: array
+          items: { $ref: "#/components/schemas/AccessEntry" }
+        ingest: { $ref: "#/components/schemas/IngestState" }
+        ingestRequestId: { $ref: "#/components/schemas/Id" }
+        deleted:
+          type: boolean
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+    SearchRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshotId, query, retrievalProfileId]
+      properties:
+        snapshotId: { $ref: "#/components/schemas/Id" }
+        query:
+          type: string
+          minLength: 1
+          maxLength: 8192
+        maxContextItems:
+          type: integer
+          minimum: 1
+          maximum: 64
+        retrievalProfileId: { $ref: "#/components/schemas/Id" }
+    Citation:
+      type: object
+      additionalProperties: false
+      required: [ordinal, sourceId, sourceRevision, chunkId, locator, contentDigest]
+      properties:
+        ordinal: { $ref: "#/components/schemas/Sequence" }
+        sourceId: { $ref: "#/components/schemas/Id" }
+        sourceRevision: { $ref: "#/components/schemas/Revision" }
+        chunkId: { $ref: "#/components/schemas/Id" }
+        locator:
+          type: string
+          maxLength: 512
+        contentDigest: { $ref: "#/components/schemas/Digest" }
+    ContextItem:
+      type: object
+      additionalProperties: false
+      required: [citation, text]
+      properties:
+        citation: { $ref: "#/components/schemas/Citation" }
+        text:
+          type: string
+          maxLength: 65536
+    SearchResponse:
+      type: object
+      additionalProperties: false
+      required: [items, noAnswer, indexGeneration]
+      properties:
+        items:
+          type: array
+          maxItems: 64
+          items: { $ref: "#/components/schemas/ContextItem" }
+        noAnswer:
+          type: boolean
+        indexGeneration: { $ref: "#/components/schemas/Sequence" }
+
+    # ---- memories ----
+    FactState:
+      type: string
+      enum: [proposed, confirmed, rejected, revoked, expired]
+    ProposeMemoryRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, subjectType, subjectId, content]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        subjectType:
+          type: string
+          minLength: 1
+          maxLength: 64
+        subjectId: { $ref: "#/components/schemas/Id" }
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        sourceRefs:
+          type: array
+          maxItems: 32
+          items: { $ref: "#/components/schemas/Id" }
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+    MemoryDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, expectedRevision, decision]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        expectedRevision: { $ref: "#/components/schemas/Revision" }
+        decision:
+          type: string
+          enum: [confirm, reject, revoke]
+        reasonCode:
+          type: string
+          maxLength: 64
+    MemoryFact:
+      type: object
+      additionalProperties: false
+      required: [factId, tenantId, subjectType, subjectId, content, contentDigest, state, revision, proposer, createdAt, updatedAt]
+      properties:
+        factId: { $ref: "#/components/schemas/Id" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        subjectType:
+          type: string
+          maxLength: 64
+        subjectId: { $ref: "#/components/schemas/Id" }
+        content:
+          type: string
+          maxLength: 4096
+        contentDigest: { $ref: "#/components/schemas/Digest" }
+        state: { $ref: "#/components/schemas/FactState" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        proposer: { $ref: "#/components/schemas/Id" }
+        confirmer: { $ref: "#/components/schemas/Id" }
+        sourceRefs:
+          type: array
+          items: { $ref: "#/components/schemas/Id" }
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+
+    # ---- mcp ----
+    CatalogState:
+      type: string
+      enum: [discovered, review_pending, approved, rejected, disabled]
+    ToolSchema:
+      type: object
+      additionalProperties: false
+      required: [method, inputSchemaDigest, outputSchemaDigest, sideEffecting]
+      properties:
+        method:
+          type: string
+          minLength: 1
+          maxLength: 256
+        inputSchemaDigest: { $ref: "#/components/schemas/Digest" }
+        outputSchemaDigest: { $ref: "#/components/schemas/Digest" }
+        sideEffecting:
+          type: boolean
+        unitPrice: { $ref: "#/components/schemas/Money" }
+    Descriptor:
+      type: object
+      additionalProperties: false
+      required: [serverId, revision, canonicalResource, transport, protocolVersion, descriptorDigest, tools, state, createdAt, updatedAt]
+      properties:
+        serverId: { $ref: "#/components/schemas/Id" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        canonicalResource:
+          type: string
+          maxLength: 2048
+        transport:
+          type: string
+          enum: [streamable-http, stdio]
+        protocolVersion:
+          type: string
+          maxLength: 32
+        descriptorDigest: { $ref: "#/components/schemas/Digest" }
+        tools:
+          type: array
+          items: { $ref: "#/components/schemas/ToolSchema" }
+        state: { $ref: "#/components/schemas/CatalogState" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+    CatalogPage:
+      type: object
+      additionalProperties: false
+      required: [descriptors]
+      properties:
+        descriptors:
+          type: array
+          items: { $ref: "#/components/schemas/Descriptor" }
+        nextCursor:
+          type: string
+          maxLength: 512
+    ReviewDescriptorRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, revision, descriptorDigest, decision]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        descriptorDigest: { $ref: "#/components/schemas/Digest" }
+        decision:
+          type: string
+          enum: [approve, reject, disable]
+        reasonCode:
+          type: string
+          maxLength: 64
+    GrantState:
+      type: string
+      enum: [pending, active, revoking, revoked, expired, registration_failed]
+    CreateGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, subjectType, subjectId, serverId, descriptorRevision, descriptorDigest, methods, purpose, costCap]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        subjectType:
+          type: string
+          enum: [tenant, project, actor, role]
+        subjectId: { $ref: "#/components/schemas/Id" }
+        serverId: { $ref: "#/components/schemas/Id" }
+        descriptorRevision: { $ref: "#/components/schemas/Revision" }
+        descriptorDigest: { $ref: "#/components/schemas/Digest" }
+        methods:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 256
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 256
+        costCap: { $ref: "#/components/schemas/Money" }
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+    RevokeGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, expectedRevision]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        expectedRevision: { $ref: "#/components/schemas/Revision" }
+        reasonCode:
+          type: string
+          maxLength: 64
+    Grant:
+      type: object
+      additionalProperties: false
+      required: [grantId, revision, tenantId, subjectType, subjectId, serverId, descriptorRevision, descriptorDigest, methods, purpose, costCap, state, newAdmissionBlocked, sendersConverged, createdAt, updatedAt]
+      properties:
+        grantId: { $ref: "#/components/schemas/Id" }
+        revision: { $ref: "#/components/schemas/Revision" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        subjectType:
+          type: string
+          enum: [tenant, project, actor, role]
+        subjectId: { $ref: "#/components/schemas/Id" }
+        serverId: { $ref: "#/components/schemas/Id" }
+        descriptorRevision: { $ref: "#/components/schemas/Revision" }
+        descriptorDigest: { $ref: "#/components/schemas/Digest" }
+        methods:
+          type: array
+          items:
+            type: string
+        purpose:
+          type: string
+          maxLength: 256
+        costCap: { $ref: "#/components/schemas/Money" }
+        state: { $ref: "#/components/schemas/GrantState" }
+        newAdmissionBlocked:
+          type: boolean
+        sendersConverged:
+          type: boolean
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+    CallState:
+      type: string
+      enum: [accepted, admitted, sent, succeeded, failed, denied, unknown, canceled]
+    CreateToolCallRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, grantId, grantRevision, method, argument]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        grantId: { $ref: "#/components/schemas/Id" }
+        grantRevision: { $ref: "#/components/schemas/Revision" }
+        method:
+          type: string
+          minLength: 1
+          maxLength: 256
+        argument: { $ref: "#/components/schemas/ArtifactBinding" }
+        operationId: { $ref: "#/components/schemas/Id" }
+        attemptId: { $ref: "#/components/schemas/Id" }
+    ToolCall:
+      type: object
+      additionalProperties: false
+      required: [callId, tenantId, grantId, grantRevision, serverId, method, argumentDigest, state, createdAt, updatedAt]
+      properties:
+        callId: { $ref: "#/components/schemas/Id" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        grantId: { $ref: "#/components/schemas/Id" }
+        grantRevision: { $ref: "#/components/schemas/Revision" }
+        serverId: { $ref: "#/components/schemas/Id" }
+        method:
+          type: string
+          maxLength: 256
+        argumentDigest: { $ref: "#/components/schemas/Digest" }
+        state: { $ref: "#/components/schemas/CallState" }
+        resultDigest: { $ref: "#/components/schemas/Digest" }
+        failureCode:
+          type: string
+          maxLength: 64
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+
+    # ---- artifacts ----
+    ArtifactClass:
+      type: string
+      enum: [prompt, brief, source, stage, result, evidence, answer, argument]
+    TransferState:
+      type: string
+      enum: [begun, finalized, rejected, expired]
+    BeginTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, class, expectedDigest, expectedSize, mediaType]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        class: { $ref: "#/components/schemas/ArtifactClass" }
+        expectedDigest: { $ref: "#/components/schemas/Digest" }
+        expectedSize: { $ref: "#/components/schemas/Sequence" }
+        mediaType:
+          type: string
+          minLength: 1
+          maxLength: 128
+        operationId: { $ref: "#/components/schemas/Id" }
+        attemptId: { $ref: "#/components/schemas/Id" }
+    FinalizeTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, objectVersion]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        objectVersion:
+          type: string
+          minLength: 1
+          maxLength: 256
+    Transfer:
+      type: object
+      additionalProperties: false
+      required: [transferId, handle, class, expectedDigest, expectedSize, state, deadline]
+      properties:
+        transferId: { $ref: "#/components/schemas/Id" }
+        handle: { $ref: "#/components/schemas/Handle" }
+        class: { $ref: "#/components/schemas/ArtifactClass" }
+        expectedDigest: { $ref: "#/components/schemas/Digest" }
+        expectedSize: { $ref: "#/components/schemas/Sequence" }
+        state: { $ref: "#/components/schemas/TransferState" }
+        deadline: { $ref: "#/components/schemas/Timestamp" }
+        objectVersion:
+          type: string
+          maxLength: 256
+        uploadCapability:
+          description: Present only for trusted callers; never returned to a candidate.
+          type: string
+          maxLength: 4096

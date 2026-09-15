@@ -1,0 +1,131 @@
+{
+  "$comment": "Cross-runtime vectors for contracts/openapi/agent.yaml. `instance` cases are validated against the named component schema by tools/check-contracts.py (Python) and by the API's strict decoder tests (Go). `raw` cases are byte-exact documents the strict parser must reject before schema validation (duplicate members, trailing data, non-finite numbers).",
+  "cases": [
+    {
+      "name": "local-check create request",
+      "schema": "CreateOperationRequest",
+      "valid": true,
+      "instance": { "commandId": "cmd_01J9ABCDEF", "kind": "local_check", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" } }
+    },
+    {
+      "name": "create request with an unknown member is rejected",
+      "schema": "CreateOperationRequest",
+      "valid": false,
+      "instance": { "commandId": "cmd_01J9ABCDEF", "kind": "local_check", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "tenantId": "tenant_b" }
+    },
+    {
+      "name": "create request with null for an absent optional member is rejected",
+      "schema": "CreateOperationRequest",
+      "valid": false,
+      "instance": { "commandId": "cmd_01J9ABCDEF", "kind": "local_check", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "briefId": null } }
+    },
+    {
+      "name": "create request with a preparation kind is rejected on this endpoint",
+      "schema": "CreateOperationRequest",
+      "valid": false,
+      "instance": { "commandId": "cmd_01J9ABCDEF", "kind": "preparation", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" } }
+    },
+    {
+      "name": "create request with an uppercase digest is rejected",
+      "schema": "CreateOperationRequest",
+      "valid": false,
+      "instance": { "commandId": "cmd_01J9ABCDEF", "kind": "local_check", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0DC7FA9DB7237A2B5C96F70F59BB00F73BB86A0CA5554E91C312F9ADA26E18B3" } }
+    },
+    {
+      "name": "cancel command",
+      "schema": "SubmitCommandRequest",
+      "valid": true,
+      "instance": { "commandId": "cmd_cancel_1", "kind": "cancel", "expectedRevision": "3" }
+    },
+    {
+      "name": "command with a leading-zero revision is rejected",
+      "schema": "SubmitCommandRequest",
+      "valid": false,
+      "instance": { "commandId": "cmd_cancel_1", "kind": "cancel", "expectedRevision": "03" }
+    },
+    {
+      "name": "command with a numeric revision is rejected",
+      "schema": "SubmitCommandRequest",
+      "valid": false,
+      "instance": { "commandId": "cmd_cancel_1", "kind": "cancel", "expectedRevision": 3 }
+    },
+    {
+      "name": "operation view",
+      "schema": "OperationView",
+      "valid": true,
+      "instance": { "operationId": "op_01J9", "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a", "kind": "local_check", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "lifecycle": "running", "phase": "launching", "control": "none", "cleanup": "pending", "finance": "not_funded", "revision": "2", "coveredEventSeq": "2", "executionEpoch": "1", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:01.250Z", "deadline": "2026-09-14T12:02:00Z" }
+    },
+    {
+      "name": "operation view with a non-UTC timestamp is rejected",
+      "schema": "OperationView",
+      "valid": false,
+      "instance": { "operationId": "op_01J9", "tenantId": "tenant_a", "actorId": "user_a", "kind": "local_check", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "lifecycle": "running", "phase": "launching", "control": "none", "cleanup": "pending", "finance": "not_funded", "revision": "2", "coveredEventSeq": "2", "executionEpoch": "1", "createdAt": "2026-09-14T12:00:00+02:00", "updatedAt": "2026-09-14T12:00:01Z", "deadline": "2026-09-14T12:02:00Z" }
+    },
+    {
+      "name": "money with a float amount is rejected",
+      "schema": "Money",
+      "valid": false,
+      "instance": { "currency": "USD", "amount": 1.5 }
+    },
+    {
+      "name": "money as a scale-6 integer string",
+      "schema": "Money",
+      "valid": true,
+      "instance": { "currency": "USD", "amount": "1500000" }
+    },
+    {
+      "name": "error envelope",
+      "schema": "ErrorEnvelope",
+      "valid": true,
+      "instance": { "error": { "code": "REVISION_CONFLICT", "message": "expected revision 3, current 4", "requestId": "req_01J9", "retryable": false, "details": { "expectedRevision": "3", "currentRevision": "4" } } }
+    },
+    {
+      "name": "error envelope with an unlisted detail is rejected",
+      "schema": "ErrorEnvelope",
+      "valid": false,
+      "instance": { "error": { "code": "INVALID_ARGUMENT", "message": "bad", "requestId": "req_01J9", "retryable": false, "details": { "upstreamBody": "..." } } }
+    },
+    {
+      "name": "duplicate member is rejected by the strict parser",
+      "schema": "SubmitCommandRequest",
+      "valid": false,
+      "raw": "{\"commandId\":\"cmd_1\",\"kind\":\"cancel\",\"expectedRevision\":\"3\",\"expectedRevision\":\"4\"}"
+    },
+    {
+      "name": "trailing second value is rejected by the strict parser",
+      "schema": "SubmitCommandRequest",
+      "valid": false,
+      "raw": "{\"commandId\":\"cmd_1\",\"kind\":\"cancel\",\"expectedRevision\":\"3\"} {}"
+    },
+    {
+      "name": "non-finite number is rejected by the strict parser",
+      "schema": "Money",
+      "valid": false,
+      "raw": "{\"currency\":\"USD\",\"amount\":NaN}"
+    },
+    {
+      "name": "operation.changed SSE frame",
+      "schema": "OperationEventFrame",
+      "valid": true,
+      "instance": { "operationId": "op_01J9ABCDEF", "eventSeq": "3", "transitionId": "attempt:att_1:opened", "eventType": "operation.changed", "revision": "3", "occurredAt": "2026-09-14T12:00:01.250Z", "payload": { "lifecycle": "running", "phase": "attempt_open", "control": "none", "cleanup": "not_required", "finance": "not_funded" } }
+    },
+    {
+      "name": "SSE frame with a null failureCode is rejected (absence is omission)",
+      "schema": "OperationEventFrame",
+      "valid": false,
+      "instance": { "operationId": "op_01J9ABCDEF", "eventSeq": "3", "transitionId": "attempt:att_1:opened", "eventType": "operation.changed", "revision": "3", "occurredAt": "2026-09-14T12:00:01Z", "payload": { "lifecycle": "running", "phase": "attempt_open", "control": "none", "cleanup": "not_required", "finance": "not_funded", "failureCode": null } }
+    },
+    {
+      "name": "SSE frame with a lifecycle outside the enum is rejected",
+      "schema": "OperationEventFrame",
+      "valid": false,
+      "instance": { "operationId": "op_01J9ABCDEF", "eventSeq": "3", "transitionId": "t", "eventType": "operation.changed", "revision": "3", "occurredAt": "2026-09-14T12:00:01Z", "payload": { "lifecycle": "retrying", "phase": "x", "control": "none", "cleanup": "not_required", "finance": "not_funded" } }
+    },
+    {
+      "name": "reset_required SSE frame",
+      "schema": "ResetFrame",
+      "valid": true,
+      "instance": { "operationId": "op_01J9ABCDEF", "coveredEventSeq": "8" }
+    }
+  ]
+}

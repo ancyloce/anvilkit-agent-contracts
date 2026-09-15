@@ -1,0 +1,153 @@
+{
+  "$comment": "Cross-runtime vectors for contracts/openapi/model-proxy.yaml, the Model Proxy transport consumed by Go Activities and the trusted sidecar (P11). `instance` cases are validated against the named component schema by tools/check-contracts.py (Python) and tests/contracts (Go, kin-openapi over the generated embedded spec); `raw` cases must be rejected by the strict parser before schema validation.",
+  "cases": [
+    {
+      "name": "model call request with execution binding, one message and bounded exposure",
+      "schema": "ModelCallRequest",
+      "valid": true,
+      "instance": {
+        "callId": "call_01J9ABCDEF",
+        "binding": { "tenantId": "tenant_a", "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF", "instanceId": "inst_01J9ABCDEF", "executionEpoch": "1" },
+        "routeId": "route_planner_default",
+        "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "messages": [ { "role": "system", "content": "You are the planner." }, { "role": "user", "content": "Plan the hero component." } ],
+        "tools": [ { "name": "read_brief", "description": "Reads the frozen brief.", "inputSchemaDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" } ],
+        "maxOutputTokens": 4096,
+        "maxExposure": { "currency": "USD", "amount": "250000" },
+        "deadline": "2026-09-14T12:30:00Z"
+      }
+    },
+    {
+      "name": "model call request without an execution binding is rejected",
+      "schema": "ModelCallRequest",
+      "valid": false,
+      "instance": {
+        "callId": "call_01J9ABCDEF",
+        "routeId": "route_planner_default",
+        "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "messages": [ { "role": "user", "content": "Plan." } ],
+        "maxOutputTokens": 4096,
+        "maxExposure": { "currency": "USD", "amount": "250000" },
+        "deadline": "2026-09-14T12:30:00Z"
+      }
+    },
+    {
+      "name": "model call request with a floating-point exposure is rejected (money is a decimal string)",
+      "schema": "ModelCallRequest",
+      "valid": false,
+      "instance": {
+        "callId": "call_01J9ABCDEF",
+        "binding": { "tenantId": "tenant_a", "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF", "executionEpoch": "1" },
+        "routeId": "route_planner_default",
+        "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "messages": [ { "role": "user", "content": "Plan." } ],
+        "maxOutputTokens": 4096,
+        "maxExposure": { "currency": "USD", "amount": 0.25 },
+        "deadline": "2026-09-14T12:30:00Z"
+      }
+    },
+    {
+      "name": "model call request with a provider key member is rejected (keys never cross the transport)",
+      "schema": "ModelCallRequest",
+      "valid": false,
+      "instance": {
+        "callId": "call_01J9ABCDEF",
+        "binding": { "tenantId": "tenant_a", "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF", "executionEpoch": "1" },
+        "routeId": "route_planner_default",
+        "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "messages": [ { "role": "user", "content": "Plan." } ],
+        "maxOutputTokens": 4096,
+        "maxExposure": { "currency": "USD", "amount": "250000" },
+        "deadline": "2026-09-14T12:30:00Z",
+        "apiKey": "sk-not-allowed"
+      }
+    },
+    {
+      "name": "model call request with zero output tokens is rejected",
+      "schema": "ModelCallRequest",
+      "valid": false,
+      "instance": {
+        "callId": "call_01J9ABCDEF",
+        "binding": { "tenantId": "tenant_a", "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF", "executionEpoch": "1" },
+        "routeId": "route_planner_default",
+        "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "messages": [ { "role": "user", "content": "Plan." } ],
+        "maxOutputTokens": 0,
+        "maxExposure": { "currency": "USD", "amount": "250000" },
+        "deadline": "2026-09-14T12:30:00Z"
+      }
+    },
+    {
+      "name": "message with an unknown role is rejected",
+      "schema": "Message",
+      "valid": false,
+      "instance": { "role": "developer", "content": "x" }
+    },
+    {
+      "name": "admitted frame",
+      "schema": "StreamFrame",
+      "valid": true,
+      "instance": { "callId": "call_01J9ABCDEF", "sequence": "0", "type": "admitted" }
+    },
+    {
+      "name": "tool call frame with arguments digest",
+      "schema": "StreamFrame",
+      "valid": true,
+      "instance": { "callId": "call_01J9ABCDEF", "sequence": "7", "type": "tool_call", "toolCall": { "toolCallId": "tc_1", "name": "read_brief", "argumentsDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "arguments": "{}" } }
+    },
+    {
+      "name": "done frame with native usage counters as decimal strings",
+      "schema": "StreamFrame",
+      "valid": true,
+      "instance": { "callId": "call_01J9ABCDEF", "sequence": "12", "type": "done", "outcome": "succeeded", "usage": { "inputUnits": "1200", "outputUnits": "340", "reasoningUnits": "0", "cachedInputUnits": "0" } }
+    },
+    {
+      "name": "usage with numeric counters is rejected (counters are decimal strings)",
+      "schema": "Usage",
+      "valid": false,
+      "instance": { "inputUnits": 1200, "outputUnits": "340", "reasoningUnits": "0", "cachedInputUnits": "0" }
+    },
+    {
+      "name": "frame with a non-canonical sequence is rejected",
+      "schema": "StreamFrame",
+      "valid": false,
+      "instance": { "callId": "call_01J9ABCDEF", "sequence": "01", "type": "text", "text": "a" }
+    },
+    {
+      "name": "frame carrying a native provider body member is rejected",
+      "schema": "StreamFrame",
+      "valid": false,
+      "instance": { "callId": "call_01J9ABCDEF", "sequence": "3", "type": "text", "text": "a", "raw": { "provider": "body" } }
+    },
+    {
+      "name": "unknown call record: outcome stays unknown, no resend is implied",
+      "schema": "ModelCall",
+      "valid": true,
+      "instance": { "callId": "call_01J9ABCDEF", "routeId": "route_planner_default", "state": "unknown", "dispatchId": "dsp_01J9ABCDEF", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:09.5Z" }
+    },
+    {
+      "name": "call record with an unsupported state is rejected",
+      "schema": "ModelCall",
+      "valid": false,
+      "instance": { "callId": "call_01J9ABCDEF", "routeId": "route_planner_default", "state": "retrying", "dispatchId": "dsp_01J9ABCDEF", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:09Z" }
+    },
+    {
+      "name": "error envelope with a code outside the transport's set is rejected",
+      "schema": "ErrorEnvelope",
+      "valid": false,
+      "instance": { "error": { "code": "REVISION_CONFLICT", "message": "x", "requestId": "req_1", "retryable": false } }
+    },
+    {
+      "name": "duplicate callId member is rejected by the strict parser",
+      "schema": "ModelCallRequest",
+      "valid": false,
+      "raw": "{\"callId\":\"call_1\",\"callId\":\"call_2\"}"
+    },
+    {
+      "name": "non-finite number is rejected by the strict parser",
+      "schema": "ModelCallRequest",
+      "valid": false,
+      "raw": "{\"maxOutputTokens\":Infinity}"
+    }
+  ]
+}

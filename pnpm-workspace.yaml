@@ -1,0 +1,9 @@
+# The TypeScript consumer package (ts/) is the only workspace project; the
+# lockfile at this root pins its dependencies and the pinned generators
+# (ts-proto, openapi-typescript) that tools/generate.py invokes.
+packages:
+  - "ts"
+# protobufjs (transitive of @grpc/grpc-js) has a postinstall that only prints a
+# notice; its build script is denied so installs need no interactive approval.
+allowBuilds:
+  protobufjs: false

@@ -1,0 +1,120 @@
+{
+  "schema": "urn:anvilkit:components:v1",
+  "cases": [
+    {
+      "name": "complete source manifest",
+      "ref": "#/$defs/sourceManifest",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "sourceRevision": "3", "entry": "src/index.tsx",
+        "files": [
+          { "path": "src/index.tsx", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "sizeBytes": "1024" },
+          { "path": "src/hero.css", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "sizeBytes": "256" }
+        ],
+        "styles": ["src/hero.css"],
+        "dependencies": { "react": "19.1.0", "@measured/puck": "0.20.1" },
+        "lockfileDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "editableFields": [{ "name": "title", "type": "text", "default": "Hello" }],
+        "manifestDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    },
+    {
+      "name": "upward path is rejected",
+      "ref": "#/$defs/sourceManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "sourceRevision": "3", "entry": "src/index.tsx",
+        "files": [{ "path": "../etc/passwd", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "sizeBytes": "1" }],
+        "styles": [], "dependencies": {}, "lockfileDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "editableFields": [], "manifestDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    },
+    {
+      "name": "absolute path is rejected",
+      "ref": "#/$defs/sourceManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "sourceRevision": "3", "entry": "/src/index.tsx",
+        "files": [{ "path": "src/index.tsx", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "sizeBytes": "1" }],
+        "styles": [], "dependencies": {}, "lockfileDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "editableFields": [], "manifestDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    },
+    {
+      "name": "dependency range instead of exact version is rejected",
+      "ref": "#/$defs/sourceManifest",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "sourceRevision": "3", "entry": "src/index.tsx",
+        "files": [{ "path": "src/index.tsx", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "sizeBytes": "1" }],
+        "styles": [], "dependencies": { "react": "^19.0.0" }, "lockfileDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "editableFields": [], "manifestDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    },
+    {
+      "name": "build-support profile",
+      "ref": "#/$defs/buildSupportProfile",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "profileId": "build-support-v1", "revision": "1", "node": "24.19.0", "packageManager": "pnpm@12.3.4",
+        "typescript": "7.0.2", "react": "19.1.0", "puck": "0.20.1", "hostAbi": "host-abi-v1",
+        "allowedDependencies": { "react": "19.1.0", "@measured/puck": "0.20.1" },
+        "profileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    },
+    {
+      "name": "exact release subject",
+      "ref": "#/$defs/releaseSubject",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "sourceRevision": "3",
+        "sourceDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "packageName": "@anvilkit/hero", "version": "1.0.0",
+        "npm": { "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480" },
+        "browser": { "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192" },
+        "css": [{ "digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512" }],
+        "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "validatorProfileId": "validator-v1", "hostAbi": "host-abi-v1",
+        "destinations": { "npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid" },
+        "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "release subject without CSS receipts is rejected",
+      "ref": "#/$defs/releaseSubject",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "sourceRevision": "3",
+        "sourceDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "packageName": "@anvilkit/hero", "version": "1.0.0",
+        "npm": { "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480" },
+        "browser": { "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192" },
+        "css": [],
+        "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "validatorProfileId": "validator-v1", "hostAbi": "host-abi-v1",
+        "destinations": { "npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid" },
+        "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "remote component lock",
+      "ref": "#/$defs/remoteComponentLock",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero",
+        "packageVersion": "1.0.0", "browserManifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "hostProfileId": "host-abi-v1"
+      }
+    },
+    {
+      "name": "lock with 'latest' instead of an exact version is rejected",
+      "ref": "#/$defs/remoteComponentLock",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero",
+        "packageVersion": "latest", "browserManifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "hostProfileId": "host-abi-v1"
+      }
+    }
+  ]
+}

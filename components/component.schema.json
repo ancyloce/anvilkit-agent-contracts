@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:anvilkit:components:v1",
+  "title": "AnvilKit component contracts",
+  "description": "Complete source manifest, frozen build-support profile, exact ReleaseSubject and remote component lock (DD-04 §1/§4, DD-05 §2). A candidate's declared inventory is never trusted; the manifest is computed by the trusted harness from actual bytes. schemaVersion is 1.",
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sequence": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^([A-Za-z0-9_@-][A-Za-z0-9._@-]*|\\.[A-Za-z0-9_@-][A-Za-z0-9._@-]*)(/([A-Za-z0-9_@-][A-Za-z0-9._@-]*|\\.[A-Za-z0-9_@-][A-Za-z0-9._@-]*))*$",
+      "description": "Normalized relative path: no leading slash, no empty, \".\" or \"..\" segments (segments may start with a single dot), no case aliases (compared case-folded by the harness). RE2-compatible pattern so Go and Python agree."
+    },
+    "semver": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$" },
+    "packageName": { "type": "string", "pattern": "^(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$", "maxLength": 214 },
+    "fileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest", "sizeBytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "sizeBytes": { "$ref": "#/$defs/sequence" }
+      }
+    },
+    "sourceManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "componentId", "sourceRevision", "entry", "files", "styles", "dependencies", "lockfileDigest", "editableFields", "manifestDigest"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "componentId": { "$ref": "#/$defs/id" },
+        "sourceRevision": { "$ref": "#/$defs/sequence" },
+        "entry": { "$ref": "#/$defs/relativePath" },
+        "files": { "type": "array", "minItems": 1, "maxItems": 4096, "items": { "$ref": "#/$defs/fileEntry" } },
+        "styles": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/relativePath" } },
+        "dependencies": {
+          "type": "object",
+          "maxProperties": 256,
+          "propertyNames": { "$ref": "#/$defs/packageName" },
+          "additionalProperties": { "$ref": "#/$defs/semver" }
+        },
+        "lockfileDigest": { "$ref": "#/$defs/digest" },
+        "editableFields": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]{0,63}$" },
+              "type": { "type": "string", "enum": ["text", "textarea", "number", "select", "radio", "array", "object", "external", "custom"] },
+              "default": {}
+            }
+          }
+        },
+        "manifestDigest": { "$ref": "#/$defs/digest", "description": "Digest of the sorted path list and actual bytes computed by the trusted harness." }
+      }
+    },
+    "buildSupportProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "profileId", "revision", "node", "packageManager", "typescript", "react", "puck", "hostAbi", "allowedDependencies", "profileDigest"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "profileId": { "$ref": "#/$defs/id" },
+        "revision": { "$ref": "#/$defs/sequence" },
+        "node": { "$ref": "#/$defs/semver" },
+        "packageManager": { "type": "string", "pattern": "^pnpm@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "typescript": { "$ref": "#/$defs/semver" },
+        "react": { "$ref": "#/$defs/semver" },
+        "puck": { "$ref": "#/$defs/semver" },
+        "hostAbi": { "$ref": "#/$defs/id" },
+        "allowedDependencies": {
+          "type": "object",
+          "maxProperties": 512,
+          "propertyNames": { "$ref": "#/$defs/packageName" },
+          "additionalProperties": { "$ref": "#/$defs/semver" }
+        },
+        "profileDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "artifactReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["digest", "sizeBytes"],
+      "properties": {
+        "digest": { "$ref": "#/$defs/digest" },
+        "sizeBytes": { "$ref": "#/$defs/sequence" }
+      }
+    },
+    "releaseSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "componentId", "puckType", "sourceRevision", "sourceDigest", "packageName", "version", "npm", "browser", "css", "buildProfileId", "buildProfileDigest", "validatorProfileId", "hostAbi", "destinations", "certificationEvidenceDigest", "subjectDigest"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "componentId": { "$ref": "#/$defs/id" },
+        "puckType": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]{0,63}$" },
+        "sourceRevision": { "$ref": "#/$defs/sequence" },
+        "sourceDigest": { "$ref": "#/$defs/digest" },
+        "packageName": { "$ref": "#/$defs/packageName" },
+        "version": { "$ref": "#/$defs/semver" },
+        "npm": { "$ref": "#/$defs/artifactReceipt" },
+        "browser": { "$ref": "#/$defs/artifactReceipt" },
+        "css": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/artifactReceipt" } },
+        "buildProfileId": { "$ref": "#/$defs/id" },
+        "buildProfileDigest": { "$ref": "#/$defs/digest" },
+        "validatorProfileId": { "$ref": "#/$defs/id" },
+        "hostAbi": { "$ref": "#/$defs/id" },
+        "destinations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["npmRegistry", "browserOrigin"],
+          "properties": {
+            "npmRegistry": { "type": "string", "format": "uri", "maxLength": 512 },
+            "browserOrigin": { "type": "string", "format": "uri", "maxLength": 512 }
+          }
+        },
+        "certificationEvidenceDigest": { "$ref": "#/$defs/digest" },
+        "subjectDigest": { "$ref": "#/$defs/digest", "description": "Digest over every other field; any change creates a new subject requiring new approval." }
+      }
+    },
+    "remoteComponentLock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "componentId", "puckType", "releaseId", "packageName", "packageVersion", "browserManifestDigest", "hostProfileId"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "componentId": { "$ref": "#/$defs/id" },
+        "puckType": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]{0,63}$" },
+        "releaseId": { "$ref": "#/$defs/id" },
+        "packageName": { "$ref": "#/$defs/packageName" },
+        "packageVersion": { "$ref": "#/$defs/semver" },
+        "browserManifestDigest": { "$ref": "#/$defs/digest" },
+        "hostProfileId": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}

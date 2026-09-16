@@ -345,6 +345,7 @@ const (
 	ExecutionService_ObserveInstance_FullMethodName  = "/anvilkit.control.v1.ExecutionService/ObserveInstance"
 	ExecutionService_AcceptResult_FullMethodName     = "/anvilkit.control.v1.ExecutionService/AcceptResult"
 	ExecutionService_GetAcceptedStage_FullMethodName = "/anvilkit.control.v1.ExecutionService/GetAcceptedStage"
+	ExecutionService_GetInstance_FullMethodName      = "/anvilkit.control.v1.ExecutionService/GetInstance"
 	ExecutionService_CloseAttempt_FullMethodName     = "/anvilkit.control.v1.ExecutionService/CloseAttempt"
 )
 
@@ -369,6 +370,12 @@ type ExecutionServiceClient interface {
 	// idempotent; a different digest for the same attempt is ABORTED.
 	AcceptResult(ctx context.Context, in *AcceptResultRequest, opts ...grpc.CallOption) (*AcceptResultResponse, error)
 	GetAcceptedStage(ctx context.Context, in *GetAcceptedStageRequest, opts ...grpc.CallOption) (*GetAcceptedStageResponse, error)
+	// Reads the physical instance the trusted launcher registered for one Pod
+	// of a launch, with its attempt and scope: the trusted access sidecar's
+	// lookup of its own execution scope (DD-03 §4, P09). The Pod's own claim
+	// registers nothing; until the launcher's evidence is recorded the answer
+	// is NOT_FOUND, and an instance that is not current carries no authority.
+	GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error)
 	// Closes the attempt with its outcome and cleanup evidence and settles the
 	// operation lifecycle for single-attempt profiles.
 	CloseAttempt(ctx context.Context, in *CloseAttemptRequest, opts ...grpc.CallOption) (*CloseAttemptResponse, error)
@@ -442,6 +449,16 @@ func (c *executionServiceClient) GetAcceptedStage(ctx context.Context, in *GetAc
 	return out, nil
 }
 
+func (c *executionServiceClient) GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetInstanceResponse)
+	err := c.cc.Invoke(ctx, ExecutionService_GetInstance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *executionServiceClient) CloseAttempt(ctx context.Context, in *CloseAttemptRequest, opts ...grpc.CallOption) (*CloseAttemptResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CloseAttemptResponse)
@@ -473,6 +490,12 @@ type ExecutionServiceServer interface {
 	// idempotent; a different digest for the same attempt is ABORTED.
 	AcceptResult(context.Context, *AcceptResultRequest) (*AcceptResultResponse, error)
 	GetAcceptedStage(context.Context, *GetAcceptedStageRequest) (*GetAcceptedStageResponse, error)
+	// Reads the physical instance the trusted launcher registered for one Pod
+	// of a launch, with its attempt and scope: the trusted access sidecar's
+	// lookup of its own execution scope (DD-03 §4, P09). The Pod's own claim
+	// registers nothing; until the launcher's evidence is recorded the answer
+	// is NOT_FOUND, and an instance that is not current carries no authority.
+	GetInstance(context.Context, *GetInstanceRequest) (*GetInstanceResponse, error)
 	// Closes the attempt with its outcome and cleanup evidence and settles the
 	// operation lifecycle for single-attempt profiles.
 	CloseAttempt(context.Context, *CloseAttemptRequest) (*CloseAttemptResponse, error)
@@ -503,6 +526,9 @@ func (UnimplementedExecutionServiceServer) AcceptResult(context.Context, *Accept
 }
 func (UnimplementedExecutionServiceServer) GetAcceptedStage(context.Context, *GetAcceptedStageRequest) (*GetAcceptedStageResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAcceptedStage not implemented")
+}
+func (UnimplementedExecutionServiceServer) GetInstance(context.Context, *GetInstanceRequest) (*GetInstanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetInstance not implemented")
 }
 func (UnimplementedExecutionServiceServer) CloseAttempt(context.Context, *CloseAttemptRequest) (*CloseAttemptResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CloseAttempt not implemented")
@@ -636,6 +662,24 @@ func _ExecutionService_GetAcceptedStage_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ExecutionService_GetInstance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInstanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionServiceServer).GetInstance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionService_GetInstance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionServiceServer).GetInstance(ctx, req.(*GetInstanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ExecutionService_CloseAttempt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CloseAttemptRequest)
 	if err := dec(in); err != nil {
@@ -684,6 +728,10 @@ var ExecutionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAcceptedStage",
 			Handler:    _ExecutionService_GetAcceptedStage_Handler,
+		},
+		{
+			MethodName: "GetInstance",
+			Handler:    _ExecutionService_GetInstance_Handler,
 		},
 		{
 			MethodName: "CloseAttempt",

@@ -72,27 +72,39 @@ func validate(ref string, raw []byte) error {
 	return s.Validate(inst)
 }
 
+// ImageRef pins an image: a repository (completed with the launching
+// environment's registry when it names none) and the digest that is the
+// identity.
+type ImageRef struct {
+	Repository string `json:"repository"`
+	Digest     string `json:"digest"`
+}
+
 // Profile is a reviewed fixed Job profile (contracts/jobs/profiles.json).
 type Profile struct {
-	SchemaVersion int    `json:"schemaVersion"`
-	ProfileID     string `json:"profileId"`
-	Revision      string `json:"revision"`
-	JobKind       string `json:"jobKind"`
-	Description   string `json:"description,omitempty"`
-	Image         struct {
-		Repository string `json:"repository"`
-		Digest     string `json:"digest"`
-	} `json:"image"`
-	Entrypoint []string `json:"entrypoint"`
-	Resources  struct {
+	SchemaVersion int      `json:"schemaVersion"`
+	ProfileID     string   `json:"profileId"`
+	Revision      string   `json:"revision"`
+	JobKind       string   `json:"jobKind"`
+	Description   string   `json:"description,omitempty"`
+	Image         ImageRef `json:"image"`
+	// SidecarImage is the trusted access sidecar of a harness profile; its
+	// presence selects the two-container harness layout (DD-03 §5).
+	SidecarImage *ImageRef `json:"sidecarImage,omitempty"`
+	Entrypoint   []string  `json:"entrypoint"`
+	Resources    struct {
 		CPU    string `json:"cpu"`
 		Memory string `json:"memory"`
 	} `json:"resources"`
 	DeadlineSeconds int    `json:"deadlineSeconds"`
 	RuntimeClass    string `json:"runtimeClass,omitempty"`
 	CandidateCode   bool   `json:"candidateCode"`
-	ExpectedResult  *struct {
-		ResultDigest string `json:"resultDigest"`
+	// ExpectedResult is the one fixed result of a qualification fixture:
+	// its digest and byte size (a decimal string, as sizeBytes on the
+	// result manifest) the trusted observer and Control compare with.
+	ExpectedResult *struct {
+		ResultDigest    string `json:"resultDigest"`
+		ResultSizeBytes string `json:"resultSizeBytes"`
 	} `json:"expectedResult,omitempty"`
 }
 

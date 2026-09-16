@@ -126,6 +126,59 @@
       "schema": "ResetFrame",
       "valid": true,
       "instance": { "operationId": "op_01J9ABCDEF", "coveredEventSeq": "8" }
+    },
+    {
+      "name": "begin a prompt transfer",
+      "schema": "BeginTransferRequest",
+      "valid": true,
+      "instance": { "commandId": "xfer_01J9ABCDEF", "class": "prompt", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096", "mediaType": "text/plain" }
+    },
+    {
+      "name": "begin transfer of an unknown class is rejected",
+      "schema": "BeginTransferRequest",
+      "valid": false,
+      "instance": { "commandId": "xfer_01J9ABCDEF", "class": "npm", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096", "mediaType": "application/octet-stream" }
+    },
+    {
+      "name": "begin transfer with a numeric size is rejected",
+      "schema": "BeginTransferRequest",
+      "valid": false,
+      "instance": { "commandId": "xfer_01J9ABCDEF", "class": "prompt", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": 4096, "mediaType": "text/plain" }
+    },
+    {
+      "name": "finalize a transfer with the uploaded object version",
+      "schema": "FinalizeTransferRequest",
+      "valid": true,
+      "instance": { "commandId": "xfer_01J9ABCDEF:finalize", "objectVersion": "version:3f2a" }
+    },
+    {
+      "name": "a begun transfer with its upload capability",
+      "schema": "Transfer",
+      "valid": true,
+      "instance": {
+        "transferId": "xfer_01J9ABCDEF", "handle": "hdl_01J9ABCDEF", "class": "prompt", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096",
+        "state": "begun", "deadline": "2026-09-14T12:15:00Z",
+        "uploadCapability": "https://artifacts.example.invalid/upload?X-Amz-Signature=abc", "uploadMethod": "PUT",
+        "uploadHeaders": { "Content-Type": "text/plain", "Content-Length": "4096" }, "uploadExpiresAt": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
+      "name": "a finalized transfer names its object version and no capability",
+      "schema": "Transfer",
+      "valid": true,
+      "instance": {
+        "transferId": "xfer_01J9ABCDEF", "handle": "hdl_01J9ABCDEF", "class": "source", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096",
+        "state": "finalized", "deadline": "2026-09-14T12:15:00Z", "objectVersion": "version:3f2a"
+      }
+    },
+    {
+      "name": "a transfer with an unknown upload method is rejected",
+      "schema": "Transfer",
+      "valid": false,
+      "instance": {
+        "transferId": "xfer_01J9ABCDEF", "handle": "hdl_01J9ABCDEF", "class": "prompt", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096",
+        "state": "begun", "deadline": "2026-09-14T12:15:00Z", "uploadCapability": "https://artifacts.example.invalid/upload", "uploadMethod": "POST"
+      }
     }
   ]
 }

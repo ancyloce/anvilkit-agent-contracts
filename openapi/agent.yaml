@@ -1318,6 +1318,24 @@ components:
           type: string
           maxLength: 256
         uploadCapability:
-          description: Present only for trusted callers; never returned to a candidate.
+          description: |
+            Present only for trusted callers; never returned to a candidate. The URL of one
+            upload request (uploadMethod, uploadHeaders) for exactly the declared bytes; it
+            expires with uploadExpiresAt and never outlives the transfer deadline.
           type: string
           maxLength: 4096
+        uploadMethod:
+          type: string
+          enum: [PUT]
+        uploadHeaders:
+          description: Headers the upload request must carry exactly (they are signed).
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 512
+          maxProperties: 16
+        uploadExpiresAt: { $ref: "#/components/schemas/Timestamp" }
+        reasonCode:
+          description: Why a transfer was rejected or expired.
+          type: string
+          maxLength: 64

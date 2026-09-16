@@ -13,6 +13,8 @@ import { describe, expect, it } from "vitest";
 import "../src/proto/anvilkit/control/v1/artifact.js";
 import "../src/proto/anvilkit/control/v1/control.js";
 import "../src/proto/anvilkit/control/v1/dispatch.js";
+import "../src/proto/anvilkit/control/v1/effect.js";
+import "../src/proto/anvilkit/control/v1/recovery.js";
 import "../src/proto/anvilkit/knowledge/v1/knowledge.js";
 import "../src/proto/anvilkit/mcp/v1/mcp.js";
 import { messageTypeRegistry } from "../src/proto/typeRegistry.js";

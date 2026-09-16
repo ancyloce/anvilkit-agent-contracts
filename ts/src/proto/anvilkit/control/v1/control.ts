@@ -1051,6 +1051,15 @@ export interface GetInstanceResponse {
   tenantId: string;
   /** The operation's current recovery epoch at the time of the read. */
   recoveryEpoch: string;
+  /**
+   * The attempt's operation as of the same read: its lifecycle, control
+   * intent, current execution epoch and deadline are what decide whether
+   * the registered instance still holds execution authority (a fenced,
+   * terminal or reconciling operation, or an execution epoch past the
+   * attempt's, ends it while the instance row stays the historical record
+   * of physical ownership).
+   */
+  operation: OperationView | undefined;
 }
 
 export interface CloseAttemptRequest {
@@ -6811,6 +6820,7 @@ function createBaseGetInstanceResponse(): GetInstanceResponse {
     attempt: undefined,
     tenantId: "",
     recoveryEpoch: "",
+    operation: undefined,
   };
 }
 
@@ -6829,6 +6839,9 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
     }
     if (message.recoveryEpoch !== "") {
       writer.uint32(34).string(message.recoveryEpoch);
+    }
+    if (message.operation !== undefined) {
+      OperationView.encode(message.operation, writer.uint32(42).fork()).join();
     }
     return writer;
   },
@@ -6878,6 +6891,14 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
             message.recoveryEpoch = reader.string();
             continue;
           }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.operation = OperationView.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -6905,6 +6926,7 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
         : isSet(object.recovery_epoch)
         ? globalThis.String(object.recovery_epoch)
         : "",
+      operation: isSet(object.operation) ? OperationView.fromJSON(object.operation) : undefined,
     };
   },
 
@@ -6922,6 +6944,9 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
     if (message.recoveryEpoch !== "") {
       obj.recoveryEpoch = message.recoveryEpoch;
     }
+    if (message.operation !== undefined) {
+      obj.operation = OperationView.toJSON(message.operation);
+    }
     return obj;
   },
 
@@ -6938,6 +6963,9 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
       : undefined;
     message.tenantId = object.tenantId ?? "";
     message.recoveryEpoch = object.recoveryEpoch ?? "";
+    message.operation = (object.operation !== undefined && object.operation !== null)
+      ? OperationView.fromPartial(object.operation)
+      : undefined;
     return message;
   },
 };

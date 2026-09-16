@@ -607,6 +607,13 @@ message GetInstanceResponse {
   string tenant_id = 3;
   // The operation's current recovery epoch at the time of the read.
   string recovery_epoch = 4;
+  // The attempt's operation as of the same read: its lifecycle, control
+  // intent, current execution epoch and deadline are what decide whether
+  // the registered instance still holds execution authority (a fenced,
+  // terminal or reconciling operation, or an execution epoch past the
+  // attempt's, ends it while the instance row stays the historical record
+  // of physical ownership).
+  OperationView operation = 5;
 }
 
 message CloseAttemptRequest {

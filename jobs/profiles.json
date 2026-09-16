@@ -1,5 +1,5 @@
 {
-  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call.",
+  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call. codegen-fixed-v1 and harness-wiring-dev-v1 are the P09 harness profiles: their image digests are recorded from the reviewed builds, and the launcher additionally requires each profile to be enabled for its environment.",
   "schemaVersion": 1,
   "profiles": [
     {
@@ -24,8 +24,54 @@
       "deadlineSeconds": 120,
       "candidateCode": false,
       "expectedResult": {
-        "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"
+        "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "resultSizeBytes": "24"
       }
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "codegen-fixed-v1",
+      "revision": "1",
+      "jobKind": "codegen",
+      "description": "Trusted harness with the fixed non-paid candidate task (P09b): the supervisor drops to the candidate UID, the observer verifies the output bytes, the finalizer submits through the access sidecar. Requires the gVisor RuntimeClass; DISABLED until its negative tests pass on the target runtime (G-04/G-05).",
+      "image": {
+        "repository": "anvilkit-codegen",
+        "digest": "sha256:88277b08d8bb19c2ddeb2316bf7c2becdb3c6b9290de5f0c3ac6975c0e67d2ef"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:10dc306f82e2d1b6ed72032e6ba6863dd01e25480aa1c3d49803a20febc9632a"
+      },
+      "entrypoint": ["/usr/local/bin/anvilkit-codegen-supervisor"],
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      },
+      "deadlineSeconds": 600,
+      "runtimeClass": "gvisor",
+      "candidateCode": true
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "harness-wiring-dev-v1",
+      "revision": "1",
+      "jobKind": "codegen",
+      "description": "DEVELOPMENT_ONLY wiring fixture: the same trusted image, entrypoint, sidecar and fixed task as codegen-fixed-v1 on an unqualified runtime (no RuntimeClass). It verifies launcher templates, sidecar identity, the artifact flow and duplicate-Pod fencing on the development foundation; it qualifies no candidate isolation and is never enabled outside development.",
+      "image": {
+        "repository": "anvilkit-codegen",
+        "digest": "sha256:88277b08d8bb19c2ddeb2316bf7c2becdb3c6b9290de5f0c3ac6975c0e67d2ef"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:10dc306f82e2d1b6ed72032e6ba6863dd01e25480aa1c3d49803a20febc9632a"
+      },
+      "entrypoint": ["/usr/local/bin/anvilkit-codegen-supervisor"],
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      },
+      "deadlineSeconds": 600,
+      "candidateCode": false
     }
   ]
 }

@@ -13,6 +13,17 @@
         "resources": { "cpu": "100m", "memory": "64Mi" },
         "deadlineSeconds": 120,
         "candidateCode": false,
+        "expectedResult": { "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "resultSizeBytes": "24" }
+      }
+    },
+    {
+      "name": "fixture profile whose expected result lacks the byte size is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "profileId": "local-check-v1", "revision": "1", "jobKind": "validator",
+        "image": { "repository": "docker.io/library/busybox", "digest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0" },
+        "entrypoint": ["/bin/sh", "-c", "true"], "resources": { "cpu": "100m", "memory": "64Mi" }, "deadlineSeconds": 120, "candidateCode": false,
         "expectedResult": { "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }
       }
     },
@@ -34,6 +45,28 @@
         "schemaVersion": 1, "profileId": "local-check-v1", "revision": "1", "jobKind": "validator",
         "image": { "repository": "docker.io/library/busybox", "digest": "1.37.0" },
         "entrypoint": ["/bin/sh"], "resources": { "cpu": "100m", "memory": "64Mi" }, "deadlineSeconds": 120, "candidateCode": false
+      }
+    },
+    {
+      "name": "harness profile: candidate code under gVisor with the access sidecar",
+      "ref": "#/$defs/profile",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "profileId": "codegen-fixed-v1", "revision": "1", "jobKind": "codegen",
+        "image": { "repository": "anvilkit-codegen", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+        "sidecarImage": { "repository": "anvilkit-job-access-sidecar", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" },
+        "entrypoint": ["/usr/local/bin/anvilkit-codegen-supervisor"], "resources": { "cpu": "1", "memory": "1Gi" },
+        "deadlineSeconds": 1800, "runtimeClass": "gvisor", "candidateCode": true
+      }
+    },
+    {
+      "name": "candidate profile without the access sidecar image is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {
+        "schemaVersion": 1, "profileId": "codegen-v1", "revision": "1", "jobKind": "codegen",
+        "image": { "repository": "registry/codegen", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+        "entrypoint": ["/entrypoint"], "resources": { "cpu": "2", "memory": "4Gi" }, "deadlineSeconds": 3600, "runtimeClass": "gvisor", "candidateCode": true
       }
     },
     {

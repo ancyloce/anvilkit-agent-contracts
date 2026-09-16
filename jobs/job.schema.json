@@ -20,6 +20,15 @@
       ]
     },
     "resource": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(m|Mi|Gi)?$" },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "digest"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Image repository. A name without a registry host (no '.', ':' or 'localhost' in its first component) is completed with the launching environment's registry; the digest is the identity the profile pins." },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
     "profile": {
       "type": "object",
       "additionalProperties": false,
@@ -30,14 +39,10 @@
         "revision": { "$ref": "#/$defs/sequence" },
         "jobKind": { "$ref": "#/$defs/jobKind" },
         "description": { "type": "string", "maxLength": 512 },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "digest"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1, "maxLength": 256 },
-            "digest": { "$ref": "#/$defs/digest" }
-          }
+        "image": { "$ref": "#/$defs/image" },
+        "sidecarImage": {
+          "$ref": "#/$defs/image",
+          "description": "The trusted access sidecar image of a harness profile (DD-03 §5): its presence selects the fixed two-container layout (supervisor UID 0 with SETUID/SETGID/SETPCAP only, sidecar UID 10002, separate sockets/workspace/verdict mounts). Required for every candidateCode profile."
         },
         "entrypoint": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "type": "string", "maxLength": 4096 } },
         "resources": {
@@ -48,17 +53,17 @@
         },
         "deadlineSeconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
         "runtimeClass": { "type": "string", "enum": ["gvisor"] },
-        "candidateCode": { "type": "boolean", "description": "true only for profiles that execute untrusted candidate code; such profiles require runtimeClass and a qualified isolation layout (P09)." },
+        "candidateCode": { "type": "boolean", "description": "true only for profiles that execute untrusted candidate code; such profiles require runtimeClass (gVisor) and sidecarImage (the qualified harness layout, P09) and stay disabled until their negative tests pass on the target runtime." },
         "expectedResult": {
           "type": "object",
-          "description": "Fixture-only expectation the trusted observer verifies; present for local-check fixtures.",
+          "description": "Fixture-only expectation of the one fixed result: the trusted observer compares the reported output with it and Control binds an embedded fixed result to exactly this digest and byte size; present for the local-check and fixed-task fixtures.",
           "additionalProperties": false,
-          "required": ["resultDigest"],
-          "properties": { "resultDigest": { "$ref": "#/$defs/digest" } }
+          "required": ["resultDigest", "resultSizeBytes"],
+          "properties": { "resultDigest": { "$ref": "#/$defs/digest" }, "resultSizeBytes": { "$ref": "#/$defs/sequence" } }
         }
       },
       "if": { "properties": { "candidateCode": { "const": true } } },
-      "then": { "required": ["runtimeClass"] }
+      "then": { "required": ["runtimeClass", "sidecarImage"] }
     },
     "launchEnvelope": {
       "type": "object",

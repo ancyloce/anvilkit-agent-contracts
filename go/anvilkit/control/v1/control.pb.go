@@ -3501,6 +3501,13 @@ type GetInstanceResponse struct {
 	TenantId string                 `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	// The operation's current recovery epoch at the time of the read.
 	RecoveryEpoch string `protobuf:"bytes,4,opt,name=recovery_epoch,json=recoveryEpoch,proto3" json:"recovery_epoch,omitempty"`
+	// The attempt's operation as of the same read: its lifecycle, control
+	// intent, current execution epoch and deadline are what decide whether
+	// the registered instance still holds execution authority (a fenced,
+	// terminal or reconciling operation, or an execution epoch past the
+	// attempt's, ends it while the instance row stays the historical record
+	// of physical ownership).
+	Operation     *OperationView `protobuf:"bytes,5,opt,name=operation,proto3" json:"operation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3561,6 +3568,13 @@ func (x *GetInstanceResponse) GetRecoveryEpoch() string {
 		return x.RecoveryEpoch
 	}
 	return ""
+}
+
+func (x *GetInstanceResponse) GetOperation() *OperationView {
+	if x != nil {
+		return x.Operation
+	}
+	return nil
 }
 
 type CloseAttemptRequest struct {
@@ -4016,12 +4030,13 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\n" +
 	"launch_key\x18\x02 \x01(\tB+\xbaH(r&2$^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$R\tlaunchKey\x12#\n" +
 	"\apod_uid\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06podUid\"\xd4\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06podUid\"\x96\x02\n" +
 	"\x13GetInstanceResponse\x12A\n" +
 	"\binstance\x18\x01 \x01(\v2%.anvilkit.control.v1.PhysicalInstanceR\binstance\x126\n" +
 	"\aattempt\x18\x02 \x01(\v2\x1c.anvilkit.control.v1.AttemptR\aattempt\x12\x1b\n" +
 	"\ttenant_id\x18\x03 \x01(\tR\btenantId\x12%\n" +
-	"\x0erecovery_epoch\x18\x04 \x01(\tR\rrecoveryEpoch\"\xde\x02\n" +
+	"\x0erecovery_epoch\x18\x04 \x01(\tR\rrecoveryEpoch\x12@\n" +
+	"\toperation\x18\x05 \x01(\v2\".anvilkit.control.v1.OperationViewR\toperation\"\xde\x02\n" +
 	"\x13CloseAttemptRequest\x12F\n" +
 	"\acommand\x18\x01 \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x12)\n" +
 	"\n" +
@@ -4263,44 +4278,45 @@ var file_anvilkit_control_v1_control_proto_depIdxs = []int32{
 	34, // 57: anvilkit.control.v1.GetAcceptedStageResponse.stage:type_name -> anvilkit.control.v1.AcceptedStage
 	32, // 58: anvilkit.control.v1.GetInstanceResponse.instance:type_name -> anvilkit.control.v1.PhysicalInstance
 	31, // 59: anvilkit.control.v1.GetInstanceResponse.attempt:type_name -> anvilkit.control.v1.Attempt
-	11, // 60: anvilkit.control.v1.CloseAttemptRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	8,  // 61: anvilkit.control.v1.CloseAttemptRequest.outcome:type_name -> anvilkit.control.v1.AttemptOutcome
-	3,  // 62: anvilkit.control.v1.CloseAttemptRequest.cleanup:type_name -> anvilkit.control.v1.CleanupState
-	31, // 63: anvilkit.control.v1.CloseAttemptResponse.attempt:type_name -> anvilkit.control.v1.Attempt
-	15, // 64: anvilkit.control.v1.CloseAttemptResponse.operation:type_name -> anvilkit.control.v1.OperationView
-	19, // 65: anvilkit.control.v1.OperationService.CreateOperation:input_type -> anvilkit.control.v1.CreateOperationRequest
-	21, // 66: anvilkit.control.v1.OperationService.GetOperation:input_type -> anvilkit.control.v1.GetOperationRequest
-	23, // 67: anvilkit.control.v1.OperationService.ListOperationEvents:input_type -> anvilkit.control.v1.ListOperationEventsRequest
-	25, // 68: anvilkit.control.v1.OperationService.StreamOperationEvents:input_type -> anvilkit.control.v1.StreamOperationEventsRequest
-	27, // 69: anvilkit.control.v1.OperationService.SubmitCommand:input_type -> anvilkit.control.v1.SubmitCommandRequest
-	29, // 70: anvilkit.control.v1.OperationService.GetCommand:input_type -> anvilkit.control.v1.GetCommandRequest
-	35, // 71: anvilkit.control.v1.ExecutionService.OpenAttempt:input_type -> anvilkit.control.v1.OpenAttemptRequest
-	37, // 72: anvilkit.control.v1.ExecutionService.PrepareLaunch:input_type -> anvilkit.control.v1.PrepareLaunchRequest
-	39, // 73: anvilkit.control.v1.ExecutionService.RegisterInstance:input_type -> anvilkit.control.v1.RegisterInstanceRequest
-	41, // 74: anvilkit.control.v1.ExecutionService.ObserveInstance:input_type -> anvilkit.control.v1.ObserveInstanceRequest
-	43, // 75: anvilkit.control.v1.ExecutionService.AcceptResult:input_type -> anvilkit.control.v1.AcceptResultRequest
-	45, // 76: anvilkit.control.v1.ExecutionService.GetAcceptedStage:input_type -> anvilkit.control.v1.GetAcceptedStageRequest
-	47, // 77: anvilkit.control.v1.ExecutionService.GetInstance:input_type -> anvilkit.control.v1.GetInstanceRequest
-	49, // 78: anvilkit.control.v1.ExecutionService.CloseAttempt:input_type -> anvilkit.control.v1.CloseAttemptRequest
-	20, // 79: anvilkit.control.v1.OperationService.CreateOperation:output_type -> anvilkit.control.v1.CreateOperationResponse
-	22, // 80: anvilkit.control.v1.OperationService.GetOperation:output_type -> anvilkit.control.v1.GetOperationResponse
-	24, // 81: anvilkit.control.v1.OperationService.ListOperationEvents:output_type -> anvilkit.control.v1.ListOperationEventsResponse
-	26, // 82: anvilkit.control.v1.OperationService.StreamOperationEvents:output_type -> anvilkit.control.v1.StreamOperationEventsResponse
-	28, // 83: anvilkit.control.v1.OperationService.SubmitCommand:output_type -> anvilkit.control.v1.SubmitCommandResponse
-	30, // 84: anvilkit.control.v1.OperationService.GetCommand:output_type -> anvilkit.control.v1.GetCommandResponse
-	36, // 85: anvilkit.control.v1.ExecutionService.OpenAttempt:output_type -> anvilkit.control.v1.OpenAttemptResponse
-	38, // 86: anvilkit.control.v1.ExecutionService.PrepareLaunch:output_type -> anvilkit.control.v1.PrepareLaunchResponse
-	40, // 87: anvilkit.control.v1.ExecutionService.RegisterInstance:output_type -> anvilkit.control.v1.RegisterInstanceResponse
-	42, // 88: anvilkit.control.v1.ExecutionService.ObserveInstance:output_type -> anvilkit.control.v1.ObserveInstanceResponse
-	44, // 89: anvilkit.control.v1.ExecutionService.AcceptResult:output_type -> anvilkit.control.v1.AcceptResultResponse
-	46, // 90: anvilkit.control.v1.ExecutionService.GetAcceptedStage:output_type -> anvilkit.control.v1.GetAcceptedStageResponse
-	48, // 91: anvilkit.control.v1.ExecutionService.GetInstance:output_type -> anvilkit.control.v1.GetInstanceResponse
-	50, // 92: anvilkit.control.v1.ExecutionService.CloseAttempt:output_type -> anvilkit.control.v1.CloseAttemptResponse
-	79, // [79:93] is the sub-list for method output_type
-	65, // [65:79] is the sub-list for method input_type
-	65, // [65:65] is the sub-list for extension type_name
-	65, // [65:65] is the sub-list for extension extendee
-	0,  // [0:65] is the sub-list for field type_name
+	15, // 60: anvilkit.control.v1.GetInstanceResponse.operation:type_name -> anvilkit.control.v1.OperationView
+	11, // 61: anvilkit.control.v1.CloseAttemptRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	8,  // 62: anvilkit.control.v1.CloseAttemptRequest.outcome:type_name -> anvilkit.control.v1.AttemptOutcome
+	3,  // 63: anvilkit.control.v1.CloseAttemptRequest.cleanup:type_name -> anvilkit.control.v1.CleanupState
+	31, // 64: anvilkit.control.v1.CloseAttemptResponse.attempt:type_name -> anvilkit.control.v1.Attempt
+	15, // 65: anvilkit.control.v1.CloseAttemptResponse.operation:type_name -> anvilkit.control.v1.OperationView
+	19, // 66: anvilkit.control.v1.OperationService.CreateOperation:input_type -> anvilkit.control.v1.CreateOperationRequest
+	21, // 67: anvilkit.control.v1.OperationService.GetOperation:input_type -> anvilkit.control.v1.GetOperationRequest
+	23, // 68: anvilkit.control.v1.OperationService.ListOperationEvents:input_type -> anvilkit.control.v1.ListOperationEventsRequest
+	25, // 69: anvilkit.control.v1.OperationService.StreamOperationEvents:input_type -> anvilkit.control.v1.StreamOperationEventsRequest
+	27, // 70: anvilkit.control.v1.OperationService.SubmitCommand:input_type -> anvilkit.control.v1.SubmitCommandRequest
+	29, // 71: anvilkit.control.v1.OperationService.GetCommand:input_type -> anvilkit.control.v1.GetCommandRequest
+	35, // 72: anvilkit.control.v1.ExecutionService.OpenAttempt:input_type -> anvilkit.control.v1.OpenAttemptRequest
+	37, // 73: anvilkit.control.v1.ExecutionService.PrepareLaunch:input_type -> anvilkit.control.v1.PrepareLaunchRequest
+	39, // 74: anvilkit.control.v1.ExecutionService.RegisterInstance:input_type -> anvilkit.control.v1.RegisterInstanceRequest
+	41, // 75: anvilkit.control.v1.ExecutionService.ObserveInstance:input_type -> anvilkit.control.v1.ObserveInstanceRequest
+	43, // 76: anvilkit.control.v1.ExecutionService.AcceptResult:input_type -> anvilkit.control.v1.AcceptResultRequest
+	45, // 77: anvilkit.control.v1.ExecutionService.GetAcceptedStage:input_type -> anvilkit.control.v1.GetAcceptedStageRequest
+	47, // 78: anvilkit.control.v1.ExecutionService.GetInstance:input_type -> anvilkit.control.v1.GetInstanceRequest
+	49, // 79: anvilkit.control.v1.ExecutionService.CloseAttempt:input_type -> anvilkit.control.v1.CloseAttemptRequest
+	20, // 80: anvilkit.control.v1.OperationService.CreateOperation:output_type -> anvilkit.control.v1.CreateOperationResponse
+	22, // 81: anvilkit.control.v1.OperationService.GetOperation:output_type -> anvilkit.control.v1.GetOperationResponse
+	24, // 82: anvilkit.control.v1.OperationService.ListOperationEvents:output_type -> anvilkit.control.v1.ListOperationEventsResponse
+	26, // 83: anvilkit.control.v1.OperationService.StreamOperationEvents:output_type -> anvilkit.control.v1.StreamOperationEventsResponse
+	28, // 84: anvilkit.control.v1.OperationService.SubmitCommand:output_type -> anvilkit.control.v1.SubmitCommandResponse
+	30, // 85: anvilkit.control.v1.OperationService.GetCommand:output_type -> anvilkit.control.v1.GetCommandResponse
+	36, // 86: anvilkit.control.v1.ExecutionService.OpenAttempt:output_type -> anvilkit.control.v1.OpenAttemptResponse
+	38, // 87: anvilkit.control.v1.ExecutionService.PrepareLaunch:output_type -> anvilkit.control.v1.PrepareLaunchResponse
+	40, // 88: anvilkit.control.v1.ExecutionService.RegisterInstance:output_type -> anvilkit.control.v1.RegisterInstanceResponse
+	42, // 89: anvilkit.control.v1.ExecutionService.ObserveInstance:output_type -> anvilkit.control.v1.ObserveInstanceResponse
+	44, // 90: anvilkit.control.v1.ExecutionService.AcceptResult:output_type -> anvilkit.control.v1.AcceptResultResponse
+	46, // 91: anvilkit.control.v1.ExecutionService.GetAcceptedStage:output_type -> anvilkit.control.v1.GetAcceptedStageResponse
+	48, // 92: anvilkit.control.v1.ExecutionService.GetInstance:output_type -> anvilkit.control.v1.GetInstanceResponse
+	50, // 93: anvilkit.control.v1.ExecutionService.CloseAttempt:output_type -> anvilkit.control.v1.CloseAttemptResponse
+	80, // [80:94] is the sub-list for method output_type
+	66, // [66:80] is the sub-list for method input_type
+	66, // [66:66] is the sub-list for extension type_name
+	66, // [66:66] is the sub-list for extension extendee
+	0,  // [0:66] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_control_proto_init() }

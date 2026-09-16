@@ -376,6 +376,24 @@ message PhysicalInstance {
   optional google.protobuf.Timestamp observed_at = 13;
 }
 
+// ArtifactReference is one finalized artifact an accepted stage binds:
+// the transfer (by handle, as the result manifest names it), its class, the
+// digest and size Control verified and the exact object version it holds.
+message ArtifactReference {
+  string handle = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string class = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 32
+  }];
+  string digest = 3 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string size_bytes = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string transfer_id = 5;
+  string object_version = 6;
+}
+
 message AcceptedStage {
   string stage_id = 1;
   string attempt_id = 2;
@@ -387,6 +405,11 @@ message AcceptedStage {
   string profile_id = 8;
   google.protobuf.Timestamp accepted_at = 9;
   optional string failure_code = 10;
+  // The epochs the stage was accepted under and the finalized artifacts it
+  // binds (every handle the result manifest names, verified).
+  string execution_epoch = 11;
+  string recovery_epoch = 12;
+  repeated ArtifactReference artifacts = 13;
 }
 
 service ExecutionService {
@@ -400,7 +423,10 @@ service ExecutionService {
   // the first current instance can own results.
   rpc RegisterInstance(RegisterInstanceRequest) returns (RegisterInstanceResponse);
   rpc ObserveInstance(ObserveInstanceRequest) returns (ObserveInstanceResponse);
-  // Accepts one result per attempt from the current instance. Same digest is
+  // Accepts one result per attempt from the current instance under the
+  // current epochs. Every artifact the result manifest names by handle must
+  // be a finalized transfer of the same scope, class, digest and size; the
+  // accepted stage binds those exact object versions. Same digest is
   // idempotent; a different digest for the same attempt is ABORTED.
   rpc AcceptResult(AcceptResultRequest) returns (AcceptResultResponse);
   rpc GetAcceptedStage(GetAcceptedStageRequest) returns (GetAcceptedStageResponse);
@@ -532,6 +558,10 @@ message AcceptResultRequest {
     max_len: 128
   }];
   optional string failure_code = 9 [(buf.validate.field).string = {max_len: 64}];
+  // The execution epoch the observer acted under; a stage is accepted only
+  // under the operation's current epoch. Empty keeps the pre-P08 behavior
+  // (the attempt's own epoch is compared with the operation's).
+  string execution_epoch = 10 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
 }
 
 message AcceptResultResponse {
@@ -544,6 +574,9 @@ message GetAcceptedStageRequest {
     min_len: 1
     max_len: 128
   }];
+  // When set, the stage must belong to this tenant; a stage of another
+  // tenant is not found.
+  string tenant_id = 2 [(buf.validate.field).string = {max_len: 128}];
 }
 
 message GetAcceptedStageResponse {

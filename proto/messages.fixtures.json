@@ -264,6 +264,68 @@
         "methods": [], "purpose": "retrieval",
         "costCap": { "currency": "USD", "amount": "1000000" }
       }
+    },
+    {
+      "name": "finalize a transfer by handle with the object version the uploader wrote",
+      "message": "anvilkit.control.v1.FinalizeTransferRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "xfer_1:finalize", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "handle": "hdl_01J9ABCDEF", "objectVersion": "version:3f2a"
+      }
+    },
+    {
+      "name": "finalize without an object version is rejected",
+      "message": "anvilkit.control.v1.FinalizeTransferRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "xfer_1:finalize", "actorId": "user_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "transferId": "xfer_01J9ABCDEF"
+      }
+    },
+    {
+      "name": "get a transfer inside the caller's scope",
+      "message": "anvilkit.control.v1.GetTransferRequest",
+      "valid": true,
+      "instance": { "scope": { "tenantId": "tenant_a", "actorId": "user_a" }, "handle": "hdl_01J9ABCDEF" }
+    },
+    {
+      "name": "get a transfer without a scope is rejected",
+      "message": "anvilkit.control.v1.GetTransferRequest",
+      "valid": false,
+      "instance": { "transferId": "xfer_01J9ABCDEF" }
+    },
+    {
+      "name": "resolve a handle for the current physical instance",
+      "message": "anvilkit.control.v1.ResolveHandleRequest",
+      "valid": true,
+      "instance": { "handle": "hdl_01J9ABCDEF", "instanceId": "inst_01J9ABCDEF" }
+    },
+    {
+      "name": "resolve a handle without an instance is rejected",
+      "message": "anvilkit.control.v1.ResolveHandleRequest",
+      "valid": false,
+      "instance": { "handle": "hdl_01J9ABCDEF" }
+    },
+    {
+      "name": "accept a result under the current execution epoch",
+      "message": "anvilkit.control.v1.AcceptResultRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "att_1:accept", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "attemptId": "att_01J9ABCDEF", "instanceId": "inst_01J9ABCDEF", "profileId": "local-check-v1", "verdict": "VERDICT_CERTIFIED",
+        "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "resultManifest": "e30=", "observerIdentity": "anvilkit-agent-workflow", "executionEpoch": "1"
+      }
+    },
+    {
+      "name": "accept a result with a non-canonical epoch is rejected",
+      "message": "anvilkit.control.v1.AcceptResultRequest",
+      "valid": false,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "att_1:accept", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "attemptId": "att_01J9ABCDEF", "instanceId": "inst_01J9ABCDEF", "profileId": "local-check-v1", "verdict": "VERDICT_CERTIFIED",
+        "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "resultManifest": "e30=", "observerIdentity": "anvilkit-agent-workflow", "executionEpoch": "01"
+      }
     }
   ]
 }

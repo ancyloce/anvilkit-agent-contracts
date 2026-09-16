@@ -139,6 +139,11 @@ message EnumerateInventoryResponse {
   ClassProgress progress = 1;
 }
 
+// ListFindings pages the run's findings in their fixed (class, obligation)
+// order: cursor is the next_cursor of the previous page ("" starts at the
+// beginning) and complete is true when no finding follows the page, so a
+// caller that walks every page reaches every finding whatever the state of
+// the ones before it.
 message ListFindingsRequest {
   string run_id = 1 [(buf.validate.field).string = {
     min_len: 1
@@ -149,10 +154,13 @@ message ListFindingsRequest {
     gte: 0
     lte: 1000
   }];
+  string cursor = 4 [(buf.validate.field).string = {max_len: 512}];
 }
 
 message ListFindingsResponse {
   repeated Finding findings = 1;
+  string next_cursor = 2;
+  bool complete = 3;
 }
 
 message ReconcileFindingRequest {

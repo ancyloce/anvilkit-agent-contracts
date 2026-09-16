@@ -1,6 +1,13 @@
 // Scoped artifact transfer and acceptance (DD-02 §6). Trusted flows receive an
 // object-scoped capability; candidates receive only an opaque handle. Finalize
 // verifies the actual object version, bytes, size and hash outside DB locks.
+//
+// Every transfer is scoped: begun under a tenant (and, when bound, an
+// operation and attempt with their current execution and recovery epochs),
+// read and resolved only inside that scope, and finalized only while the
+// scope's epochs and deadlines are current. The capability is a short-lived
+// upload authorization for exactly the declared bytes under an object key
+// only Control knows; the key never appears on this surface.
 syntax = "proto3";
 
 package anvilkit.control.v1;
@@ -39,6 +46,29 @@ message Transfer {
   google.protobuf.Timestamp deadline = 7;
   optional string object_version = 8;
   optional string reason_code = 9;
+  string tenant_id = 10;
+  optional string operation_id = 11;
+  optional string attempt_id = 12;
+  string media_type = 13;
+  // The epochs the transfer was begun under; finalization requires them to
+  // be current for a bound transfer.
+  string execution_epoch = 14;
+  string recovery_epoch = 15;
+  google.protobuf.Timestamp created_at = 16;
+  optional google.protobuf.Timestamp finalized_at = 17;
+}
+
+// TransferCapability is the scoped upload authorization for one transfer:
+// one request of the given method to the URL, carrying exactly the listed
+// headers, with the declared bytes; it expires at expires_at and never
+// outlives the transfer's deadline. It names no bucket, key or credential
+// beyond what the signed URL itself carries, and it is never returned to
+// candidate code.
+message TransferCapability {
+  string url = 1;
+  string method = 2;
+  map<string, string> headers = 3;
+  google.protobuf.Timestamp expires_at = 4;
 }
 
 service ArtifactService {
@@ -70,8 +100,14 @@ message BeginTransferRequest {
 message BeginTransferResponse {
   Transfer transfer = 1;
   bool existing = 2;
+  // The upload capability for a transfer that is still begun; the caller
+  // (a trusted service) decides whether its own client may receive it.
+  TransferCapability upload = 3;
 }
 
+// ResolveHandle is the trusted harness's path from a candidate's opaque
+// handle to the upload capability: the resolving physical instance must be
+// the current instance of the transfer's attempt under the current epochs.
 message ResolveHandleRequest {
   string handle = 1 [(buf.validate.field).string = {
     min_len: 1
@@ -86,21 +122,26 @@ message ResolveHandleRequest {
 message ResolveHandleResponse {
   Transfer transfer = 1;
   // Scoped capability for the trusted sidecar; never returned to a candidate.
+  // capability is the upload URL; upload carries the same URL with the
+  // method and headers the request must use.
   string capability = 2;
   google.protobuf.Timestamp expires_at = 3;
+  TransferCapability upload = 4;
 }
 
+// FinalizeTransfer names the transfer (by id or by handle) and the exact
+// object version the uploader wrote; Control reads that version and
+// verifies its bytes against the declared size and digest before anything
+// is finalized. Caller claims, ETags and upload receipts are insufficient.
 message FinalizeTransferRequest {
   CommandIdentity command = 1 [(buf.validate.field).required = true];
-  string transfer_id = 2 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 128
-  }];
+  string transfer_id = 2 [(buf.validate.field).string = {max_len: 128}];
   string object_version = 3 [(buf.validate.field).string = {
     min_len: 1
     max_len: 256
   }];
   string instance_id = 4 [(buf.validate.field).string = {max_len: 128}];
+  string handle = 5 [(buf.validate.field).string = {max_len: 256}];
 }
 
 message FinalizeTransferResponse {
@@ -108,11 +149,12 @@ message FinalizeTransferResponse {
   bool existing = 2;
 }
 
+// GetTransfer reads one transfer (by id or by handle) inside the caller's
+// verified scope; a transfer of another tenant is not found.
 message GetTransferRequest {
-  string transfer_id = 1 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 128
-  }];
+  string transfer_id = 1 [(buf.validate.field).string = {max_len: 128}];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string handle = 3 [(buf.validate.field).string = {max_len: 256}];
 }
 
 message GetTransferResponse {

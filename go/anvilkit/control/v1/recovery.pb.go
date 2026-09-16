@@ -868,11 +868,17 @@ func (x *EnumerateInventoryResponse) GetProgress() *ClassProgress {
 	return nil
 }
 
+// ListFindings pages the run's findings in their fixed (class, obligation)
+// order: cursor is the next_cursor of the previous page ("" starts at the
+// beginning) and complete is true when no finding follows the page, so a
+// caller that walks every page reaches every finding whatever the state of
+// the ones before it.
 type ListFindingsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	Status        FindingStatus          `protobuf:"varint,2,opt,name=status,proto3,enum=anvilkit.control.v1.FindingStatus" json:"status,omitempty"`
 	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Cursor        string                 `protobuf:"bytes,4,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -928,9 +934,18 @@ func (x *ListFindingsRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ListFindingsRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
 type ListFindingsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Findings      []*Finding             `protobuf:"bytes,1,rep,name=findings,proto3" json:"findings,omitempty"`
+	NextCursor    string                 `protobuf:"bytes,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	Complete      bool                   `protobuf:"varint,3,opt,name=complete,proto3" json:"complete,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -970,6 +985,20 @@ func (x *ListFindingsResponse) GetFindings() []*Finding {
 		return x.Findings
 	}
 	return nil
+}
+
+func (x *ListFindingsResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
+func (x *ListFindingsResponse) GetComplete() bool {
+	if x != nil {
+		return x.Complete
+	}
+	return false
 }
 
 type ReconcileFindingRequest struct {
@@ -1684,15 +1713,19 @@ const file_anvilkit_control_v1_recovery_proto_rawDesc = "" +
 	"\x05class\x18\x02 \x01(\tBH\xbaHErCR\x06intakeR\n" +
 	"job-launchR\x0emodel-dispatchR\rtool-dispatchR\x0ebusiness-writeR\x05class\"\\\n" +
 	"\x1aEnumerateInventoryResponse\x12>\n" +
-	"\bprogress\x18\x01 \x01(\v2\".anvilkit.control.v1.ClassProgressR\bprogress\"\x96\x01\n" +
+	"\bprogress\x18\x01 \x01(\v2\".anvilkit.control.v1.ClassProgressR\bprogress\"\xb8\x01\n" +
 	"\x13ListFindingsRequest\x12!\n" +
 	"\x06run_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x05runId\x12:\n" +
 	"\x06status\x18\x02 \x01(\x0e2\".anvilkit.control.v1.FindingStatusR\x06status\x12 \n" +
 	"\x05limit\x18\x03 \x01(\x05B\n" +
-	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\"P\n" +
+	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\x12 \n" +
+	"\x06cursor\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06cursor\"\x8d\x01\n" +
 	"\x14ListFindingsResponse\x128\n" +
-	"\bfindings\x18\x01 \x03(\v2\x1c.anvilkit.control.v1.FindingR\bfindings\"g\n" +
+	"\bfindings\x18\x01 \x03(\v2\x1c.anvilkit.control.v1.FindingR\bfindings\x12\x1f\n" +
+	"\vnext_cursor\x18\x02 \x01(\tR\n" +
+	"nextCursor\x12\x1a\n" +
+	"\bcomplete\x18\x03 \x01(\bR\bcomplete\"g\n" +
 	"\x17ReconcileFindingRequest\x12!\n" +
 	"\x06run_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x05runId\x12)\n" +

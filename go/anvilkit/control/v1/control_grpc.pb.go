@@ -362,7 +362,10 @@ type ExecutionServiceClient interface {
 	// the first current instance can own results.
 	RegisterInstance(ctx context.Context, in *RegisterInstanceRequest, opts ...grpc.CallOption) (*RegisterInstanceResponse, error)
 	ObserveInstance(ctx context.Context, in *ObserveInstanceRequest, opts ...grpc.CallOption) (*ObserveInstanceResponse, error)
-	// Accepts one result per attempt from the current instance. Same digest is
+	// Accepts one result per attempt from the current instance under the
+	// current epochs. Every artifact the result manifest names by handle must
+	// be a finalized transfer of the same scope, class, digest and size; the
+	// accepted stage binds those exact object versions. Same digest is
 	// idempotent; a different digest for the same attempt is ABORTED.
 	AcceptResult(ctx context.Context, in *AcceptResultRequest, opts ...grpc.CallOption) (*AcceptResultResponse, error)
 	GetAcceptedStage(ctx context.Context, in *GetAcceptedStageRequest, opts ...grpc.CallOption) (*GetAcceptedStageResponse, error)
@@ -463,7 +466,10 @@ type ExecutionServiceServer interface {
 	// the first current instance can own results.
 	RegisterInstance(context.Context, *RegisterInstanceRequest) (*RegisterInstanceResponse, error)
 	ObserveInstance(context.Context, *ObserveInstanceRequest) (*ObserveInstanceResponse, error)
-	// Accepts one result per attempt from the current instance. Same digest is
+	// Accepts one result per attempt from the current instance under the
+	// current epochs. Every artifact the result manifest names by handle must
+	// be a finalized transfer of the same scope, class, digest and size; the
+	// accepted stage binds those exact object versions. Same digest is
 	// idempotent; a different digest for the same attempt is ABORTED.
 	AcceptResult(context.Context, *AcceptResultRequest) (*AcceptResultResponse, error)
 	GetAcceptedStage(context.Context, *GetAcceptedStageRequest) (*GetAcceptedStageResponse, error)

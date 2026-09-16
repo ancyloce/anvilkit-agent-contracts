@@ -758,8 +758,21 @@ export interface components {
             state: components["schemas"]["TransferState"];
             deadline: components["schemas"]["Timestamp"];
             objectVersion?: string;
-            /** @description Present only for trusted callers; never returned to a candidate. */
+            /**
+             * @description Present only for trusted callers; never returned to a candidate. The URL of one
+             *     upload request (uploadMethod, uploadHeaders) for exactly the declared bytes; it
+             *     expires with uploadExpiresAt and never outlives the transfer deadline.
+             */
             uploadCapability?: string;
+            /** @enum {string} */
+            uploadMethod?: "PUT";
+            /** @description Headers the upload request must carry exactly (they are signed). */
+            uploadHeaders?: {
+                [key: string]: string;
+            };
+            uploadExpiresAt?: components["schemas"]["Timestamp"];
+            /** @description Why a transfer was rejected or expired. */
+            reasonCode?: string;
         };
     };
     responses: {

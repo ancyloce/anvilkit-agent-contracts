@@ -890,6 +890,21 @@ export interface PhysicalInstance {
   observedAt?: Date | undefined;
 }
 
+/**
+ * ArtifactReference is one finalized artifact an accepted stage binds:
+ * the transfer (by handle, as the result manifest names it), its class, the
+ * digest and size Control verified and the exact object version it holds.
+ */
+export interface ArtifactReference {
+  $type: "anvilkit.control.v1.ArtifactReference";
+  handle: string;
+  class: string;
+  digest: string;
+  sizeBytes: string;
+  transferId: string;
+  objectVersion: string;
+}
+
 export interface AcceptedStage {
   $type: "anvilkit.control.v1.AcceptedStage";
   stageId: string;
@@ -901,7 +916,16 @@ export interface AcceptedStage {
   observerIdentity: string;
   profileId: string;
   acceptedAt: Date | undefined;
-  failureCode?: string | undefined;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * The epochs the stage was accepted under and the finalized artifacts it
+   * binds (every handle the result manifest names, verified).
+   */
+  executionEpoch: string;
+  recoveryEpoch: string;
+  artifacts: ArtifactReference[];
 }
 
 export interface OpenAttemptRequest {
@@ -981,7 +1005,15 @@ export interface AcceptResultRequest {
   /** The reviewed small result manifest (contracts/jobs schema); bounded. */
   resultManifest: Buffer;
   observerIdentity: string;
-  failureCode?: string | undefined;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * The execution epoch the observer acted under; a stage is accepted only
+   * under the operation's current epoch. Empty keeps the pre-P08 behavior
+   * (the attempt's own epoch is compared with the operation's).
+   */
+  executionEpoch: string;
 }
 
 export interface AcceptResultResponse {
@@ -993,6 +1025,11 @@ export interface AcceptResultResponse {
 export interface GetAcceptedStageRequest {
   $type: "anvilkit.control.v1.GetAcceptedStageRequest";
   attemptId: string;
+  /**
+   * When set, the stage must belong to this tenant; a stage of another
+   * tenant is not found.
+   */
+  tenantId: string;
 }
 
 export interface GetAcceptedStageResponse {
@@ -4447,6 +4484,180 @@ export const PhysicalInstance: MessageFns<PhysicalInstance, "anvilkit.control.v1
 
 messageTypeRegistry.set(PhysicalInstance.$type, PhysicalInstance);
 
+function createBaseArtifactReference(): ArtifactReference {
+  return {
+    $type: "anvilkit.control.v1.ArtifactReference",
+    handle: "",
+    class: "",
+    digest: "",
+    sizeBytes: "",
+    transferId: "",
+    objectVersion: "",
+  };
+}
+
+export const ArtifactReference: MessageFns<ArtifactReference, "anvilkit.control.v1.ArtifactReference"> = {
+  $type: "anvilkit.control.v1.ArtifactReference" as const,
+
+  encode(message: ArtifactReference, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.handle !== "") {
+      writer.uint32(10).string(message.handle);
+    }
+    if (message.class !== "") {
+      writer.uint32(18).string(message.class);
+    }
+    if (message.digest !== "") {
+      writer.uint32(26).string(message.digest);
+    }
+    if (message.sizeBytes !== "") {
+      writer.uint32(34).string(message.sizeBytes);
+    }
+    if (message.transferId !== "") {
+      writer.uint32(42).string(message.transferId);
+    }
+    if (message.objectVersion !== "") {
+      writer.uint32(50).string(message.objectVersion);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ArtifactReference {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseArtifactReference();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.handle = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.class = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.digest = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.sizeBytes = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.transferId = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.objectVersion = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ArtifactReference {
+    return {
+      $type: ArtifactReference.$type,
+      handle: isSet(object.handle) ? globalThis.String(object.handle) : "",
+      class: isSet(object.class) ? globalThis.String(object.class) : "",
+      digest: isSet(object.digest) ? globalThis.String(object.digest) : "",
+      sizeBytes: isSet(object.sizeBytes)
+        ? globalThis.String(object.sizeBytes)
+        : isSet(object.size_bytes)
+        ? globalThis.String(object.size_bytes)
+        : "",
+      transferId: isSet(object.transferId)
+        ? globalThis.String(object.transferId)
+        : isSet(object.transfer_id)
+        ? globalThis.String(object.transfer_id)
+        : "",
+      objectVersion: isSet(object.objectVersion)
+        ? globalThis.String(object.objectVersion)
+        : isSet(object.object_version)
+        ? globalThis.String(object.object_version)
+        : "",
+    };
+  },
+
+  toJSON(message: ArtifactReference): unknown {
+    const obj: any = {};
+    if (message.handle !== "") {
+      obj.handle = message.handle;
+    }
+    if (message.class !== "") {
+      obj.class = message.class;
+    }
+    if (message.digest !== "") {
+      obj.digest = message.digest;
+    }
+    if (message.sizeBytes !== "") {
+      obj.sizeBytes = message.sizeBytes;
+    }
+    if (message.transferId !== "") {
+      obj.transferId = message.transferId;
+    }
+    if (message.objectVersion !== "") {
+      obj.objectVersion = message.objectVersion;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ArtifactReference>, I>>(base?: I): ArtifactReference {
+    return ArtifactReference.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ArtifactReference>, I>>(object: I): ArtifactReference {
+    const message = createBaseArtifactReference();
+    message.handle = object.handle ?? "";
+    message.class = object.class ?? "";
+    message.digest = object.digest ?? "";
+    message.sizeBytes = object.sizeBytes ?? "";
+    message.transferId = object.transferId ?? "";
+    message.objectVersion = object.objectVersion ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ArtifactReference.$type, ArtifactReference);
+
 function createBaseAcceptedStage(): AcceptedStage {
   return {
     $type: "anvilkit.control.v1.AcceptedStage",
@@ -4460,6 +4671,9 @@ function createBaseAcceptedStage(): AcceptedStage {
     profileId: "",
     acceptedAt: undefined,
     failureCode: undefined,
+    executionEpoch: "",
+    recoveryEpoch: "",
+    artifacts: [],
   };
 }
 
@@ -4496,6 +4710,15 @@ export const AcceptedStage: MessageFns<AcceptedStage, "anvilkit.control.v1.Accep
     }
     if (message.failureCode !== undefined) {
       writer.uint32(82).string(message.failureCode);
+    }
+    if (message.executionEpoch !== "") {
+      writer.uint32(90).string(message.executionEpoch);
+    }
+    if (message.recoveryEpoch !== "") {
+      writer.uint32(98).string(message.recoveryEpoch);
+    }
+    for (const v of message.artifacts) {
+      ArtifactReference.encode(v!, writer.uint32(106).fork()).join();
     }
     return writer;
   },
@@ -4593,6 +4816,30 @@ export const AcceptedStage: MessageFns<AcceptedStage, "anvilkit.control.v1.Accep
             message.failureCode = reader.string();
             continue;
           }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.executionEpoch = reader.string();
+            continue;
+          }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.recoveryEpoch = reader.string();
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.artifacts.push(ArtifactReference.decode(reader, reader.uint32()));
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4654,6 +4901,19 @@ export const AcceptedStage: MessageFns<AcceptedStage, "anvilkit.control.v1.Accep
         : isSet(object.failure_code)
         ? globalThis.String(object.failure_code)
         : undefined,
+      executionEpoch: isSet(object.executionEpoch)
+        ? globalThis.String(object.executionEpoch)
+        : isSet(object.execution_epoch)
+        ? globalThis.String(object.execution_epoch)
+        : "",
+      recoveryEpoch: isSet(object.recoveryEpoch)
+        ? globalThis.String(object.recoveryEpoch)
+        : isSet(object.recovery_epoch)
+        ? globalThis.String(object.recovery_epoch)
+        : "",
+      artifacts: globalThis.Array.isArray(object?.artifacts)
+        ? object.artifacts.map((e: any) => ArtifactReference.fromJSON(e))
+        : [],
     };
   },
 
@@ -4689,6 +4949,15 @@ export const AcceptedStage: MessageFns<AcceptedStage, "anvilkit.control.v1.Accep
     if (message.failureCode !== undefined) {
       obj.failureCode = message.failureCode;
     }
+    if (message.executionEpoch !== "") {
+      obj.executionEpoch = message.executionEpoch;
+    }
+    if (message.recoveryEpoch !== "") {
+      obj.recoveryEpoch = message.recoveryEpoch;
+    }
+    if (message.artifacts?.length) {
+      obj.artifacts = message.artifacts.map((e) => ArtifactReference.toJSON(e));
+    }
     return obj;
   },
 
@@ -4707,6 +4976,9 @@ export const AcceptedStage: MessageFns<AcceptedStage, "anvilkit.control.v1.Accep
     message.profileId = object.profileId ?? "";
     message.acceptedAt = object.acceptedAt ?? undefined;
     message.failureCode = object.failureCode ?? undefined;
+    message.executionEpoch = object.executionEpoch ?? "";
+    message.recoveryEpoch = object.recoveryEpoch ?? "";
+    message.artifacts = object.artifacts?.map((e) => ArtifactReference.fromPartial(e)) || [];
     return message;
   },
 };
@@ -5878,6 +6150,7 @@ function createBaseAcceptResultRequest(): AcceptResultRequest {
     resultManifest: Buffer.alloc(0),
     observerIdentity: "",
     failureCode: undefined,
+    executionEpoch: "",
   };
 }
 
@@ -5911,6 +6184,9 @@ export const AcceptResultRequest: MessageFns<AcceptResultRequest, "anvilkit.cont
     }
     if (message.failureCode !== undefined) {
       writer.uint32(74).string(message.failureCode);
+    }
+    if (message.executionEpoch !== "") {
+      writer.uint32(82).string(message.executionEpoch);
     }
     return writer;
   },
@@ -6000,6 +6276,14 @@ export const AcceptResultRequest: MessageFns<AcceptResultRequest, "anvilkit.cont
             message.failureCode = reader.string();
             continue;
           }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.executionEpoch = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -6052,6 +6336,11 @@ export const AcceptResultRequest: MessageFns<AcceptResultRequest, "anvilkit.cont
         : isSet(object.failure_code)
         ? globalThis.String(object.failure_code)
         : undefined,
+      executionEpoch: isSet(object.executionEpoch)
+        ? globalThis.String(object.executionEpoch)
+        : isSet(object.execution_epoch)
+        ? globalThis.String(object.execution_epoch)
+        : "",
     };
   },
 
@@ -6084,6 +6373,9 @@ export const AcceptResultRequest: MessageFns<AcceptResultRequest, "anvilkit.cont
     if (message.failureCode !== undefined) {
       obj.failureCode = message.failureCode;
     }
+    if (message.executionEpoch !== "") {
+      obj.executionEpoch = message.executionEpoch;
+    }
     return obj;
   },
 
@@ -6103,6 +6395,7 @@ export const AcceptResultRequest: MessageFns<AcceptResultRequest, "anvilkit.cont
     message.resultManifest = object.resultManifest ?? Buffer.alloc(0);
     message.observerIdentity = object.observerIdentity ?? "";
     message.failureCode = object.failureCode ?? undefined;
+    message.executionEpoch = object.executionEpoch ?? "";
     return message;
   },
 };
@@ -6202,7 +6495,7 @@ export const AcceptResultResponse: MessageFns<AcceptResultResponse, "anvilkit.co
 messageTypeRegistry.set(AcceptResultResponse.$type, AcceptResultResponse);
 
 function createBaseGetAcceptedStageRequest(): GetAcceptedStageRequest {
-  return { $type: "anvilkit.control.v1.GetAcceptedStageRequest", attemptId: "" };
+  return { $type: "anvilkit.control.v1.GetAcceptedStageRequest", attemptId: "", tenantId: "" };
 }
 
 export const GetAcceptedStageRequest: MessageFns<
@@ -6214,6 +6507,9 @@ export const GetAcceptedStageRequest: MessageFns<
   encode(message: GetAcceptedStageRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.attemptId !== "") {
       writer.uint32(10).string(message.attemptId);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(18).string(message.tenantId);
     }
     return writer;
   },
@@ -6239,6 +6535,14 @@ export const GetAcceptedStageRequest: MessageFns<
             message.attemptId = reader.string();
             continue;
           }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -6259,6 +6563,11 @@ export const GetAcceptedStageRequest: MessageFns<
         : isSet(object.attempt_id)
         ? globalThis.String(object.attempt_id)
         : "",
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
     };
   },
 
@@ -6266,6 +6575,9 @@ export const GetAcceptedStageRequest: MessageFns<
     const obj: any = {};
     if (message.attemptId !== "") {
       obj.attemptId = message.attemptId;
+    }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
     }
     return obj;
   },
@@ -6276,6 +6588,7 @@ export const GetAcceptedStageRequest: MessageFns<
   fromPartial<I extends Exact<DeepPartial<GetAcceptedStageRequest>, I>>(object: I): GetAcceptedStageRequest {
     const message = createBaseGetAcceptedStageRequest();
     message.attemptId = object.attemptId ?? "";
+    message.tenantId = object.tenantId ?? "";
     return message;
   },
 };
@@ -6895,7 +7208,10 @@ export const ExecutionServiceService = {
     responseDeserialize: (value: Buffer): ObserveInstanceResponse => ObserveInstanceResponse.decode(value),
   },
   /**
-   * Accepts one result per attempt from the current instance. Same digest is
+   * Accepts one result per attempt from the current instance under the
+   * current epochs. Every artifact the result manifest names by handle must
+   * be a finalized transfer of the same scope, class, digest and size; the
+   * accepted stage binds those exact object versions. Same digest is
    * idempotent; a different digest for the same attempt is ABORTED.
    */
   acceptResult: {
@@ -6951,7 +7267,10 @@ export interface ExecutionServiceServer extends UntypedServiceImplementation {
   registerInstance: handleUnaryCall<RegisterInstanceRequest, RegisterInstanceResponse>;
   observeInstance: handleUnaryCall<ObserveInstanceRequest, ObserveInstanceResponse>;
   /**
-   * Accepts one result per attempt from the current instance. Same digest is
+   * Accepts one result per attempt from the current instance under the
+   * current epochs. Every artifact the result manifest names by handle must
+   * be a finalized transfer of the same scope, class, digest and size; the
+   * accepted stage binds those exact object versions. Same digest is
    * idempotent; a different digest for the same attempt is ABORTED.
    */
   acceptResult: handleUnaryCall<AcceptResultRequest, AcceptResultResponse>;
@@ -7035,7 +7354,10 @@ export interface ExecutionServiceClient extends Client {
     callback: (error: ServiceError | null, response: ObserveInstanceResponse) => void,
   ): ClientUnaryCall;
   /**
-   * Accepts one result per attempt from the current instance. Same digest is
+   * Accepts one result per attempt from the current instance under the
+   * current epochs. Every artifact the result manifest names by handle must
+   * be a finalized transfer of the same scope, class, digest and size; the
+   * accepted stage binds those exact object versions. Same digest is
    * idempotent; a different digest for the same attempt is ABORTED.
    */
   acceptResult(

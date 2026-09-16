@@ -28,6 +28,13 @@ export const protobufPackage = "anvilkit.control.v1";
  * Scoped artifact transfer and acceptance (DD-02 §6). Trusted flows receive an
  * object-scoped capability; candidates receive only an opaque handle. Finalize
  * verifies the actual object version, bytes, size and hash outside DB locks.
+ *
+ * Every transfer is scoped: begun under a tenant (and, when bound, an
+ * operation and attempt with their current execution and recovery epochs),
+ * read and resolved only inside that scope, and finalized only while the
+ * scope's epochs and deadlines are current. The capability is a short-lived
+ * upload authorization for exactly the declared bytes under an object key
+ * only Control knows; the key never appears on this surface.
  */
 
 export enum ArtifactClass {
@@ -167,6 +174,40 @@ export interface Transfer {
   deadline: Date | undefined;
   objectVersion?: string | undefined;
   reasonCode?: string | undefined;
+  tenantId: string;
+  operationId?: string | undefined;
+  attemptId?: string | undefined;
+  mediaType: string;
+  /**
+   * The epochs the transfer was begun under; finalization requires them to
+   * be current for a bound transfer.
+   */
+  executionEpoch: string;
+  recoveryEpoch: string;
+  createdAt: Date | undefined;
+  finalizedAt?: Date | undefined;
+}
+
+/**
+ * TransferCapability is the scoped upload authorization for one transfer:
+ * one request of the given method to the URL, carrying exactly the listed
+ * headers, with the declared bytes; it expires at expires_at and never
+ * outlives the transfer's deadline. It names no bucket, key or credential
+ * beyond what the signed URL itself carries, and it is never returned to
+ * candidate code.
+ */
+export interface TransferCapability {
+  $type: "anvilkit.control.v1.TransferCapability";
+  url: string;
+  method: string;
+  headers: { [key: string]: string };
+  expiresAt: Date | undefined;
+}
+
+export interface TransferCapability_HeadersEntry {
+  $type: "anvilkit.control.v1.TransferCapability.HeadersEntry";
+  key: string;
+  value: string;
 }
 
 export interface BeginTransferRequest {
@@ -186,8 +227,18 @@ export interface BeginTransferResponse {
   $type: "anvilkit.control.v1.BeginTransferResponse";
   transfer: Transfer | undefined;
   existing: boolean;
+  /**
+   * The upload capability for a transfer that is still begun; the caller
+   * (a trusted service) decides whether its own client may receive it.
+   */
+  upload: TransferCapability | undefined;
 }
 
+/**
+ * ResolveHandle is the trusted harness's path from a candidate's opaque
+ * handle to the upload capability: the resolving physical instance must be
+ * the current instance of the transfer's attempt under the current epochs.
+ */
 export interface ResolveHandleRequest {
   $type: "anvilkit.control.v1.ResolveHandleRequest";
   handle: string;
@@ -199,17 +250,29 @@ export interface ResolveHandleResponse {
   transfer:
     | Transfer
     | undefined;
-  /** Scoped capability for the trusted sidecar; never returned to a candidate. */
+  /**
+   * Scoped capability for the trusted sidecar; never returned to a candidate.
+   * capability is the upload URL; upload carries the same URL with the
+   * method and headers the request must use.
+   */
   capability: string;
   expiresAt: Date | undefined;
+  upload: TransferCapability | undefined;
 }
 
+/**
+ * FinalizeTransfer names the transfer (by id or by handle) and the exact
+ * object version the uploader wrote; Control reads that version and
+ * verifies its bytes against the declared size and digest before anything
+ * is finalized. Caller claims, ETags and upload receipts are insufficient.
+ */
 export interface FinalizeTransferRequest {
   $type: "anvilkit.control.v1.FinalizeTransferRequest";
   command: CommandIdentity | undefined;
   transferId: string;
   objectVersion: string;
   instanceId: string;
+  handle: string;
 }
 
 export interface FinalizeTransferResponse {
@@ -218,9 +281,15 @@ export interface FinalizeTransferResponse {
   existing: boolean;
 }
 
+/**
+ * GetTransfer reads one transfer (by id or by handle) inside the caller's
+ * verified scope; a transfer of another tenant is not found.
+ */
 export interface GetTransferRequest {
   $type: "anvilkit.control.v1.GetTransferRequest";
   transferId: string;
+  scope: Scope | undefined;
+  handle: string;
 }
 
 export interface GetTransferResponse {
@@ -240,6 +309,14 @@ function createBaseTransfer(): Transfer {
     deadline: undefined,
     objectVersion: undefined,
     reasonCode: undefined,
+    tenantId: "",
+    operationId: undefined,
+    attemptId: undefined,
+    mediaType: "",
+    executionEpoch: "",
+    recoveryEpoch: "",
+    createdAt: undefined,
+    finalizedAt: undefined,
   };
 }
 
@@ -273,6 +350,30 @@ export const Transfer: MessageFns<Transfer, "anvilkit.control.v1.Transfer"> = {
     }
     if (message.reasonCode !== undefined) {
       writer.uint32(74).string(message.reasonCode);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(82).string(message.tenantId);
+    }
+    if (message.operationId !== undefined) {
+      writer.uint32(90).string(message.operationId);
+    }
+    if (message.attemptId !== undefined) {
+      writer.uint32(98).string(message.attemptId);
+    }
+    if (message.mediaType !== "") {
+      writer.uint32(106).string(message.mediaType);
+    }
+    if (message.executionEpoch !== "") {
+      writer.uint32(114).string(message.executionEpoch);
+    }
+    if (message.recoveryEpoch !== "") {
+      writer.uint32(122).string(message.recoveryEpoch);
+    }
+    if (message.createdAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.createdAt), writer.uint32(130).fork()).join();
+    }
+    if (message.finalizedAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.finalizedAt), writer.uint32(138).fork()).join();
     }
     return writer;
   },
@@ -362,6 +463,70 @@ export const Transfer: MessageFns<Transfer, "anvilkit.control.v1.Transfer"> = {
             message.reasonCode = reader.string();
             continue;
           }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.operationId = reader.string();
+            continue;
+          }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.attemptId = reader.string();
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.mediaType = reader.string();
+            continue;
+          }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.executionEpoch = reader.string();
+            continue;
+          }
+          case 15: {
+            if (tag !== 122) {
+              break;
+            }
+
+            message.recoveryEpoch = reader.string();
+            continue;
+          }
+          case 16: {
+            if (tag !== 130) {
+              break;
+            }
+
+            message.createdAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 17: {
+            if (tag !== 138) {
+              break;
+            }
+
+            message.finalizedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -406,6 +571,46 @@ export const Transfer: MessageFns<Transfer, "anvilkit.control.v1.Transfer"> = {
         : isSet(object.reason_code)
         ? globalThis.String(object.reason_code)
         : undefined,
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      operationId: isSet(object.operationId)
+        ? globalThis.String(object.operationId)
+        : isSet(object.operation_id)
+        ? globalThis.String(object.operation_id)
+        : undefined,
+      attemptId: isSet(object.attemptId)
+        ? globalThis.String(object.attemptId)
+        : isSet(object.attempt_id)
+        ? globalThis.String(object.attempt_id)
+        : undefined,
+      mediaType: isSet(object.mediaType)
+        ? globalThis.String(object.mediaType)
+        : isSet(object.media_type)
+        ? globalThis.String(object.media_type)
+        : "",
+      executionEpoch: isSet(object.executionEpoch)
+        ? globalThis.String(object.executionEpoch)
+        : isSet(object.execution_epoch)
+        ? globalThis.String(object.execution_epoch)
+        : "",
+      recoveryEpoch: isSet(object.recoveryEpoch)
+        ? globalThis.String(object.recoveryEpoch)
+        : isSet(object.recovery_epoch)
+        ? globalThis.String(object.recovery_epoch)
+        : "",
+      createdAt: isSet(object.createdAt)
+        ? fromJsonTimestamp(object.createdAt)
+        : isSet(object.created_at)
+        ? fromJsonTimestamp(object.created_at)
+        : undefined,
+      finalizedAt: isSet(object.finalizedAt)
+        ? fromJsonTimestamp(object.finalizedAt)
+        : isSet(object.finalized_at)
+        ? fromJsonTimestamp(object.finalized_at)
+        : undefined,
     };
   },
 
@@ -438,6 +643,30 @@ export const Transfer: MessageFns<Transfer, "anvilkit.control.v1.Transfer"> = {
     if (message.reasonCode !== undefined) {
       obj.reasonCode = message.reasonCode;
     }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.operationId !== undefined) {
+      obj.operationId = message.operationId;
+    }
+    if (message.attemptId !== undefined) {
+      obj.attemptId = message.attemptId;
+    }
+    if (message.mediaType !== "") {
+      obj.mediaType = message.mediaType;
+    }
+    if (message.executionEpoch !== "") {
+      obj.executionEpoch = message.executionEpoch;
+    }
+    if (message.recoveryEpoch !== "") {
+      obj.recoveryEpoch = message.recoveryEpoch;
+    }
+    if (message.createdAt !== undefined) {
+      obj.createdAt = message.createdAt.toISOString();
+    }
+    if (message.finalizedAt !== undefined) {
+      obj.finalizedAt = message.finalizedAt.toISOString();
+    }
     return obj;
   },
 
@@ -455,11 +684,274 @@ export const Transfer: MessageFns<Transfer, "anvilkit.control.v1.Transfer"> = {
     message.deadline = object.deadline ?? undefined;
     message.objectVersion = object.objectVersion ?? undefined;
     message.reasonCode = object.reasonCode ?? undefined;
+    message.tenantId = object.tenantId ?? "";
+    message.operationId = object.operationId ?? undefined;
+    message.attemptId = object.attemptId ?? undefined;
+    message.mediaType = object.mediaType ?? "";
+    message.executionEpoch = object.executionEpoch ?? "";
+    message.recoveryEpoch = object.recoveryEpoch ?? "";
+    message.createdAt = object.createdAt ?? undefined;
+    message.finalizedAt = object.finalizedAt ?? undefined;
     return message;
   },
 };
 
 messageTypeRegistry.set(Transfer.$type, Transfer);
+
+function createBaseTransferCapability(): TransferCapability {
+  return { $type: "anvilkit.control.v1.TransferCapability", url: "", method: "", headers: {}, expiresAt: undefined };
+}
+
+export const TransferCapability: MessageFns<TransferCapability, "anvilkit.control.v1.TransferCapability"> = {
+  $type: "anvilkit.control.v1.TransferCapability" as const,
+
+  encode(message: TransferCapability, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.url !== "") {
+      writer.uint32(10).string(message.url);
+    }
+    if (message.method !== "") {
+      writer.uint32(18).string(message.method);
+    }
+    globalThis.Object.entries(message.headers).forEach(([key, value]: [string, string]) => {
+      TransferCapability_HeadersEntry.encode({
+        $type: "anvilkit.control.v1.TransferCapability.HeadersEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(26).fork()).join();
+    });
+    if (message.expiresAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TransferCapability {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseTransferCapability();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.url = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.method = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            const entry3 = TransferCapability_HeadersEntry.decode(reader, reader.uint32());
+            if (entry3.value !== undefined) {
+              message.headers[entry3.key] = entry3.value;
+            }
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): TransferCapability {
+    return {
+      $type: TransferCapability.$type,
+      url: isSet(object.url) ? globalThis.String(object.url) : "",
+      method: isSet(object.method) ? globalThis.String(object.method) : "",
+      headers: isObject(object.headers)
+        ? (globalThis.Object.entries(object.headers) as [string, any][]).reduce(
+          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+            globalThis.Object.defineProperty(acc, key, {
+              value: globalThis.String(value),
+              enumerable: true,
+              configurable: true,
+              writable: true,
+            });
+            return acc;
+          },
+          {},
+        )
+        : {},
+      expiresAt: isSet(object.expiresAt)
+        ? fromJsonTimestamp(object.expiresAt)
+        : isSet(object.expires_at)
+        ? fromJsonTimestamp(object.expires_at)
+        : undefined,
+    };
+  },
+
+  toJSON(message: TransferCapability): unknown {
+    const obj: any = {};
+    if (message.url !== "") {
+      obj.url = message.url;
+    }
+    if (message.method !== "") {
+      obj.method = message.method;
+    }
+    if (message.headers) {
+      const entries = globalThis.Object.entries(message.headers) as [string, string][];
+      if (entries.length > 0) {
+        obj.headers = {};
+        entries.forEach(([k, v]) => {
+          obj.headers[k] = v;
+        });
+      }
+    }
+    if (message.expiresAt !== undefined) {
+      obj.expiresAt = message.expiresAt.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TransferCapability>, I>>(base?: I): TransferCapability {
+    return TransferCapability.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TransferCapability>, I>>(object: I): TransferCapability {
+    const message = createBaseTransferCapability();
+    message.url = object.url ?? "";
+    message.method = object.method ?? "";
+    message.headers = (globalThis.Object.entries(object.headers ?? {}) as [string, string][]).reduce(
+      (acc: { [key: string]: string }, [key, value]: [string, string]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
+    message.expiresAt = object.expiresAt ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(TransferCapability.$type, TransferCapability);
+
+function createBaseTransferCapability_HeadersEntry(): TransferCapability_HeadersEntry {
+  return { $type: "anvilkit.control.v1.TransferCapability.HeadersEntry", key: "", value: "" };
+}
+
+export const TransferCapability_HeadersEntry: MessageFns<
+  TransferCapability_HeadersEntry,
+  "anvilkit.control.v1.TransferCapability.HeadersEntry"
+> = {
+  $type: "anvilkit.control.v1.TransferCapability.HeadersEntry" as const,
+
+  encode(message: TransferCapability_HeadersEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TransferCapability_HeadersEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseTransferCapability_HeadersEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): TransferCapability_HeadersEntry {
+    return {
+      $type: TransferCapability_HeadersEntry.$type,
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: TransferCapability_HeadersEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TransferCapability_HeadersEntry>, I>>(base?: I): TransferCapability_HeadersEntry {
+    return TransferCapability_HeadersEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TransferCapability_HeadersEntry>, I>>(
+    object: I,
+  ): TransferCapability_HeadersEntry {
+    const message = createBaseTransferCapability_HeadersEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(TransferCapability_HeadersEntry.$type, TransferCapability_HeadersEntry);
 
 function createBaseBeginTransferRequest(): BeginTransferRequest {
   return {
@@ -697,7 +1189,12 @@ export const BeginTransferRequest: MessageFns<BeginTransferRequest, "anvilkit.co
 messageTypeRegistry.set(BeginTransferRequest.$type, BeginTransferRequest);
 
 function createBaseBeginTransferResponse(): BeginTransferResponse {
-  return { $type: "anvilkit.control.v1.BeginTransferResponse", transfer: undefined, existing: false };
+  return {
+    $type: "anvilkit.control.v1.BeginTransferResponse",
+    transfer: undefined,
+    existing: false,
+    upload: undefined,
+  };
 }
 
 export const BeginTransferResponse: MessageFns<BeginTransferResponse, "anvilkit.control.v1.BeginTransferResponse"> = {
@@ -709,6 +1206,9 @@ export const BeginTransferResponse: MessageFns<BeginTransferResponse, "anvilkit.
     }
     if (message.existing !== false) {
       writer.uint32(16).bool(message.existing);
+    }
+    if (message.upload !== undefined) {
+      TransferCapability.encode(message.upload, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -742,6 +1242,14 @@ export const BeginTransferResponse: MessageFns<BeginTransferResponse, "anvilkit.
             message.existing = reader.bool();
             continue;
           }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.upload = TransferCapability.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -759,6 +1267,7 @@ export const BeginTransferResponse: MessageFns<BeginTransferResponse, "anvilkit.
       $type: BeginTransferResponse.$type,
       transfer: isSet(object.transfer) ? Transfer.fromJSON(object.transfer) : undefined,
       existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+      upload: isSet(object.upload) ? TransferCapability.fromJSON(object.upload) : undefined,
     };
   },
 
@@ -769,6 +1278,9 @@ export const BeginTransferResponse: MessageFns<BeginTransferResponse, "anvilkit.
     }
     if (message.existing !== false) {
       obj.existing = message.existing;
+    }
+    if (message.upload !== undefined) {
+      obj.upload = TransferCapability.toJSON(message.upload);
     }
     return obj;
   },
@@ -782,6 +1294,9 @@ export const BeginTransferResponse: MessageFns<BeginTransferResponse, "anvilkit.
       ? Transfer.fromPartial(object.transfer)
       : undefined;
     message.existing = object.existing ?? false;
+    message.upload = (object.upload !== undefined && object.upload !== null)
+      ? TransferCapability.fromPartial(object.upload)
+      : undefined;
     return message;
   },
 };
@@ -888,6 +1403,7 @@ function createBaseResolveHandleResponse(): ResolveHandleResponse {
     transfer: undefined,
     capability: "",
     expiresAt: undefined,
+    upload: undefined,
   };
 }
 
@@ -903,6 +1419,9 @@ export const ResolveHandleResponse: MessageFns<ResolveHandleResponse, "anvilkit.
     }
     if (message.expiresAt !== undefined) {
       Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(26).fork()).join();
+    }
+    if (message.upload !== undefined) {
+      TransferCapability.encode(message.upload, writer.uint32(34).fork()).join();
     }
     return writer;
   },
@@ -944,6 +1463,14 @@ export const ResolveHandleResponse: MessageFns<ResolveHandleResponse, "anvilkit.
             message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.upload = TransferCapability.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -966,6 +1493,7 @@ export const ResolveHandleResponse: MessageFns<ResolveHandleResponse, "anvilkit.
         : isSet(object.expires_at)
         ? fromJsonTimestamp(object.expires_at)
         : undefined,
+      upload: isSet(object.upload) ? TransferCapability.fromJSON(object.upload) : undefined,
     };
   },
 
@@ -980,6 +1508,9 @@ export const ResolveHandleResponse: MessageFns<ResolveHandleResponse, "anvilkit.
     if (message.expiresAt !== undefined) {
       obj.expiresAt = message.expiresAt.toISOString();
     }
+    if (message.upload !== undefined) {
+      obj.upload = TransferCapability.toJSON(message.upload);
+    }
     return obj;
   },
 
@@ -993,6 +1524,9 @@ export const ResolveHandleResponse: MessageFns<ResolveHandleResponse, "anvilkit.
       : undefined;
     message.capability = object.capability ?? "";
     message.expiresAt = object.expiresAt ?? undefined;
+    message.upload = (object.upload !== undefined && object.upload !== null)
+      ? TransferCapability.fromPartial(object.upload)
+      : undefined;
     return message;
   },
 };
@@ -1006,6 +1540,7 @@ function createBaseFinalizeTransferRequest(): FinalizeTransferRequest {
     transferId: "",
     objectVersion: "",
     instanceId: "",
+    handle: "",
   };
 }
 
@@ -1027,6 +1562,9 @@ export const FinalizeTransferRequest: MessageFns<
     }
     if (message.instanceId !== "") {
       writer.uint32(34).string(message.instanceId);
+    }
+    if (message.handle !== "") {
+      writer.uint32(42).string(message.handle);
     }
     return writer;
   },
@@ -1076,6 +1614,14 @@ export const FinalizeTransferRequest: MessageFns<
             message.instanceId = reader.string();
             continue;
           }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.handle = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1107,6 +1653,7 @@ export const FinalizeTransferRequest: MessageFns<
         : isSet(object.instance_id)
         ? globalThis.String(object.instance_id)
         : "",
+      handle: isSet(object.handle) ? globalThis.String(object.handle) : "",
     };
   },
 
@@ -1124,6 +1671,9 @@ export const FinalizeTransferRequest: MessageFns<
     if (message.instanceId !== "") {
       obj.instanceId = message.instanceId;
     }
+    if (message.handle !== "") {
+      obj.handle = message.handle;
+    }
     return obj;
   },
 
@@ -1138,6 +1688,7 @@ export const FinalizeTransferRequest: MessageFns<
     message.transferId = object.transferId ?? "";
     message.objectVersion = object.objectVersion ?? "";
     message.instanceId = object.instanceId ?? "";
+    message.handle = object.handle ?? "";
     return message;
   },
 };
@@ -1240,7 +1791,7 @@ export const FinalizeTransferResponse: MessageFns<
 messageTypeRegistry.set(FinalizeTransferResponse.$type, FinalizeTransferResponse);
 
 function createBaseGetTransferRequest(): GetTransferRequest {
-  return { $type: "anvilkit.control.v1.GetTransferRequest", transferId: "" };
+  return { $type: "anvilkit.control.v1.GetTransferRequest", transferId: "", scope: undefined, handle: "" };
 }
 
 export const GetTransferRequest: MessageFns<GetTransferRequest, "anvilkit.control.v1.GetTransferRequest"> = {
@@ -1249,6 +1800,12 @@ export const GetTransferRequest: MessageFns<GetTransferRequest, "anvilkit.contro
   encode(message: GetTransferRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.transferId !== "") {
       writer.uint32(10).string(message.transferId);
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(18).fork()).join();
+    }
+    if (message.handle !== "") {
+      writer.uint32(26).string(message.handle);
     }
     return writer;
   },
@@ -1274,6 +1831,22 @@ export const GetTransferRequest: MessageFns<GetTransferRequest, "anvilkit.contro
             message.transferId = reader.string();
             continue;
           }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.handle = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1294,6 +1867,8 @@ export const GetTransferRequest: MessageFns<GetTransferRequest, "anvilkit.contro
         : isSet(object.transfer_id)
         ? globalThis.String(object.transfer_id)
         : "",
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      handle: isSet(object.handle) ? globalThis.String(object.handle) : "",
     };
   },
 
@@ -1301,6 +1876,12 @@ export const GetTransferRequest: MessageFns<GetTransferRequest, "anvilkit.contro
     const obj: any = {};
     if (message.transferId !== "") {
       obj.transferId = message.transferId;
+    }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.handle !== "") {
+      obj.handle = message.handle;
     }
     return obj;
   },
@@ -1311,6 +1892,8 @@ export const GetTransferRequest: MessageFns<GetTransferRequest, "anvilkit.contro
   fromPartial<I extends Exact<DeepPartial<GetTransferRequest>, I>>(object: I): GetTransferRequest {
     const message = createBaseGetTransferRequest();
     message.transferId = object.transferId ?? "";
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.handle = object.handle ?? "";
     return message;
   },
 };
@@ -1551,6 +2134,10 @@ function fromJsonTimestamp(o: any): Date {
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
   }
+}
+
+function isObject(value: any): boolean {
+  return typeof value === "object" && value !== null;
 }
 
 function isSet(value: any): boolean {

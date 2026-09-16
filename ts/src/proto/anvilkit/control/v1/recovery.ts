@@ -298,16 +298,26 @@ export interface EnumerateInventoryResponse {
   progress: ClassProgress | undefined;
 }
 
+/**
+ * ListFindings pages the run's findings in their fixed (class, obligation)
+ * order: cursor is the next_cursor of the previous page ("" starts at the
+ * beginning) and complete is true when no finding follows the page, so a
+ * caller that walks every page reaches every finding whatever the state of
+ * the ones before it.
+ */
 export interface ListFindingsRequest {
   $type: "anvilkit.control.v1.ListFindingsRequest";
   runId: string;
   status: FindingStatus;
   limit: number;
+  cursor: string;
 }
 
 export interface ListFindingsResponse {
   $type: "anvilkit.control.v1.ListFindingsResponse";
   findings: Finding[];
+  nextCursor: string;
+  complete: boolean;
 }
 
 export interface ReconcileFindingRequest {
@@ -1717,7 +1727,7 @@ export const EnumerateInventoryResponse: MessageFns<
 messageTypeRegistry.set(EnumerateInventoryResponse.$type, EnumerateInventoryResponse);
 
 function createBaseListFindingsRequest(): ListFindingsRequest {
-  return { $type: "anvilkit.control.v1.ListFindingsRequest", runId: "", status: 0, limit: 0 };
+  return { $type: "anvilkit.control.v1.ListFindingsRequest", runId: "", status: 0, limit: 0, cursor: "" };
 }
 
 export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.control.v1.ListFindingsRequest"> = {
@@ -1732,6 +1742,9 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
     }
     if (message.limit !== 0) {
       writer.uint32(24).int32(message.limit);
+    }
+    if (message.cursor !== "") {
+      writer.uint32(34).string(message.cursor);
     }
     return writer;
   },
@@ -1773,6 +1786,14 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
             message.limit = reader.int32();
             continue;
           }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.cursor = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1795,6 +1816,7 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
         : "",
       status: isSet(object.status) ? findingStatusFromJSON(object.status) : 0,
       limit: isSet(object.limit) ? globalThis.Number(object.limit) : 0,
+      cursor: isSet(object.cursor) ? globalThis.String(object.cursor) : "",
     };
   },
 
@@ -1809,6 +1831,9 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
     if (message.limit !== 0) {
       obj.limit = Math.round(message.limit);
     }
+    if (message.cursor !== "") {
+      obj.cursor = message.cursor;
+    }
     return obj;
   },
 
@@ -1820,6 +1845,7 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
     message.runId = object.runId ?? "";
     message.status = object.status ?? 0;
     message.limit = object.limit ?? 0;
+    message.cursor = object.cursor ?? "";
     return message;
   },
 };
@@ -1827,7 +1853,7 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
 messageTypeRegistry.set(ListFindingsRequest.$type, ListFindingsRequest);
 
 function createBaseListFindingsResponse(): ListFindingsResponse {
-  return { $type: "anvilkit.control.v1.ListFindingsResponse", findings: [] };
+  return { $type: "anvilkit.control.v1.ListFindingsResponse", findings: [], nextCursor: "", complete: false };
 }
 
 export const ListFindingsResponse: MessageFns<ListFindingsResponse, "anvilkit.control.v1.ListFindingsResponse"> = {
@@ -1836,6 +1862,12 @@ export const ListFindingsResponse: MessageFns<ListFindingsResponse, "anvilkit.co
   encode(message: ListFindingsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.findings) {
       Finding.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.nextCursor !== "") {
+      writer.uint32(18).string(message.nextCursor);
+    }
+    if (message.complete !== false) {
+      writer.uint32(24).bool(message.complete);
     }
     return writer;
   },
@@ -1861,6 +1893,22 @@ export const ListFindingsResponse: MessageFns<ListFindingsResponse, "anvilkit.co
             message.findings.push(Finding.decode(reader, reader.uint32()));
             continue;
           }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.nextCursor = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.complete = reader.bool();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1877,6 +1925,12 @@ export const ListFindingsResponse: MessageFns<ListFindingsResponse, "anvilkit.co
     return {
       $type: ListFindingsResponse.$type,
       findings: globalThis.Array.isArray(object?.findings) ? object.findings.map((e: any) => Finding.fromJSON(e)) : [],
+      nextCursor: isSet(object.nextCursor)
+        ? globalThis.String(object.nextCursor)
+        : isSet(object.next_cursor)
+        ? globalThis.String(object.next_cursor)
+        : "",
+      complete: isSet(object.complete) ? globalThis.Boolean(object.complete) : false,
     };
   },
 
@@ -1884,6 +1938,12 @@ export const ListFindingsResponse: MessageFns<ListFindingsResponse, "anvilkit.co
     const obj: any = {};
     if (message.findings?.length) {
       obj.findings = message.findings.map((e) => Finding.toJSON(e));
+    }
+    if (message.nextCursor !== "") {
+      obj.nextCursor = message.nextCursor;
+    }
+    if (message.complete !== false) {
+      obj.complete = message.complete;
     }
     return obj;
   },
@@ -1894,6 +1954,8 @@ export const ListFindingsResponse: MessageFns<ListFindingsResponse, "anvilkit.co
   fromPartial<I extends Exact<DeepPartial<ListFindingsResponse>, I>>(object: I): ListFindingsResponse {
     const message = createBaseListFindingsResponse();
     message.findings = object.findings?.map((e) => Finding.fromPartial(e)) || [];
+    message.nextCursor = object.nextCursor ?? "";
+    message.complete = object.complete ?? false;
     return message;
   },
 };

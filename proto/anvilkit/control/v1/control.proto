@@ -430,6 +430,12 @@ service ExecutionService {
   // idempotent; a different digest for the same attempt is ABORTED.
   rpc AcceptResult(AcceptResultRequest) returns (AcceptResultResponse);
   rpc GetAcceptedStage(GetAcceptedStageRequest) returns (GetAcceptedStageResponse);
+  // Reads the physical instance the trusted launcher registered for one Pod
+  // of a launch, with its attempt and scope: the trusted access sidecar's
+  // lookup of its own execution scope (DD-03 §4, P09). The Pod's own claim
+  // registers nothing; until the launcher's evidence is recorded the answer
+  // is NOT_FOUND, and an instance that is not current carries no authority.
+  rpc GetInstance(GetInstanceRequest) returns (GetInstanceResponse);
   // Closes the attempt with its outcome and cleanup evidence and settles the
   // operation lifecycle for single-attempt profiles.
   rpc CloseAttempt(CloseAttemptRequest) returns (CloseAttemptResponse);
@@ -581,6 +587,26 @@ message GetAcceptedStageRequest {
 
 message GetAcceptedStageResponse {
   AcceptedStage stage = 1;
+}
+
+message GetInstanceRequest {
+  string backend = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string launch_key = 2 [(buf.validate.field).string.pattern = "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"];
+  string pod_uid = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetInstanceResponse {
+  PhysicalInstance instance = 1;
+  Attempt attempt = 2;
+  string tenant_id = 3;
+  // The operation's current recovery epoch at the time of the read.
+  string recovery_epoch = 4;
 }
 
 message CloseAttemptRequest {

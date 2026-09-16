@@ -296,6 +296,18 @@
       "instance": { "transferId": "xfer_01J9ABCDEF" }
     },
     {
+      "name": "get the instance registered for a pod of a launch",
+      "message": "anvilkit.control.v1.GetInstanceRequest",
+      "valid": true,
+      "instance": { "backend": "kind-anvilkit-dev", "launchKey": "cg-01j9abc", "podUid": "5a1d5d1e-2f4b-4c8e-9a0b-1c2d3e4f5a6b" }
+    },
+    {
+      "name": "get instance without a pod uid is rejected",
+      "message": "anvilkit.control.v1.GetInstanceRequest",
+      "valid": false,
+      "instance": { "backend": "kind-anvilkit-dev", "launchKey": "cg-01j9abc" }
+    },
+    {
       "name": "resolve a handle for the current physical instance",
       "message": "anvilkit.control.v1.ResolveHandleRequest",
       "valid": true,

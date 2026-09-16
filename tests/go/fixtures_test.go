@@ -106,6 +106,9 @@ func TestJobProfilesValidate(t *testing.T) {
 			found = true
 			require.Equal(t, false, m["candidateCode"])
 			require.NotEmpty(t, m["expectedResult"])
+			expected := m["expectedResult"].(map[string]any)
+			require.NotEmpty(t, expected["resultDigest"])
+			require.NotEmpty(t, expected["resultSizeBytes"], "the fixed result binds a reviewed byte size, not only a digest")
 		}
 	}
 	require.True(t, found, "local-check-v1 profile present")

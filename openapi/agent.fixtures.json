@@ -137,7 +137,7 @@
       "name": "begin transfer of an unknown class is rejected",
       "schema": "BeginTransferRequest",
       "valid": false,
-      "instance": { "commandId": "xfer_01J9ABCDEF", "class": "npm", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096", "mediaType": "application/octet-stream" }
+      "instance": { "commandId": "xfer_01J9ABCDEF", "class": "chunks", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096", "mediaType": "application/octet-stream" }
     },
     {
       "name": "begin transfer with a numeric size is rejected",

@@ -1273,7 +1273,7 @@ components:
     # ---- artifacts ----
     ArtifactClass:
       type: string
-      enum: [prompt, brief, source, stage, result, evidence, answer, argument]
+      enum: [prompt, brief, source, stage, result, evidence, answer, argument, npm, browser, css]
     TransferState:
       type: string
       enum: [begun, finalized, rejected, expired]

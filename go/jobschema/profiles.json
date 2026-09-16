@@ -1,5 +1,5 @@
 {
-  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call. codegen-fixed-v1 and harness-wiring-dev-v1 are the P09 harness profiles: their image digests are recorded from the reviewed builds, and the launcher additionally requires each profile to be enabled for its environment.",
+  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call. codegen-fixed-v1 and harness-wiring-dev-v1 are the P09 harness profiles and validator-fixed-dev-v1 the P10 fixed validator profile (the harness layout with the anvilkit-validator image): their image digests are recorded from the reviewed builds, and the launcher additionally requires each profile to be enabled for its environment.",
   "schemaVersion": 1,
   "profiles": [
     {
@@ -71,6 +71,28 @@
         "memory": "256Mi"
       },
       "deadlineSeconds": 600,
+      "candidateCode": false
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "validator-fixed-dev-v1",
+      "revision": "1",
+      "jobKind": "validator",
+      "description": "DEVELOPMENT_ONLY fixed validator (P10d): the anvilkit-validator image runs the complete-source, protected-build and independent-certification chain on the reviewed fixed component baked into it (no candidate input, SSR host check only), uploads npm/browser/css/evidence through the access sidecar and submits the result manifest. Harness layout without RuntimeClass; it qualifies no candidate isolation and is never enabled outside development.",
+      "image": {
+        "repository": "anvilkit-validator",
+        "digest": "sha256:94f7af905abecc3a8e6ee87c245a68c23e39c36fe64051cb387667f0c951a37b"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:10dc306f82e2d1b6ed72032e6ba6863dd01e25480aa1c3d49803a20febc9632a"
+      },
+      "entrypoint": ["/usr/local/bin/node", "/anvilkit/validator/dist/job.js"],
+      "resources": {
+        "cpu": "1",
+        "memory": "1Gi"
+      },
+      "deadlineSeconds": 900,
       "candidateCode": false
     }
   ]

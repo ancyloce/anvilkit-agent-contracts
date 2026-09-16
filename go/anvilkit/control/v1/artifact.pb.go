@@ -46,20 +46,29 @@ const (
 	ArtifactClass_ARTIFACT_CLASS_EVIDENCE    ArtifactClass = 6
 	ArtifactClass_ARTIFACT_CLASS_ANSWER      ArtifactClass = 7
 	ArtifactClass_ARTIFACT_CLASS_ARGUMENT    ArtifactClass = 8
+	// The build deliverables of a certified component (DD-04 §2, P10): the
+	// npm tarball, the browser ES module and a stylesheet, each a finalized
+	// transfer an accepted validator stage binds by exact digest and size.
+	ArtifactClass_ARTIFACT_CLASS_NPM     ArtifactClass = 9
+	ArtifactClass_ARTIFACT_CLASS_BROWSER ArtifactClass = 10
+	ArtifactClass_ARTIFACT_CLASS_CSS     ArtifactClass = 11
 )
 
 // Enum value maps for ArtifactClass.
 var (
 	ArtifactClass_name = map[int32]string{
-		0: "ARTIFACT_CLASS_UNSPECIFIED",
-		1: "ARTIFACT_CLASS_PROMPT",
-		2: "ARTIFACT_CLASS_BRIEF",
-		3: "ARTIFACT_CLASS_SOURCE",
-		4: "ARTIFACT_CLASS_STAGE",
-		5: "ARTIFACT_CLASS_RESULT",
-		6: "ARTIFACT_CLASS_EVIDENCE",
-		7: "ARTIFACT_CLASS_ANSWER",
-		8: "ARTIFACT_CLASS_ARGUMENT",
+		0:  "ARTIFACT_CLASS_UNSPECIFIED",
+		1:  "ARTIFACT_CLASS_PROMPT",
+		2:  "ARTIFACT_CLASS_BRIEF",
+		3:  "ARTIFACT_CLASS_SOURCE",
+		4:  "ARTIFACT_CLASS_STAGE",
+		5:  "ARTIFACT_CLASS_RESULT",
+		6:  "ARTIFACT_CLASS_EVIDENCE",
+		7:  "ARTIFACT_CLASS_ANSWER",
+		8:  "ARTIFACT_CLASS_ARGUMENT",
+		9:  "ARTIFACT_CLASS_NPM",
+		10: "ARTIFACT_CLASS_BROWSER",
+		11: "ARTIFACT_CLASS_CSS",
 	}
 	ArtifactClass_value = map[string]int32{
 		"ARTIFACT_CLASS_UNSPECIFIED": 0,
@@ -71,6 +80,9 @@ var (
 		"ARTIFACT_CLASS_EVIDENCE":    6,
 		"ARTIFACT_CLASS_ANSWER":      7,
 		"ARTIFACT_CLASS_ARGUMENT":    8,
+		"ARTIFACT_CLASS_NPM":         9,
+		"ARTIFACT_CLASS_BROWSER":     10,
+		"ARTIFACT_CLASS_CSS":         11,
 	}
 )
 
@@ -1033,7 +1045,7 @@ const file_anvilkit_control_v1_artifact_proto_rawDesc = "" +
 	"\x05scope\x18\x02 \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12 \n" +
 	"\x06handle\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06handle\"P\n" +
 	"\x13GetTransferResponse\x129\n" +
-	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer*\x89\x02\n" +
+	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer*\xd5\x02\n" +
 	"\rArtifactClass\x12\x1e\n" +
 	"\x1aARTIFACT_CLASS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15ARTIFACT_CLASS_PROMPT\x10\x01\x12\x18\n" +
@@ -1043,7 +1055,11 @@ const file_anvilkit_control_v1_artifact_proto_rawDesc = "" +
 	"\x15ARTIFACT_CLASS_RESULT\x10\x05\x12\x1b\n" +
 	"\x17ARTIFACT_CLASS_EVIDENCE\x10\x06\x12\x19\n" +
 	"\x15ARTIFACT_CLASS_ANSWER\x10\a\x12\x1b\n" +
-	"\x17ARTIFACT_CLASS_ARGUMENT\x10\b*\xa0\x01\n" +
+	"\x17ARTIFACT_CLASS_ARGUMENT\x10\b\x12\x16\n" +
+	"\x12ARTIFACT_CLASS_NPM\x10\t\x12\x1a\n" +
+	"\x16ARTIFACT_CLASS_BROWSER\x10\n" +
+	"\x12\x16\n" +
+	"\x12ARTIFACT_CLASS_CSS\x10\v*\xa0\x01\n" +
 	"\rTransferState\x12\x1e\n" +
 	"\x1aTRANSFER_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14TRANSFER_STATE_BEGUN\x10\x01\x12\x1c\n" +

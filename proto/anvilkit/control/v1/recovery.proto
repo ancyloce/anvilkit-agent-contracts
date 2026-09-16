@@ -1,0 +1,252 @@
+// Recovery reconciliation of a rollback window (DD-02 §5, platform.md recovery
+// gates, delivery.md P07). The ordered steps are driven by the Workflow
+// service's RecoveryWorkflow against this service, which owns the state:
+// BeginRecovery closes admission for the scope and fences every active
+// execution identity under a new recovery epoch in one commit; EnumerateInventory
+// reads one resumable page of one obligation class; ReconcileFinding restores a
+// missing identity and queries its original outcome; RecordLaunchOutcome records
+// the trusted launcher's evidence for a restored launch; EvaluateRecovery
+// reopens the scope only when every class is enumerated completely and every
+// finding is settled. DisposeObligation is the evidence-bound operator decision
+// about one obligation; there is no bulk form.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+enum RecoveryPhase {
+  RECOVERY_PHASE_UNSPECIFIED = 0;
+  RECOVERY_PHASE_FENCED = 1;
+  RECOVERY_PHASE_ENUMERATING = 2;
+  RECOVERY_PHASE_RECONCILING = 3;
+  RECOVERY_PHASE_RESTRICTED = 4;
+  RECOVERY_PHASE_REOPENED = 5;
+}
+
+enum FindingStatus {
+  FINDING_STATUS_UNSPECIFIED = 0;
+  FINDING_STATUS_PRESENT = 1;
+  FINDING_STATUS_MISSING = 2;
+  FINDING_STATUS_RESTORED = 3;
+  FINDING_STATUS_RESOLVED = 4;
+  FINDING_STATUS_UNRESOLVED = 5;
+  FINDING_STATUS_DISPOSED = 6;
+  FINDING_STATUS_OUTSIDE_SCOPE = 7;
+}
+
+enum DispositionDecision {
+  DISPOSITION_DECISION_UNSPECIFIED = 0;
+  DISPOSITION_DECISION_CONFIRM_NOT_SENT = 1;
+  DISPOSITION_DECISION_RESOLVE_SUCCEEDED = 2;
+  DISPOSITION_DECISION_RESOLVE_FAILED = 3;
+  DISPOSITION_DECISION_RETAIN_EXPOSURE = 4;
+}
+
+message RecoveryRun {
+  string run_id = 1;
+  // scope_key is a tenant id or "*" for every tenant.
+  string scope_key = 2;
+  string recovery_epoch = 3;
+  RecoveryPhase phase = 4;
+  google.protobuf.Timestamp window_start = 5;
+  google.protobuf.Timestamp window_end = 6;
+  google.protobuf.Duration clock_uncertainty = 7;
+  string fenced_operations = 8;
+  string unsettled_findings = 9;
+  repeated ClassProgress progress = 10;
+  google.protobuf.Timestamp created_at = 11;
+  optional google.protobuf.Timestamp reopened_at = 12;
+}
+
+message ClassProgress {
+  string class = 1;
+  string cursor = 2;
+  bool complete = 3;
+  string seen = 4;
+}
+
+message Finding {
+  string finding_id = 1;
+  string run_id = 2;
+  string class = 3;
+  string obligation_id = 4;
+  string tenant_id = 5;
+  string inventory_version = 6;
+  google.protobuf.Timestamp recorded_at = 7;
+  FindingStatus status = 8;
+  string outcome = 9;
+  string evidence_ref = 10;
+  string detail = 11;
+  // launch_key is set for job-launch findings whose launch the database holds
+  // (restored or present): the identity the trusted launcher observes.
+  string launch_key = 12;
+}
+
+service RecoveryService {
+  rpc BeginRecovery(BeginRecoveryRequest) returns (BeginRecoveryResponse);
+  rpc GetRecovery(GetRecoveryRequest) returns (GetRecoveryResponse);
+  // One page of one class; the response carries the class cursor. An
+  // unreadable page is an error (EFFECT_UNCERTAIN), never an empty page.
+  rpc EnumerateInventory(EnumerateInventoryRequest) returns (EnumerateInventoryResponse);
+  rpc ListFindings(ListFindingsRequest) returns (ListFindingsResponse);
+  rpc ReconcileFinding(ReconcileFindingRequest) returns (ReconcileFindingResponse);
+  rpc RecordLaunchOutcome(RecordLaunchOutcomeRequest) returns (RecordLaunchOutcomeResponse);
+  rpc EvaluateRecovery(EvaluateRecoveryRequest) returns (EvaluateRecoveryResponse);
+  rpc DisposeObligation(DisposeObligationRequest) returns (DisposeObligationResponse);
+}
+
+message BeginRecoveryRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string scope_key = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  google.protobuf.Timestamp window_start = 3 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp window_end = 4 [(buf.validate.field).required = true];
+  google.protobuf.Duration clock_uncertainty = 5;
+  string reason = 6 [(buf.validate.field).string = {max_len: 512}];
+}
+
+message BeginRecoveryResponse {
+  RecoveryRun run = 1;
+  bool existing = 2;
+}
+
+message GetRecoveryRequest {
+  string run_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetRecoveryResponse {
+  RecoveryRun run = 1;
+}
+
+message EnumerateInventoryRequest {
+  string run_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string class = 2 [(buf.validate.field).string = {in: ["intake", "job-launch", "model-dispatch", "tool-dispatch", "business-write"]}];
+}
+
+message EnumerateInventoryResponse {
+  ClassProgress progress = 1;
+}
+
+message ListFindingsRequest {
+  string run_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  FindingStatus status = 2;
+  int32 limit = 3 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 1000
+  }];
+}
+
+message ListFindingsResponse {
+  repeated Finding findings = 1;
+}
+
+message ReconcileFindingRequest {
+  string run_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string finding_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message ReconcileFindingResponse {
+  Finding finding = 1;
+}
+
+// LaunchPod is one Pod the trusted launcher observed under the original
+// launch key.
+message LaunchPod {
+  string pod_uid = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  InstancePhase phase = 2;
+  optional int32 exit_code = 3;
+  google.protobuf.Timestamp observed_at = 4 [(buf.validate.field).required = true];
+}
+
+message RecordLaunchOutcomeRequest {
+  string run_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string finding_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string job_uid = 3 [(buf.validate.field).string = {max_len: 128}];
+  repeated LaunchPod pods = 4 [(buf.validate.field).repeated.max_items = 64];
+  // stopped is the launcher's confirmation that the backend holds neither
+  // the Job nor a Pod under the launch key.
+  bool stopped = 5;
+}
+
+message RecordLaunchOutcomeResponse {
+  Finding finding = 1;
+}
+
+message EvaluateRecoveryRequest {
+  string run_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message EvaluateRecoveryResponse {
+  RecoveryRun run = 1;
+}
+
+message DisposeObligationRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string class = 2 [(buf.validate.field).string = {in: ["intake", "job-launch", "model-dispatch", "tool-dispatch", "business-write"]}];
+  string obligation_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  DispositionDecision decision = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string evidence_ref = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string evidence_digest = 6 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string recovery_epoch = 7 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  optional string run_id = 8 [(buf.validate.field).string = {max_len: 128}];
+  string reason = 9 [(buf.validate.field).string = {max_len: 512}];
+}
+
+message Disposition {
+  string disposition_id = 1;
+  string class = 2;
+  string obligation_id = 3;
+  DispositionDecision decision = 4;
+  string evidence_ref = 5;
+  string evidence_digest = 6;
+  string recovery_epoch = 7;
+  optional string run_id = 8;
+  google.protobuf.Timestamp decided_at = 9;
+}
+
+message DisposeObligationResponse {
+  Disposition disposition = 1;
+  bool existing = 2;
+}

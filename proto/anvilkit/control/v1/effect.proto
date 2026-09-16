@@ -1,0 +1,179 @@
+// Guarded business-write obligations (DD-02 §5 business-write class, DD-06 §3):
+// inventory before permission, one single-use permit per mutation bound to its
+// registered physical owner, idempotent outcome observations and the
+// original-result query of a lost response.
+//
+// Only the request that consumes the permit receives permitted=true. Querying
+// an effect, lost responses, lease expiry, retries and restarts never return a
+// second permit; an unknown outcome keeps the original identity until an
+// observation, an original-identity query or an evidence-bound operator
+// disposition (RecoveryService.Dispose) resolves it.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "anvilkit/control/v1/dispatch.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum EffectKind {
+  EFFECT_KIND_UNSPECIFIED = 0;
+  EFFECT_KIND_BUSINESS_WRITE = 1;
+  EFFECT_KIND_PUBLICATION = 2;
+  EFFECT_KIND_ACTIVATION = 3;
+  EFFECT_KIND_REVIEW = 4;
+}
+
+enum EffectState {
+  EFFECT_STATE_UNSPECIFIED = 0;
+  EFFECT_STATE_PREPARED = 1;
+  EFFECT_STATE_PERMITTED = 2;
+  EFFECT_STATE_SUCCEEDED = 3;
+  EFFECT_STATE_FAILED = 4;
+  EFFECT_STATE_UNKNOWN = 5;
+  EFFECT_STATE_CONFIRMED_NOT_SENT = 6;
+  EFFECT_STATE_DENIED = 7;
+}
+
+enum EffectOutcome {
+  EFFECT_OUTCOME_UNSPECIFIED = 0;
+  EFFECT_OUTCOME_SUCCEEDED = 1;
+  EFFECT_OUTCOME_FAILED = 2;
+  EFFECT_OUTCOME_UNKNOWN = 3;
+}
+
+message Effect {
+  string effect_id = 1;
+  string operation_id = 2;
+  string attempt_id = 3;
+  EffectKind kind = 4;
+  string occurrence = 5;
+  string owner = 6;
+  string canonical_subject = 7;
+  optional string expected_revision = 8;
+  EffectState state = 9;
+  EffectOutcome outcome = 10;
+  optional string denial_code = 11;
+  optional string outcome_ref = 12;
+  string execution_epoch = 13;
+  string recovery_epoch = 14;
+  google.protobuf.Timestamp deadline = 15;
+  google.protobuf.Timestamp created_at = 16;
+  optional google.protobuf.Timestamp observed_at = 17;
+}
+
+service EffectService {
+  // Prepares the business-write obligation (inventory first) and consumes the
+  // single permit; the same command returns the existing effect with
+  // permitted=false. A closed recovery scope, a fenced operation, a passed
+  // deadline or an expired lease is recorded as denied.
+  rpc PrepareEffect(PrepareEffectRequest) returns (PrepareEffectResponse);
+  // Idempotent outcome observation; a lost report is resubmitted under the
+  // same source sequence. A definite outcome needs a receipt reference.
+  rpc ObserveEffect(ObserveEffectRequest) returns (ObserveEffectResponse);
+  // Original-result query by effect id or by (operation, kind, occurrence).
+  rpc GetEffect(GetEffectRequest) returns (GetEffectResponse);
+  // Asks the upstream about the original identity and records the answer as
+  // an observation; an upstream without a record leaves the effect unknown.
+  rpc QueryEffectOutcome(QueryEffectOutcomeRequest) returns (QueryEffectOutcomeResponse);
+}
+
+// Lease binds the mutation to the caller's lease on the upstream subject
+// (DD-06 §1 LeasePort): a stable lease identity, its fence and its expiry.
+message Lease {
+  string lease_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string fence = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message PrepareEffectRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  ExecutionBinding binding = 2 [(buf.validate.field).required = true];
+  string owner = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  EffectKind kind = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string occurrence = 5 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  string canonical_subject = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  optional string expected_revision = 7 [(buf.validate.field).string = {max_len: 128}];
+  google.protobuf.Timestamp deadline = 8 [(buf.validate.field).required = true];
+  optional Lease lease = 9;
+}
+
+message PrepareEffectResponse {
+  Effect effect = 1;
+  bool permitted = 2;
+  optional string denial_code = 3;
+}
+
+message ObserveEffectRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string effect_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string source = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  string sequence = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  EffectOutcome outcome = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // receipt_digest names the upstream receipt of a definite outcome.
+  string receipt_digest = 6 [(buf.validate.field).string = {max_len: 256}];
+  string native_reference = 7 [(buf.validate.field).string = {max_len: 256}];
+  google.protobuf.Timestamp observed_at = 8 [(buf.validate.field).required = true];
+}
+
+message ObserveEffectResponse {
+  Effect effect = 1;
+  bool existing = 2;
+}
+
+message GetEffectRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string effect_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  string operation_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  EffectKind kind = 4;
+  string occurrence = 5 [(buf.validate.field).string.pattern = "^(|[1-9][0-9]{0,19})$"];
+}
+
+message GetEffectResponse {
+  Effect effect = 1;
+}
+
+message QueryEffectOutcomeRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string effect_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message QueryEffectOutcomeResponse {
+  Effect effect = 1;
+  // known is true when the upstream had a record of the original identity.
+  bool known = 2;
+}

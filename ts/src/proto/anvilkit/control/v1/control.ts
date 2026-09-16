@@ -1037,6 +1037,22 @@ export interface GetAcceptedStageResponse {
   stage: AcceptedStage | undefined;
 }
 
+export interface GetInstanceRequest {
+  $type: "anvilkit.control.v1.GetInstanceRequest";
+  backend: string;
+  launchKey: string;
+  podUid: string;
+}
+
+export interface GetInstanceResponse {
+  $type: "anvilkit.control.v1.GetInstanceResponse";
+  instance: PhysicalInstance | undefined;
+  attempt: Attempt | undefined;
+  tenantId: string;
+  /** The operation's current recovery epoch at the time of the read. */
+  recoveryEpoch: string;
+}
+
 export interface CloseAttemptRequest {
   $type: "anvilkit.control.v1.CloseAttemptRequest";
   command: CommandIdentity | undefined;
@@ -6674,6 +6690,260 @@ export const GetAcceptedStageResponse: MessageFns<
 
 messageTypeRegistry.set(GetAcceptedStageResponse.$type, GetAcceptedStageResponse);
 
+function createBaseGetInstanceRequest(): GetInstanceRequest {
+  return { $type: "anvilkit.control.v1.GetInstanceRequest", backend: "", launchKey: "", podUid: "" };
+}
+
+export const GetInstanceRequest: MessageFns<GetInstanceRequest, "anvilkit.control.v1.GetInstanceRequest"> = {
+  $type: "anvilkit.control.v1.GetInstanceRequest" as const,
+
+  encode(message: GetInstanceRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.backend !== "") {
+      writer.uint32(10).string(message.backend);
+    }
+    if (message.launchKey !== "") {
+      writer.uint32(18).string(message.launchKey);
+    }
+    if (message.podUid !== "") {
+      writer.uint32(26).string(message.podUid);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetInstanceRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetInstanceRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.backend = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.launchKey = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.podUid = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetInstanceRequest {
+    return {
+      $type: GetInstanceRequest.$type,
+      backend: isSet(object.backend) ? globalThis.String(object.backend) : "",
+      launchKey: isSet(object.launchKey)
+        ? globalThis.String(object.launchKey)
+        : isSet(object.launch_key)
+        ? globalThis.String(object.launch_key)
+        : "",
+      podUid: isSet(object.podUid)
+        ? globalThis.String(object.podUid)
+        : isSet(object.pod_uid)
+        ? globalThis.String(object.pod_uid)
+        : "",
+    };
+  },
+
+  toJSON(message: GetInstanceRequest): unknown {
+    const obj: any = {};
+    if (message.backend !== "") {
+      obj.backend = message.backend;
+    }
+    if (message.launchKey !== "") {
+      obj.launchKey = message.launchKey;
+    }
+    if (message.podUid !== "") {
+      obj.podUid = message.podUid;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetInstanceRequest>, I>>(base?: I): GetInstanceRequest {
+    return GetInstanceRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetInstanceRequest>, I>>(object: I): GetInstanceRequest {
+    const message = createBaseGetInstanceRequest();
+    message.backend = object.backend ?? "";
+    message.launchKey = object.launchKey ?? "";
+    message.podUid = object.podUid ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetInstanceRequest.$type, GetInstanceRequest);
+
+function createBaseGetInstanceResponse(): GetInstanceResponse {
+  return {
+    $type: "anvilkit.control.v1.GetInstanceResponse",
+    instance: undefined,
+    attempt: undefined,
+    tenantId: "",
+    recoveryEpoch: "",
+  };
+}
+
+export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.control.v1.GetInstanceResponse"> = {
+  $type: "anvilkit.control.v1.GetInstanceResponse" as const,
+
+  encode(message: GetInstanceResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.instance !== undefined) {
+      PhysicalInstance.encode(message.instance, writer.uint32(10).fork()).join();
+    }
+    if (message.attempt !== undefined) {
+      Attempt.encode(message.attempt, writer.uint32(18).fork()).join();
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(26).string(message.tenantId);
+    }
+    if (message.recoveryEpoch !== "") {
+      writer.uint32(34).string(message.recoveryEpoch);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetInstanceResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetInstanceResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.instance = PhysicalInstance.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.attempt = Attempt.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.recoveryEpoch = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetInstanceResponse {
+    return {
+      $type: GetInstanceResponse.$type,
+      instance: isSet(object.instance) ? PhysicalInstance.fromJSON(object.instance) : undefined,
+      attempt: isSet(object.attempt) ? Attempt.fromJSON(object.attempt) : undefined,
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      recoveryEpoch: isSet(object.recoveryEpoch)
+        ? globalThis.String(object.recoveryEpoch)
+        : isSet(object.recovery_epoch)
+        ? globalThis.String(object.recovery_epoch)
+        : "",
+    };
+  },
+
+  toJSON(message: GetInstanceResponse): unknown {
+    const obj: any = {};
+    if (message.instance !== undefined) {
+      obj.instance = PhysicalInstance.toJSON(message.instance);
+    }
+    if (message.attempt !== undefined) {
+      obj.attempt = Attempt.toJSON(message.attempt);
+    }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.recoveryEpoch !== "") {
+      obj.recoveryEpoch = message.recoveryEpoch;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetInstanceResponse>, I>>(base?: I): GetInstanceResponse {
+    return GetInstanceResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetInstanceResponse>, I>>(object: I): GetInstanceResponse {
+    const message = createBaseGetInstanceResponse();
+    message.instance = (object.instance !== undefined && object.instance !== null)
+      ? PhysicalInstance.fromPartial(object.instance)
+      : undefined;
+    message.attempt = (object.attempt !== undefined && object.attempt !== null)
+      ? Attempt.fromPartial(object.attempt)
+      : undefined;
+    message.tenantId = object.tenantId ?? "";
+    message.recoveryEpoch = object.recoveryEpoch ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetInstanceResponse.$type, GetInstanceResponse);
+
 function createBaseCloseAttemptRequest(): CloseAttemptRequest {
   return {
     $type: "anvilkit.control.v1.CloseAttemptRequest",
@@ -7236,6 +7506,22 @@ export const ExecutionServiceService = {
     responseDeserialize: (value: Buffer): GetAcceptedStageResponse => GetAcceptedStageResponse.decode(value),
   },
   /**
+   * Reads the physical instance the trusted launcher registered for one Pod
+   * of a launch, with its attempt and scope: the trusted access sidecar's
+   * lookup of its own execution scope (DD-03 §4, P09). The Pod's own claim
+   * registers nothing; until the launcher's evidence is recorded the answer
+   * is NOT_FOUND, and an instance that is not current carries no authority.
+   */
+  getInstance: {
+    path: "/anvilkit.control.v1.ExecutionService/GetInstance" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetInstanceRequest): Buffer => Buffer.from(GetInstanceRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetInstanceRequest => GetInstanceRequest.decode(value),
+    responseSerialize: (value: GetInstanceResponse): Buffer => Buffer.from(GetInstanceResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetInstanceResponse => GetInstanceResponse.decode(value),
+  },
+  /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
    * operation lifecycle for single-attempt profiles.
    */
@@ -7275,6 +7561,14 @@ export interface ExecutionServiceServer extends UntypedServiceImplementation {
    */
   acceptResult: handleUnaryCall<AcceptResultRequest, AcceptResultResponse>;
   getAcceptedStage: handleUnaryCall<GetAcceptedStageRequest, GetAcceptedStageResponse>;
+  /**
+   * Reads the physical instance the trusted launcher registered for one Pod
+   * of a launch, with its attempt and scope: the trusted access sidecar's
+   * lookup of its own execution scope (DD-03 §4, P09). The Pod's own claim
+   * registers nothing; until the launcher's evidence is recorded the answer
+   * is NOT_FOUND, and an instance that is not current carries no authority.
+   */
+  getInstance: handleUnaryCall<GetInstanceRequest, GetInstanceResponse>;
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
    * operation lifecycle for single-attempt profiles.
@@ -7389,6 +7683,28 @@ export interface ExecutionServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetAcceptedStageResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Reads the physical instance the trusted launcher registered for one Pod
+   * of a launch, with its attempt and scope: the trusted access sidecar's
+   * lookup of its own execution scope (DD-03 §4, P09). The Pod's own claim
+   * registers nothing; until the launcher's evidence is recorded the answer
+   * is NOT_FOUND, and an instance that is not current carries no authority.
+   */
+  getInstance(
+    request: GetInstanceRequest,
+    callback: (error: ServiceError | null, response: GetInstanceResponse) => void,
+  ): ClientUnaryCall;
+  getInstance(
+    request: GetInstanceRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetInstanceResponse) => void,
+  ): ClientUnaryCall;
+  getInstance(
+    request: GetInstanceRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetInstanceResponse) => void,
   ): ClientUnaryCall;
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the

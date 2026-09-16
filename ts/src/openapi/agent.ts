@@ -733,7 +733,7 @@ export interface components {
             updatedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
-        ArtifactClass: "prompt" | "brief" | "source" | "stage" | "result" | "evidence" | "answer" | "argument";
+        ArtifactClass: "prompt" | "brief" | "source" | "stage" | "result" | "evidence" | "answer" | "argument" | "npm" | "browser" | "css";
         /** @enum {string} */
         TransferState: "begun" | "finalized" | "rejected" | "expired";
         BeginTransferRequest: {

@@ -47,6 +47,14 @@ export enum ArtifactClass {
   ARTIFACT_CLASS_EVIDENCE = 6,
   ARTIFACT_CLASS_ANSWER = 7,
   ARTIFACT_CLASS_ARGUMENT = 8,
+  /**
+   * ARTIFACT_CLASS_NPM - The build deliverables of a certified component (DD-04 §2, P10): the
+   * npm tarball, the browser ES module and a stylesheet, each a finalized
+   * transfer an accepted validator stage binds by exact digest and size.
+   */
+  ARTIFACT_CLASS_NPM = 9,
+  ARTIFACT_CLASS_BROWSER = 10,
+  ARTIFACT_CLASS_CSS = 11,
   UNRECOGNIZED = -1,
 }
 
@@ -79,6 +87,15 @@ export function artifactClassFromJSON(object: any): ArtifactClass {
     case 8:
     case "ARTIFACT_CLASS_ARGUMENT":
       return ArtifactClass.ARTIFACT_CLASS_ARGUMENT;
+    case 9:
+    case "ARTIFACT_CLASS_NPM":
+      return ArtifactClass.ARTIFACT_CLASS_NPM;
+    case 10:
+    case "ARTIFACT_CLASS_BROWSER":
+      return ArtifactClass.ARTIFACT_CLASS_BROWSER;
+    case 11:
+    case "ARTIFACT_CLASS_CSS":
+      return ArtifactClass.ARTIFACT_CLASS_CSS;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -106,6 +123,12 @@ export function artifactClassToJSON(object: ArtifactClass): string {
       return "ARTIFACT_CLASS_ANSWER";
     case ArtifactClass.ARTIFACT_CLASS_ARGUMENT:
       return "ARTIFACT_CLASS_ARGUMENT";
+    case ArtifactClass.ARTIFACT_CLASS_NPM:
+      return "ARTIFACT_CLASS_NPM";
+    case ArtifactClass.ARTIFACT_CLASS_BROWSER:
+      return "ARTIFACT_CLASS_BROWSER";
+    case ArtifactClass.ARTIFACT_CLASS_CSS:
+      return "ARTIFACT_CLASS_CSS";
     case ArtifactClass.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";

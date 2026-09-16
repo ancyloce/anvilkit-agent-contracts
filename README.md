@@ -38,4 +38,4 @@ What the checks establish: `check` — `buf lint`, OpenAPI validation, JSON Sche
 | Model Proxy, Knowledge, Background Worker, MCP TypeScript callers, the new Studio client (not started) | `@anvilkit/generated-clients` (`ts/`) | Not published; wired with their first consumer |
 | Inference (not started) | `anvilkit-generated-clients` (`python/`) | Not published; wired with its first consumer |
 
-Versioning: the sources are v1 contracts; the generated packages start at 0.1.0 (`go/v0.1.0`) and follow the compatible-evolution rules of the architecture (no reused field numbers, no reinterpreted enums; incompatible evolution needs an ADR and explicit consumer migration). A version is only obtainable once its tag exists on this repository's remote.
+Versioning: the sources are v1 contracts; the generated packages start at 0.1.0 (`go/v0.1.0`; the current Go module tag is `go/v0.1.1`) and follow the compatible-evolution rules of the architecture (no reused field numbers, no reinterpreted enums; incompatible evolution needs an ADR and explicit consumer migration). A version is only obtainable once its tag exists on this repository's remote.

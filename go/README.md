@@ -22,4 +22,4 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
 go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 ```
 
-Consumers require an explicit version (`go get github.com/ancyloce/anvilkit-agent-contracts/go@v0.1.0`); the module is tagged `go/vX.Y.Z` on this repository. `tests/go` (the fixture-agreement suite) is a separate module so this one carries no test-only dependencies.
+Consumers require an explicit version (`go get github.com/ancyloce/anvilkit-agent-contracts/go@v0.1.1`); the module is tagged `go/vX.Y.Z` on this repository. `tests/go` (the fixture-agreement suite) is a separate module so this one carries no test-only dependencies.

@@ -173,6 +173,20 @@
       }
     },
     {
+      "name": "begin transfer of a certified component npm tarball (P10)",
+      "message": "anvilkit.control.v1.BeginTransferRequest",
+      "valid": true,
+      "instance": {
+        "command": { "tenantId": "tenant_a", "commandId": "xfer_1", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" },
+        "scope": { "tenantId": "tenant_a", "actorId": "anvilkit-agent-workflow" },
+        "class": "ARTIFACT_CLASS_NPM",
+        "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "expectedSize": "4096", "mediaType": "application/gzip",
+        "operationId": "op_01J9ABCDEF", "attemptId": "att_01J9ABCDEF",
+        "deadline": "2026-09-14T12:15:00Z"
+      }
+    },
+    {
       "name": "begin transfer with a negative size is rejected",
       "message": "anvilkit.control.v1.BeginTransferRequest",
       "valid": false,

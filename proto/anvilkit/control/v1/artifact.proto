@@ -26,6 +26,12 @@ enum ArtifactClass {
   ARTIFACT_CLASS_EVIDENCE = 6;
   ARTIFACT_CLASS_ANSWER = 7;
   ARTIFACT_CLASS_ARGUMENT = 8;
+  // The build deliverables of a certified component (DD-04 §2, P10): the
+  // npm tarball, the browser ES module and a stylesheet, each a finalized
+  // transfer an accepted validator stage binds by exact digest and size.
+  ARTIFACT_CLASS_NPM = 9;
+  ARTIFACT_CLASS_BROWSER = 10;
+  ARTIFACT_CLASS_CSS = 11;
 }
 
 enum TransferState {

@@ -80,12 +80,12 @@
     {
       "schemaVersion": 1,
       "profileId": "validator-fixed-dev-v1",
-      "revision": "5",
+      "revision": "6",
       "jobKind": "validator",
       "description": "DEVELOPMENT_ONLY fixed validator (P10d): the anvilkit-validator image runs the complete-source, protected-build and independent-certification chain on the reviewed fixed component baked into it (no candidate input; SSR and browser host checks in the Pod with the image's Chromium headless shell), uploads npm/browser/css/evidence through the access sidecar and submits the result manifest. Harness layout without RuntimeClass; it qualifies no candidate isolation and is never enabled outside development.",
       "image": {
         "repository": "anvilkit-validator",
-        "digest": "sha256:80c5eabc4cc80e568d1a398c32ea5d81a90f98c997c60aeb6f3794daa47e5c13"
+        "digest": "sha256:cc52643d0ec4bc8692394dbb1bc01aeaf7bcbe2cbe76a7484619c25eaaf8546d"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",

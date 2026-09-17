@@ -1,5 +1,5 @@
 {
-  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call. codegen-fixed-v1 and harness-wiring-dev-v1 are the P09 harness profiles and validator-fixed-dev-v1 the P10 fixed validator profile (the harness layout with the anvilkit-validator image): their image digests are recorded from the reviewed builds, and the launcher additionally requires each profile to be enabled for its environment.",
+  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call. codegen-fixed-v1 and harness-wiring-dev-v1 are the P09 harness profiles and validator-fixed-dev-v1 the P10 fixed validator profile (the harness layout with the anvilkit-validator image): their image digests are recorded from the reviewed builds, and the launcher additionally requires each profile to be enabled for its environment. codegen-team-dev-v1 is the P12 team profile (the anvilkit-codegen-team image: the validator image plus the trusted supervisor and the team package); it runs model-written code and stays DISABLED until the gVisor qualification.",
   "schemaVersion": 1,
   "profiles": [
     {
@@ -101,6 +101,32 @@
       },
       "deadlineSeconds": 900,
       "candidateCode": false
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "codegen-team-dev-v1",
+      "revision": "1",
+      "jobKind": "codegen",
+      "description": "Bounded LangGraph/Pi coding team (P12): the trusted supervisor runs the team coordinator and launches the Pi coder as the candidate; the sealed source, the joint stage and the evidence are accepted through the access sidecar and the independent validator chain runs in the Pod. It executes model-written code: requires the gVisor RuntimeClass; DISABLED until its negative tests pass on the target runtime (G-04/G-05).",
+      "image": {
+        "repository": "anvilkit-codegen-team",
+        "digest": "sha256:fef94b59e8af621fd4ba04fb707346dbeb38f3482a072caa12411c1b3ba53c3d"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+      },
+      "entrypoint": [
+        "/usr/local/bin/anvilkit-codegen-supervisor",
+        "team"
+      ],
+      "resources": {
+        "cpu": "2",
+        "memory": "3Gi"
+      },
+      "deadlineSeconds": 3600,
+      "runtimeClass": "gvisor",
+      "candidateCode": true
     }
   ]
 }

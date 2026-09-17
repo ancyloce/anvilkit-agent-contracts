@@ -117,7 +117,7 @@
             "additionalProperties": false,
             "required": ["class", "digest", "sizeBytes"],
             "properties": {
-              "class": { "type": "string", "enum": ["source", "npm", "browser", "css", "evidence", "result", "chunks"] },
+              "class": { "type": "string", "enum": ["source", "stage", "npm", "browser", "css", "evidence", "result", "chunks"], "description": "The artifact class the handle must be a finalized transfer of. stage is the joint stage of a codegen team attempt (DD-03 \u00a73: the graph checkpoint snapshot, the Pi session and the stage manifest in one archive), bound beside the sealed source it belongs to." },
               "digest": { "$ref": "#/$defs/digest" },
               "sizeBytes": { "$ref": "#/$defs/sequence" },
               "handle": { "type": "string", "maxLength": 256 }

@@ -111,6 +111,21 @@
       }
     },
     {
+      "name": "codegen team result manifest binding the sealed source, the joint stage and the evidence",
+      "ref": "#/$defs/resultManifest",
+      "valid": true,
+      "instance": {
+        "schemaVersion": 1, "launchId": "lch_01J9", "attemptId": "att_01J9", "jobKind": "codegen", "profileId": "harness-wiring-dev-v1",
+        "verdict": "repairable", "failureCode": "MISSING_CSS",
+        "outputs": [
+          { "class": "source", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "sizeBytes": "10240", "handle": "h_source" },
+          { "class": "stage", "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "sizeBytes": "65536", "handle": "h_stage" },
+          { "class": "evidence", "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "2048", "handle": "h_evidence" }
+        ],
+        "completedAt": "2026-09-17T03:00:00Z"
+      }
+    },
+    {
       "name": "invalid verdict without a failure code is rejected",
       "ref": "#/$defs/resultManifest",
       "valid": false,

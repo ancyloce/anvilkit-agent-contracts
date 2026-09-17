@@ -788,6 +788,35 @@ components:
         failureCode:
           type: string
           maxLength: 64
+        activeDeadline: { $ref: "#/components/schemas/Timestamp" }
+        clarification:
+          $ref: "#/components/schemas/Clarification"
+    Question:
+      type: object
+      additionalProperties: false
+      required: [questionId, text]
+      properties:
+        questionId: { $ref: "#/components/schemas/Id" }
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2048
+    Clarification:
+      description: The open question set of a waiting preparation; expiresAt is the immutable absolute end of the wait for this round.
+      type: object
+      additionalProperties: false
+      required: [questionSetId, questionSetRevision, round, askedAt, expiresAt, questions]
+      properties:
+        questionSetId: { $ref: "#/components/schemas/Id" }
+        questionSetRevision: { $ref: "#/components/schemas/Revision" }
+        round: { $ref: "#/components/schemas/Sequence" }
+        askedAt: { $ref: "#/components/schemas/Timestamp" }
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+        questions:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: { $ref: "#/components/schemas/Question" }
     CreatePreparationRequest:
       type: object
       additionalProperties: false

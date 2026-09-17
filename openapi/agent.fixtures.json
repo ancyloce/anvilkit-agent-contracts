@@ -56,6 +56,30 @@
       "instance": { "operationId": "op_01J9", "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a", "kind": "local_check", "subject": { "profileId": "local-check-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "lifecycle": "running", "phase": "launching", "control": "none", "cleanup": "pending", "finance": "not_funded", "revision": "2", "coveredEventSeq": "2", "executionEpoch": "1", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:01.250Z", "deadline": "2026-09-14T12:02:00Z" }
     },
     {
+      "name": "waiting preparation view with its open question set",
+      "schema": "OperationView",
+      "valid": true,
+      "instance": {"operationId": "op_01J9", "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a", "kind": "preparation", "subject": {"profileId": "preparation-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"}, "lifecycle": "waiting", "phase": "awaiting_input", "control": "none", "cleanup": "not_required", "finance": "not_funded", "revision": "2", "coveredEventSeq": "2", "executionEpoch": "1", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:01.250Z", "deadline": "2026-09-14T12:02:00Z", "clarification": {"questionSetId": "qs_01J9", "questionSetRevision": "1", "round": "1", "askedAt": "2026-09-14T12:00:01Z", "expiresAt": "2026-09-21T12:00:01Z", "questions": [{"questionId": "q1", "text": "Which call to action should the hero carry?"}]}}
+    },
+    {
+      "name": "question set with an unknown member is rejected",
+      "schema": "OperationView",
+      "valid": false,
+      "instance": {"operationId": "op_01J9", "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a", "kind": "preparation", "subject": {"profileId": "preparation-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"}, "lifecycle": "waiting", "phase": "awaiting_input", "control": "none", "cleanup": "not_required", "finance": "not_funded", "revision": "2", "coveredEventSeq": "2", "executionEpoch": "1", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:01.250Z", "deadline": "2026-09-14T12:02:00Z", "clarification": {"questionSetId": "qs_01J9", "questionSetRevision": "1", "round": "1", "askedAt": "2026-09-14T12:00:01Z", "expiresAt": "2026-09-21T12:00:01Z", "questions": [{"questionId": "q1", "text": "Which call to action should the hero carry?", "answer": "left"}]}}
+    },
+    {
+      "name": "question set without questions is rejected",
+      "schema": "OperationView",
+      "valid": false,
+      "instance": {"operationId": "op_01J9", "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a", "kind": "preparation", "subject": {"profileId": "preparation-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"}, "lifecycle": "waiting", "phase": "awaiting_input", "control": "none", "cleanup": "not_required", "finance": "not_funded", "revision": "2", "coveredEventSeq": "2", "executionEpoch": "1", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:01.250Z", "deadline": "2026-09-14T12:02:00Z", "clarification": {"questionSetId": "qs_01J9", "questionSetRevision": "1", "round": "1", "askedAt": "2026-09-14T12:00:01Z", "expiresAt": "2026-09-21T12:00:01Z", "questions": []}}
+    },
+    {
+      "name": "generation view with the active deadline set once",
+      "schema": "OperationView",
+      "valid": true,
+      "instance": {"operationId": "op_01J9", "tenantId": "tenant_a", "projectId": "proj_a", "actorId": "user_a", "kind": "generation", "subject": {"profileId": "generation-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "briefId": "brf_01J9"}, "lifecycle": "running", "phase": "bootstrapping", "control": "none", "cleanup": "pending", "finance": "not_funded", "revision": "2", "coveredEventSeq": "2", "executionEpoch": "1", "createdAt": "2026-09-14T12:00:00Z", "updatedAt": "2026-09-14T12:00:01.250Z", "deadline": "2026-09-14T12:02:00Z", "activeDeadline": "2026-09-14T13:00:00Z"}
+    },
+    {
       "name": "operation view with a non-UTC timestamp is rejected",
       "schema": "OperationView",
       "valid": false,

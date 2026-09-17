@@ -81,7 +81,7 @@
       "description": "DEVELOPMENT_ONLY fixed validator (P10d): the anvilkit-validator image runs the complete-source, protected-build and independent-certification chain on the reviewed fixed component baked into it (no candidate input, SSR host check only), uploads npm/browser/css/evidence through the access sidecar and submits the result manifest. Harness layout without RuntimeClass; it qualifies no candidate isolation and is never enabled outside development.",
       "image": {
         "repository": "anvilkit-validator",
-        "digest": "sha256:588e14d2f36346e928cc70a56d09515c94f6249662b639d61e2aea8a7db28101"
+        "digest": "sha256:3c1d9e97c042f996a09f84d607b67c2724e84e88bd0ef52c4d7a4a788a63ea56"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",

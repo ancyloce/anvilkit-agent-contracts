@@ -1,0 +1,260 @@
+// Preparation (DD-01 §3, delivery.md P13): the durable human-input records
+// of a Preparation operation. Control persists question sets with their
+// immutable absolute expiry, accepts one answer per question set revision
+// under a durable command identity together with its Update relay intent,
+// and freezes the brief that binds requirements, source revisions and
+// brand/asset content digests to the preparation operation. The Workflow
+// reads the accepted answer through GetAnswer (also for a lost Update
+// receipt: the original answer and its Update are queried, never re-sent
+// under a new identity); no Signal, polling loop or wake-up service exists.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum QuestionSetState {
+  QUESTION_SET_STATE_UNSPECIFIED = 0;
+  QUESTION_SET_STATE_OPEN = 1;
+  QUESTION_SET_STATE_ANSWERED = 2;
+  QUESTION_SET_STATE_EXPIRED = 3;
+  QUESTION_SET_STATE_SUPERSEDED = 4;
+}
+
+// RelayState is the durable Update relay intent of an accepted answer:
+// pending until Control issued the tracked Update, sent while its receipt is
+// awaited, applied or rejected as the Workflow's handler answered.
+enum RelayState {
+  RELAY_STATE_UNSPECIFIED = 0;
+  RELAY_STATE_PENDING = 1;
+  RELAY_STATE_SENT = 2;
+  RELAY_STATE_APPLIED = 3;
+  RELAY_STATE_REJECTED = 4;
+}
+
+enum BriefState {
+  BRIEF_STATE_UNSPECIFIED = 0;
+  BRIEF_STATE_CURRENT = 1;
+  BRIEF_STATE_SUPERSEDED = 2;
+}
+
+message QuestionSet {
+  string question_set_id = 1;
+  string operation_id = 2;
+  string revision = 3;
+  string round = 4;
+  repeated Question questions = 5;
+  google.protobuf.Timestamp asked_at = 6;
+  // Immutable: reentry, restarts and later rounds never extend it.
+  google.protobuf.Timestamp expires_at = 7;
+  QuestionSetState state = 8;
+}
+
+message Answer {
+  string answer_id = 1;
+  string operation_id = 2;
+  string question_set_id = 3;
+  string question_set_revision = 4;
+  ArtifactBinding answer = 5;
+  string handle = 6;
+  // update_id is the stable identity of the tracked Update relaying this
+  // answer to the Workflow (Temporal deduplicates it per run).
+  string update_id = 7;
+  RelayState relay = 8;
+  google.protobuf.Timestamp accepted_at = 9;
+  optional google.protobuf.Timestamp relayed_at = 10;
+}
+
+// ContentDigest freezes the exact content of a referenced source revision.
+message ContentDigest {
+  string source_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string revision = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string digest = 3 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message Brief {
+  string brief_id = 1;
+  string operation_id = 2;
+  string tenant_id = 3;
+  string revision = 4;
+  // The brief document: a finalized transfer of class brief.
+  ArtifactBinding brief = 5;
+  string handle = 6;
+  string requirements_digest = 7;
+  repeated SourceReference source_revisions = 8;
+  repeated ContentDigest brand_digests = 9;
+  repeated ContentDigest asset_digests = 10;
+  BriefState state = 11;
+  google.protobuf.Timestamp frozen_at = 12;
+}
+
+message Preparation {
+  string operation_id = 1;
+  string tenant_id = 2;
+  ArtifactBinding prompt = 3;
+  string prompt_handle = 4;
+  repeated SourceReference brand_references = 5;
+  repeated SourceReference asset_references = 6;
+  repeated QuestionSet question_sets = 7;
+  optional Brief brief = 8;
+  // The reviewed clarification bounds of the profile: rounds, questions per
+  // round and the absolute wait per round.
+  string max_rounds = 9;
+  string max_questions = 10;
+  string wait_seconds = 11;
+}
+
+service PreparationService {
+  // Reads the intake, question sets and brief of a Preparation.
+  rpc GetPreparation(GetPreparationRequest) returns (GetPreparationResponse);
+  // Records a grouped question round with its immutable expiry (asked_at plus
+  // the profile's wait). The same command returns the original set; a round
+  // or question count beyond the profile's bounds, a set for a fenced or
+  // terminal operation, or a round asked while a set is open is refused.
+  // The operation becomes waiting/awaiting_input.
+  rpc RecordQuestionSet(RecordQuestionSetRequest) returns (RecordQuestionSetResponse);
+  // Accepts an answer (API-06) bound to the current question set revision:
+  // the same command returns the original receipt; another answer for the
+  // same revision, a stale revision or an expired set is refused. The answer
+  // and its Update relay intent commit together.
+  rpc SubmitAnswer(SubmitAnswerRequest) returns (SubmitAnswerResponse);
+  // Reads the accepted answer of a question set (or by answer id).
+  rpc GetAnswer(GetAnswerRequest) returns (GetAnswerResponse);
+  // Records the Update outcome of an answer's relay (the relay's own record
+  // of the receipt; a lost receipt is repaired by querying the Update).
+  rpc RecordAnswerRelay(RecordAnswerRelayRequest) returns (RecordAnswerRelayResponse);
+  // Freezes the brief: the brief artifact, the requirements digest, the
+  // source revisions and the content digests bind to the preparation
+  // operation; a previous brief of the operation is superseded. The same
+  // command returns the original brief.
+  rpc RecordBrief(RecordBriefRequest) returns (RecordBriefResponse);
+  rpc GetBrief(GetBriefRequest) returns (GetBriefResponse);
+}
+
+message GetPreparationRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetPreparationResponse {
+  Preparation preparation = 1;
+}
+
+message RecordQuestionSetRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string round = 3 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  repeated Question questions = 4 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 16
+  }];
+}
+
+message RecordQuestionSetResponse {
+  QuestionSet question_set = 1;
+  bool existing = 2;
+}
+
+message SubmitAnswerRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string operation_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string question_set_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string question_set_revision = 5 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  ArtifactBinding answer = 6 [(buf.validate.field).required = true];
+}
+
+message SubmitAnswerResponse {
+  Answer answer = 1;
+  bool existing = 2;
+}
+
+message GetAnswerRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // One of the two.
+  string answer_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  string question_set_id = 4 [(buf.validate.field).string = {max_len: 128}];
+}
+
+message GetAnswerResponse {
+  Answer answer = 1;
+}
+
+message RecordAnswerRelayRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string answer_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  RelayState relay = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+message RecordAnswerRelayResponse {
+  Answer answer = 1;
+}
+
+message RecordBriefRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  ArtifactBinding brief = 3 [(buf.validate.field).required = true];
+  string requirements_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  repeated SourceReference source_revisions = 5 [(buf.validate.field).repeated.max_items = 64];
+  repeated ContentDigest brand_digests = 6 [(buf.validate.field).repeated.max_items = 16];
+  repeated ContentDigest asset_digests = 7 [(buf.validate.field).repeated.max_items = 64];
+}
+
+message RecordBriefResponse {
+  Brief brief = 1;
+  bool existing = 2;
+}
+
+message GetBriefRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string brief_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetBriefResponse {
+  Brief brief = 1;
+}

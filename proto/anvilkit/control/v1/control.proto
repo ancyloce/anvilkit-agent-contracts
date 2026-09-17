@@ -58,6 +58,60 @@ message Money {
   string amount = 2 [(buf.validate.field).string.pattern = "^-?(0|[1-9][0-9]{0,29})$"];
 }
 
+// ArtifactBinding names a finalized transfer and the digest the caller
+// expects it to hold (the public ArtifactBinding of agent.yaml).
+message ArtifactBinding {
+  string transfer_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string digest = 2 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+// SourceReference names an exact revision of a Knowledge source (a brand or
+// asset reference of a preparation). Retrieved text is input, never
+// authorization: the reference is recorded, its content digest is frozen by
+// the brief.
+message SourceReference {
+  string source_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string revision = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+// PreparationIntake is what API-01 accepts into a Preparation operation: the
+// prompt (a finalized transfer of class prompt) and the selected references.
+message PreparationIntake {
+  ArtifactBinding prompt = 1 [(buf.validate.field).required = true];
+  repeated SourceReference brand_references = 2 [(buf.validate.field).repeated.max_items = 16];
+  repeated SourceReference asset_references = 3 [(buf.validate.field).repeated.max_items = 64];
+}
+
+// Question is one clarification question of a grouped round.
+message Question {
+  string question_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string text = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+}
+
+// Clarification is the open question set a waiting Preparation exposes on
+// its projection: identity, revision, round, when it was asked and the
+// immutable absolute expiry of the wait (DD-01 §3).
+message Clarification {
+  string question_set_id = 1;
+  string question_set_revision = 2;
+  string round = 3;
+  google.protobuf.Timestamp asked_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  repeated Question questions = 6;
+}
+
 enum OperationKind {
   OPERATION_KIND_UNSPECIFIED = 0;
   OPERATION_KIND_PREPARATION = 1;
@@ -140,6 +194,12 @@ message OperationView {
   google.protobuf.Timestamp updated_at = 16;
   google.protobuf.Timestamp deadline = 17;
   optional string failure_code = 18;
+  // active_deadline is set once by the first execution permit of a
+  // Generation (DD-01 §4) and never reset; absent until then and for
+  // profiles without an execution queue.
+  optional google.protobuf.Timestamp active_deadline = 19;
+  // clarification is the open question set of a waiting Preparation.
+  optional Clarification clarification = 20;
 }
 
 // OperationChangedPayload is the reviewed small payload of operation.changed.
@@ -219,6 +279,9 @@ message CreateOperationRequest {
     not_in: [0]
   }];
   OperationSubject subject = 4 [(buf.validate.field).required = true];
+  // preparation carries the intake of a Preparation (API-01); required for
+  // that kind, refused for every other.
+  optional PreparationIntake preparation = 5;
 }
 
 message CreateOperationResponse {
@@ -437,8 +500,16 @@ service ExecutionService {
   // is NOT_FOUND, and an instance that is not current carries no authority.
   rpc GetInstance(GetInstanceRequest) returns (GetInstanceResponse);
   // Closes the attempt with its outcome and cleanup evidence and settles the
-  // operation lifecycle for single-attempt profiles.
+  // operation lifecycle for single-attempt profiles. For a multi-step
+  // profile (Preparation, Generation) a definite close settles the attempt
+  // only; the operation stays running until SettleOperation, an applied
+  // cancel or an unknown outcome/cleanup (reconciling) ends it.
   rpc CloseAttempt(CloseAttemptRequest) returns (CloseAttemptResponse);
+  // Settles the business outcome of a multi-step operation (DD-01 §2: the
+  // Workflow states the business completion; cleanup, settlement and
+  // Temporal closure stay separate facts). The same command returns the
+  // original; a terminal operation answers its state.
+  rpc SettleOperation(SettleOperationRequest) returns (SettleOperationResponse);
 }
 
 message OpenAttemptRequest {
@@ -583,6 +654,10 @@ message GetAcceptedStageRequest {
   // When set, the stage must belong to this tenant; a stage of another
   // tenant is not found.
   string tenant_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  // When set, the stage must be the accepted stage of an attempt of this
+  // operation (the authorized relationship of a cross-attempt read, P13):
+  // a stage of another operation is not found.
+  string operation_id = 3 [(buf.validate.field).string = {max_len: 128}];
 }
 
 message GetAcceptedStageResponse {
@@ -637,4 +712,32 @@ message CloseAttemptResponse {
   Attempt attempt = 1;
   OperationView operation = 2;
   bool existing = 3;
+}
+
+enum OperationOutcome {
+  OPERATION_OUTCOME_UNSPECIFIED = 0;
+  OPERATION_OUTCOME_SUCCEEDED = 1;
+  OPERATION_OUTCOME_FAILED = 2;
+  OPERATION_OUTCOME_CANCELED = 3;
+}
+
+message SettleOperationRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  OperationOutcome outcome = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional string failure_code = 4 [(buf.validate.field).string = {max_len: 64}];
+  // phase is the business phase the outcome ends in (for example
+  // candidate_ready, brief_frozen); bounded like the projection's phase.
+  string phase = 5 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message SettleOperationResponse {
+  OperationView operation = 1;
+  bool existing = 2;
 }

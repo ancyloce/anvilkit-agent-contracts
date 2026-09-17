@@ -1,0 +1,190 @@
+// Generation admission and bootstrap (DD-01 §4, DD-02 §2–§3, delivery.md
+// P13): the bounded execution queue with its permit that sets the active
+// deadline once, the lease the protected supervisor reports (only confirmed
+// results reach Control; an unknown renewal never extends known validity and
+// a confirmed loss fences new sends for good), the funding of the operation
+// from the shared budget pools under a stable occurrence, and the supported
+// control commands relayed as tracked Updates. Control never chooses the
+// next business action: the Workflow asks, Control decides and records.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "anvilkit/control/v1/preparation.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum PermitState {
+  PERMIT_STATE_UNSPECIFIED = 0;
+  PERMIT_STATE_ACTIVE = 1;
+  PERMIT_STATE_RELEASED = 2;
+  PERMIT_STATE_EXPIRED_UNCONFIRMED = 3;
+}
+
+message ExecutionPermit {
+  string permit_id = 1;
+  string pool_id = 2;
+  string operation_id = 3;
+  string fence_epoch = 4;
+  PermitState state = 5;
+  google.protobuf.Timestamp granted_at = 6;
+  optional google.protobuf.Timestamp released_at = 7;
+}
+
+// LeaseState is what the protected supervisor confirmed about the source
+// lease of a Generation.
+enum LeaseState {
+  LEASE_STATE_UNSPECIFIED = 0;
+  LEASE_STATE_NONE = 1;
+  LEASE_STATE_HELD = 2;
+  LEASE_STATE_LOST = 3;
+  LEASE_STATE_RELEASED = 4;
+}
+
+message LeaseRecord {
+  LeaseState state = 1;
+  string lease_id = 2;
+  string fence = 3;
+  // The last confirmed expiry; an unknown renewal never moves it.
+  optional google.protobuf.Timestamp expires_at = 4;
+  // The occurrence of the last confirmed report.
+  string occurrence = 5;
+}
+
+// Generation is the admission and bootstrap record of a Generation.
+message Generation {
+  string operation_id = 1;
+  string tenant_id = 2;
+  Brief brief = 3;
+  optional ExecutionPermit permit = 4;
+  optional google.protobuf.Timestamp active_deadline = 5;
+  // queue_deadline is the original deadline of intake: admission waiting
+  // never extends it.
+  google.protobuf.Timestamp queue_deadline = 6;
+  LeaseRecord lease = 7;
+  optional Money funding = 8;
+  // definition_activation is the reviewed definition the operation runs
+  // under; a tracked change_definition command moves it.
+  string definition_activation = 9;
+  // The reviewed bounds of the profile.
+  string max_repairs = 10;
+  string codegen_profile_id = 11;
+  string validator_profile_id = 12;
+  optional string candidate_effect_id = 13;
+  // The exact subject the operation was accepted for (the lease subject).
+  OperationSubject subject = 14;
+  string actor_id = 15;
+}
+
+service GenerationService {
+  rpc GetGeneration(GetGenerationRequest) returns (GetGenerationResponse);
+  // Asks for the execution permit of the operation. The first grant sets
+  // active_deadline once; a request while the operation already holds its
+  // permit returns it; a full pool answers granted=false with the original
+  // queue deadline (the caller waits on a durable timer and asks again
+  // under the same command identity); a fenced operation, a passed queue
+  // deadline or a superseded brief is refused.
+  rpc RequestExecutionPermit(RequestExecutionPermitRequest) returns (RequestExecutionPermitResponse);
+  // Records a confirmed lease result under a stable occurrence: held or
+  // renewed moves the known expiry, lost fences new sends for the operation
+  // permanently, released ends it. The same occurrence returns the
+  // original record. An unknown result is never reported.
+  rpc RecordLease(RecordLeaseRequest) returns (RecordLeaseResponse);
+  // Funds the operation from the current platform/tenant/actor pools with
+  // the profile's reviewed amount under the operation identity; a repeated
+  // call returns the existing allocation (never a second one).
+  rpc RecordFunding(RecordFundingRequest) returns (RecordFundingResponse);
+  // Records the Update outcome of a tracked control command's relay (hold,
+  // resume, change_definition): applied, blocked or rejected with the
+  // reason the Workflow's handler gave.
+  rpc RecordCommandRelay(RecordCommandRelayRequest) returns (RecordCommandRelayResponse);
+}
+
+message GetGenerationRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetGenerationResponse {
+  Generation generation = 1;
+}
+
+message RequestExecutionPermitRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message RequestExecutionPermitResponse {
+  bool granted = 1;
+  optional ExecutionPermit permit = 2;
+  optional google.protobuf.Timestamp active_deadline = 3;
+  google.protobuf.Timestamp queue_deadline = 4;
+  // The pool's position facts for a queued request.
+  string queued_ahead = 5;
+}
+
+message RecordLeaseRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string occurrence = 3 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  LeaseState state = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0, 1]
+  }];
+  string lease_id = 5 [(buf.validate.field).string = {max_len: 128}];
+  string fence = 6 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+  optional google.protobuf.Timestamp expires_at = 7;
+}
+
+message RecordLeaseResponse {
+  LeaseRecord lease = 1;
+  OperationView operation = 2;
+  bool existing = 3;
+}
+
+message RecordFundingRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message RecordFundingResponse {
+  Money amount = 1;
+  bool existing = 2;
+  OperationView operation = 3;
+}
+
+message RecordCommandRelayRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string command_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  CommandOutcome outcome = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string reason_code = 4 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message RecordCommandRelayResponse {
+  CommandReceipt receipt = 1;
+}

@@ -83,6 +83,15 @@ service ArtifactService {
   rpc ResolveHandle(ResolveHandleRequest) returns (ResolveHandleResponse);
   rpc FinalizeTransfer(FinalizeTransferRequest) returns (FinalizeTransferResponse);
   rpc GetTransfer(GetTransferRequest) returns (GetTransferResponse);
+  // Issues a trusted reader the scoped download capability of a finalized
+  // artifact under an authorized relationship to the reading operation
+  // (P13): the artifact is the operation's own prompt, an accepted answer,
+  // the brief its subject binds, or an artifact bound by an accepted stage
+  // of one of its attempts. A reading physical instance must be the
+  // current one of an executing attempt of that operation. The capability
+  // names the exact object version; the reader verifies the bytes against
+  // the digest and size answered here. Candidates never see it.
+  rpc ReadArtifact(ReadArtifactRequest) returns (ReadArtifactResponse);
 }
 
 message BeginTransferRequest {
@@ -165,4 +174,25 @@ message GetTransferRequest {
 
 message GetTransferResponse {
   Transfer transfer = 1;
+}
+
+message ReadArtifactRequest {
+  // The artifact by handle or by transfer id (one of the two).
+  string handle = 1 [(buf.validate.field).string = {max_len: 256}];
+  string transfer_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  // The reading operation; the relationship is checked against it.
+  string operation_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // The reading physical instance when the reader is a Job's trusted
+  // sidecar; empty for the Workflow's own reads.
+  string instance_id = 4 [(buf.validate.field).string = {max_len: 128}];
+}
+
+message ReadArtifactResponse {
+  Transfer transfer = 1;
+  // The scoped download capability of the exact object version (one GET,
+  // the listed headers, valid until expires_at).
+  TransferCapability download = 2;
 }

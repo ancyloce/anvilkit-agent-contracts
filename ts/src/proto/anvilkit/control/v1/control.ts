@@ -673,6 +673,51 @@ export function verdictToJSON(object: Verdict): string {
   }
 }
 
+export enum OperationOutcome {
+  OPERATION_OUTCOME_UNSPECIFIED = 0,
+  OPERATION_OUTCOME_SUCCEEDED = 1,
+  OPERATION_OUTCOME_FAILED = 2,
+  OPERATION_OUTCOME_CANCELED = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function operationOutcomeFromJSON(object: any): OperationOutcome {
+  switch (object) {
+    case 0:
+    case "OPERATION_OUTCOME_UNSPECIFIED":
+      return OperationOutcome.OPERATION_OUTCOME_UNSPECIFIED;
+    case 1:
+    case "OPERATION_OUTCOME_SUCCEEDED":
+      return OperationOutcome.OPERATION_OUTCOME_SUCCEEDED;
+    case 2:
+    case "OPERATION_OUTCOME_FAILED":
+      return OperationOutcome.OPERATION_OUTCOME_FAILED;
+    case 3:
+    case "OPERATION_OUTCOME_CANCELED":
+      return OperationOutcome.OPERATION_OUTCOME_CANCELED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return OperationOutcome.UNRECOGNIZED;
+  }
+}
+
+export function operationOutcomeToJSON(object: OperationOutcome): string {
+  switch (object) {
+    case OperationOutcome.OPERATION_OUTCOME_UNSPECIFIED:
+      return "OPERATION_OUTCOME_UNSPECIFIED";
+    case OperationOutcome.OPERATION_OUTCOME_SUCCEEDED:
+      return "OPERATION_OUTCOME_SUCCEEDED";
+    case OperationOutcome.OPERATION_OUTCOME_FAILED:
+      return "OPERATION_OUTCOME_FAILED";
+    case OperationOutcome.OPERATION_OUTCOME_CANCELED:
+      return "OPERATION_OUTCOME_CANCELED";
+    case OperationOutcome.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 /**
  * CommandIdentity makes a durable command reentrant: the same tenant/command
  * pair with the same request digest returns the original outcome, a changed
@@ -708,6 +753,61 @@ export interface Money {
 }
 
 /**
+ * ArtifactBinding names a finalized transfer and the digest the caller
+ * expects it to hold (the public ArtifactBinding of agent.yaml).
+ */
+export interface ArtifactBinding {
+  $type: "anvilkit.control.v1.ArtifactBinding";
+  transferId: string;
+  digest: string;
+}
+
+/**
+ * SourceReference names an exact revision of a Knowledge source (a brand or
+ * asset reference of a preparation). Retrieved text is input, never
+ * authorization: the reference is recorded, its content digest is frozen by
+ * the brief.
+ */
+export interface SourceReference {
+  $type: "anvilkit.control.v1.SourceReference";
+  sourceId: string;
+  revision: string;
+}
+
+/**
+ * PreparationIntake is what API-01 accepts into a Preparation operation: the
+ * prompt (a finalized transfer of class prompt) and the selected references.
+ */
+export interface PreparationIntake {
+  $type: "anvilkit.control.v1.PreparationIntake";
+  prompt: ArtifactBinding | undefined;
+  brandReferences: SourceReference[];
+  assetReferences: SourceReference[];
+}
+
+/** Question is one clarification question of a grouped round. */
+export interface Question {
+  $type: "anvilkit.control.v1.Question";
+  questionId: string;
+  text: string;
+}
+
+/**
+ * Clarification is the open question set a waiting Preparation exposes on
+ * its projection: identity, revision, round, when it was asked and the
+ * immutable absolute expiry of the wait (DD-01 §3).
+ */
+export interface Clarification {
+  $type: "anvilkit.control.v1.Clarification";
+  questionSetId: string;
+  questionSetRevision: string;
+  round: string;
+  askedAt: Date | undefined;
+  expiresAt: Date | undefined;
+  questions: Question[];
+}
+
+/**
  * OperationSubject binds the exact profile and subject digest an operation was
  * accepted for. A changed subject is a different operation.
  */
@@ -739,7 +839,19 @@ export interface OperationView {
   createdAt: Date | undefined;
   updatedAt: Date | undefined;
   deadline: Date | undefined;
-  failureCode?: string | undefined;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * active_deadline is set once by the first execution permit of a
+   * Generation (DD-01 §4) and never reset; absent until then and for
+   * profiles without an execution queue.
+   */
+  activeDeadline?:
+    | Date
+    | undefined;
+  /** clarification is the open question set of a waiting Preparation. */
+  clarification?: Clarification | undefined;
 }
 
 /** OperationChangedPayload is the reviewed small payload of operation.changed. */
@@ -781,7 +893,14 @@ export interface CreateOperationRequest {
   command: CommandIdentity | undefined;
   scope: Scope | undefined;
   kind: OperationKind;
-  subject: OperationSubject | undefined;
+  subject:
+    | OperationSubject
+    | undefined;
+  /**
+   * preparation carries the intake of a Preparation (API-01); required for
+   * that kind, refused for every other.
+   */
+  preparation?: PreparationIntake | undefined;
 }
 
 export interface CreateOperationResponse {
@@ -1030,6 +1149,12 @@ export interface GetAcceptedStageRequest {
    * tenant is not found.
    */
   tenantId: string;
+  /**
+   * When set, the stage must be the accepted stage of an attempt of this
+   * operation (the authorized relationship of a cross-attempt read, P13):
+   * a stage of another operation is not found.
+   */
+  operationId: string;
 }
 
 export interface GetAcceptedStageResponse {
@@ -1074,6 +1199,27 @@ export interface CloseAttemptRequest {
 export interface CloseAttemptResponse {
   $type: "anvilkit.control.v1.CloseAttemptResponse";
   attempt: Attempt | undefined;
+  operation: OperationView | undefined;
+  existing: boolean;
+}
+
+export interface SettleOperationRequest {
+  $type: "anvilkit.control.v1.SettleOperationRequest";
+  command: CommandIdentity | undefined;
+  operationId: string;
+  outcome: OperationOutcome;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * phase is the business phase the outcome ends in (for example
+   * candidate_ready, brief_frozen); bounded like the projection's phase.
+   */
+  phase: string;
+}
+
+export interface SettleOperationResponse {
+  $type: "anvilkit.control.v1.SettleOperationResponse";
   operation: OperationView | undefined;
   existing: boolean;
 }
@@ -1424,6 +1570,589 @@ export const Money: MessageFns<Money, "anvilkit.control.v1.Money"> = {
 
 messageTypeRegistry.set(Money.$type, Money);
 
+function createBaseArtifactBinding(): ArtifactBinding {
+  return { $type: "anvilkit.control.v1.ArtifactBinding", transferId: "", digest: "" };
+}
+
+export const ArtifactBinding: MessageFns<ArtifactBinding, "anvilkit.control.v1.ArtifactBinding"> = {
+  $type: "anvilkit.control.v1.ArtifactBinding" as const,
+
+  encode(message: ArtifactBinding, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.transferId !== "") {
+      writer.uint32(10).string(message.transferId);
+    }
+    if (message.digest !== "") {
+      writer.uint32(18).string(message.digest);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ArtifactBinding {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseArtifactBinding();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.transferId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.digest = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ArtifactBinding {
+    return {
+      $type: ArtifactBinding.$type,
+      transferId: isSet(object.transferId)
+        ? globalThis.String(object.transferId)
+        : isSet(object.transfer_id)
+        ? globalThis.String(object.transfer_id)
+        : "",
+      digest: isSet(object.digest) ? globalThis.String(object.digest) : "",
+    };
+  },
+
+  toJSON(message: ArtifactBinding): unknown {
+    const obj: any = {};
+    if (message.transferId !== "") {
+      obj.transferId = message.transferId;
+    }
+    if (message.digest !== "") {
+      obj.digest = message.digest;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ArtifactBinding>, I>>(base?: I): ArtifactBinding {
+    return ArtifactBinding.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ArtifactBinding>, I>>(object: I): ArtifactBinding {
+    const message = createBaseArtifactBinding();
+    message.transferId = object.transferId ?? "";
+    message.digest = object.digest ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ArtifactBinding.$type, ArtifactBinding);
+
+function createBaseSourceReference(): SourceReference {
+  return { $type: "anvilkit.control.v1.SourceReference", sourceId: "", revision: "" };
+}
+
+export const SourceReference: MessageFns<SourceReference, "anvilkit.control.v1.SourceReference"> = {
+  $type: "anvilkit.control.v1.SourceReference" as const,
+
+  encode(message: SourceReference, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.sourceId !== "") {
+      writer.uint32(10).string(message.sourceId);
+    }
+    if (message.revision !== "") {
+      writer.uint32(18).string(message.revision);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SourceReference {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSourceReference();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.sourceId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.revision = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): SourceReference {
+    return {
+      $type: SourceReference.$type,
+      sourceId: isSet(object.sourceId)
+        ? globalThis.String(object.sourceId)
+        : isSet(object.source_id)
+        ? globalThis.String(object.source_id)
+        : "",
+      revision: isSet(object.revision) ? globalThis.String(object.revision) : "",
+    };
+  },
+
+  toJSON(message: SourceReference): unknown {
+    const obj: any = {};
+    if (message.sourceId !== "") {
+      obj.sourceId = message.sourceId;
+    }
+    if (message.revision !== "") {
+      obj.revision = message.revision;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SourceReference>, I>>(base?: I): SourceReference {
+    return SourceReference.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SourceReference>, I>>(object: I): SourceReference {
+    const message = createBaseSourceReference();
+    message.sourceId = object.sourceId ?? "";
+    message.revision = object.revision ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(SourceReference.$type, SourceReference);
+
+function createBasePreparationIntake(): PreparationIntake {
+  return {
+    $type: "anvilkit.control.v1.PreparationIntake",
+    prompt: undefined,
+    brandReferences: [],
+    assetReferences: [],
+  };
+}
+
+export const PreparationIntake: MessageFns<PreparationIntake, "anvilkit.control.v1.PreparationIntake"> = {
+  $type: "anvilkit.control.v1.PreparationIntake" as const,
+
+  encode(message: PreparationIntake, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.prompt !== undefined) {
+      ArtifactBinding.encode(message.prompt, writer.uint32(10).fork()).join();
+    }
+    for (const v of message.brandReferences) {
+      SourceReference.encode(v!, writer.uint32(18).fork()).join();
+    }
+    for (const v of message.assetReferences) {
+      SourceReference.encode(v!, writer.uint32(26).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): PreparationIntake {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBasePreparationIntake();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.prompt = ArtifactBinding.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.brandReferences.push(SourceReference.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.assetReferences.push(SourceReference.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): PreparationIntake {
+    return {
+      $type: PreparationIntake.$type,
+      prompt: isSet(object.prompt) ? ArtifactBinding.fromJSON(object.prompt) : undefined,
+      brandReferences: globalThis.Array.isArray(object?.brandReferences)
+        ? object.brandReferences.map((e: any) => SourceReference.fromJSON(e))
+        : globalThis.Array.isArray(object?.brand_references)
+        ? object.brand_references.map((e: any) => SourceReference.fromJSON(e))
+        : [],
+      assetReferences: globalThis.Array.isArray(object?.assetReferences)
+        ? object.assetReferences.map((e: any) => SourceReference.fromJSON(e))
+        : globalThis.Array.isArray(object?.asset_references)
+        ? object.asset_references.map((e: any) => SourceReference.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: PreparationIntake): unknown {
+    const obj: any = {};
+    if (message.prompt !== undefined) {
+      obj.prompt = ArtifactBinding.toJSON(message.prompt);
+    }
+    if (message.brandReferences?.length) {
+      obj.brandReferences = message.brandReferences.map((e) => SourceReference.toJSON(e));
+    }
+    if (message.assetReferences?.length) {
+      obj.assetReferences = message.assetReferences.map((e) => SourceReference.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<PreparationIntake>, I>>(base?: I): PreparationIntake {
+    return PreparationIntake.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<PreparationIntake>, I>>(object: I): PreparationIntake {
+    const message = createBasePreparationIntake();
+    message.prompt = (object.prompt !== undefined && object.prompt !== null)
+      ? ArtifactBinding.fromPartial(object.prompt)
+      : undefined;
+    message.brandReferences = object.brandReferences?.map((e) => SourceReference.fromPartial(e)) || [];
+    message.assetReferences = object.assetReferences?.map((e) => SourceReference.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+messageTypeRegistry.set(PreparationIntake.$type, PreparationIntake);
+
+function createBaseQuestion(): Question {
+  return { $type: "anvilkit.control.v1.Question", questionId: "", text: "" };
+}
+
+export const Question: MessageFns<Question, "anvilkit.control.v1.Question"> = {
+  $type: "anvilkit.control.v1.Question" as const,
+
+  encode(message: Question, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.questionId !== "") {
+      writer.uint32(10).string(message.questionId);
+    }
+    if (message.text !== "") {
+      writer.uint32(18).string(message.text);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Question {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseQuestion();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.questionId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.text = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): Question {
+    return {
+      $type: Question.$type,
+      questionId: isSet(object.questionId)
+        ? globalThis.String(object.questionId)
+        : isSet(object.question_id)
+        ? globalThis.String(object.question_id)
+        : "",
+      text: isSet(object.text) ? globalThis.String(object.text) : "",
+    };
+  },
+
+  toJSON(message: Question): unknown {
+    const obj: any = {};
+    if (message.questionId !== "") {
+      obj.questionId = message.questionId;
+    }
+    if (message.text !== "") {
+      obj.text = message.text;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Question>, I>>(base?: I): Question {
+    return Question.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Question>, I>>(object: I): Question {
+    const message = createBaseQuestion();
+    message.questionId = object.questionId ?? "";
+    message.text = object.text ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(Question.$type, Question);
+
+function createBaseClarification(): Clarification {
+  return {
+    $type: "anvilkit.control.v1.Clarification",
+    questionSetId: "",
+    questionSetRevision: "",
+    round: "",
+    askedAt: undefined,
+    expiresAt: undefined,
+    questions: [],
+  };
+}
+
+export const Clarification: MessageFns<Clarification, "anvilkit.control.v1.Clarification"> = {
+  $type: "anvilkit.control.v1.Clarification" as const,
+
+  encode(message: Clarification, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.questionSetId !== "") {
+      writer.uint32(10).string(message.questionSetId);
+    }
+    if (message.questionSetRevision !== "") {
+      writer.uint32(18).string(message.questionSetRevision);
+    }
+    if (message.round !== "") {
+      writer.uint32(26).string(message.round);
+    }
+    if (message.askedAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.askedAt), writer.uint32(34).fork()).join();
+    }
+    if (message.expiresAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(42).fork()).join();
+    }
+    for (const v of message.questions) {
+      Question.encode(v!, writer.uint32(50).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Clarification {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseClarification();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.questionSetId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.questionSetRevision = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.round = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.askedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.questions.push(Question.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): Clarification {
+    return {
+      $type: Clarification.$type,
+      questionSetId: isSet(object.questionSetId)
+        ? globalThis.String(object.questionSetId)
+        : isSet(object.question_set_id)
+        ? globalThis.String(object.question_set_id)
+        : "",
+      questionSetRevision: isSet(object.questionSetRevision)
+        ? globalThis.String(object.questionSetRevision)
+        : isSet(object.question_set_revision)
+        ? globalThis.String(object.question_set_revision)
+        : "",
+      round: isSet(object.round) ? globalThis.String(object.round) : "",
+      askedAt: isSet(object.askedAt)
+        ? fromJsonTimestamp(object.askedAt)
+        : isSet(object.asked_at)
+        ? fromJsonTimestamp(object.asked_at)
+        : undefined,
+      expiresAt: isSet(object.expiresAt)
+        ? fromJsonTimestamp(object.expiresAt)
+        : isSet(object.expires_at)
+        ? fromJsonTimestamp(object.expires_at)
+        : undefined,
+      questions: globalThis.Array.isArray(object?.questions)
+        ? object.questions.map((e: any) => Question.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: Clarification): unknown {
+    const obj: any = {};
+    if (message.questionSetId !== "") {
+      obj.questionSetId = message.questionSetId;
+    }
+    if (message.questionSetRevision !== "") {
+      obj.questionSetRevision = message.questionSetRevision;
+    }
+    if (message.round !== "") {
+      obj.round = message.round;
+    }
+    if (message.askedAt !== undefined) {
+      obj.askedAt = message.askedAt.toISOString();
+    }
+    if (message.expiresAt !== undefined) {
+      obj.expiresAt = message.expiresAt.toISOString();
+    }
+    if (message.questions?.length) {
+      obj.questions = message.questions.map((e) => Question.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Clarification>, I>>(base?: I): Clarification {
+    return Clarification.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Clarification>, I>>(object: I): Clarification {
+    const message = createBaseClarification();
+    message.questionSetId = object.questionSetId ?? "";
+    message.questionSetRevision = object.questionSetRevision ?? "";
+    message.round = object.round ?? "";
+    message.askedAt = object.askedAt ?? undefined;
+    message.expiresAt = object.expiresAt ?? undefined;
+    message.questions = object.questions?.map((e) => Question.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+messageTypeRegistry.set(Clarification.$type, Clarification);
+
 function createBaseOperationSubject(): OperationSubject {
   return {
     $type: "anvilkit.control.v1.OperationSubject",
@@ -1589,6 +2318,8 @@ function createBaseOperationView(): OperationView {
     updatedAt: undefined,
     deadline: undefined,
     failureCode: undefined,
+    activeDeadline: undefined,
+    clarification: undefined,
   };
 }
 
@@ -1649,6 +2380,12 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     }
     if (message.failureCode !== undefined) {
       writer.uint32(146).string(message.failureCode);
+    }
+    if (message.activeDeadline !== undefined) {
+      Timestamp.encode(toTimestamp(message.activeDeadline), writer.uint32(154).fork()).join();
+    }
+    if (message.clarification !== undefined) {
+      Clarification.encode(message.clarification, writer.uint32(162).fork()).join();
     }
     return writer;
   },
@@ -1810,6 +2547,22 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
             message.failureCode = reader.string();
             continue;
           }
+          case 19: {
+            if (tag !== 154) {
+              break;
+            }
+
+            message.activeDeadline = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 20: {
+            if (tag !== 162) {
+              break;
+            }
+
+            message.clarification = Clarification.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1879,6 +2632,12 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
         : isSet(object.failure_code)
         ? globalThis.String(object.failure_code)
         : undefined,
+      activeDeadline: isSet(object.activeDeadline)
+        ? fromJsonTimestamp(object.activeDeadline)
+        : isSet(object.active_deadline)
+        ? fromJsonTimestamp(object.active_deadline)
+        : undefined,
+      clarification: isSet(object.clarification) ? Clarification.fromJSON(object.clarification) : undefined,
     };
   },
 
@@ -1938,6 +2697,12 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     if (message.failureCode !== undefined) {
       obj.failureCode = message.failureCode;
     }
+    if (message.activeDeadline !== undefined) {
+      obj.activeDeadline = message.activeDeadline.toISOString();
+    }
+    if (message.clarification !== undefined) {
+      obj.clarification = Clarification.toJSON(message.clarification);
+    }
     return obj;
   },
 
@@ -1966,6 +2731,10 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     message.updatedAt = object.updatedAt ?? undefined;
     message.deadline = object.deadline ?? undefined;
     message.failureCode = object.failureCode ?? undefined;
+    message.activeDeadline = object.activeDeadline ?? undefined;
+    message.clarification = (object.clarification !== undefined && object.clarification !== null)
+      ? Clarification.fromPartial(object.clarification)
+      : undefined;
     return message;
   },
 };
@@ -2573,6 +3342,7 @@ function createBaseCreateOperationRequest(): CreateOperationRequest {
     scope: undefined,
     kind: 0,
     subject: undefined,
+    preparation: undefined,
   };
 }
 
@@ -2592,6 +3362,9 @@ export const CreateOperationRequest: MessageFns<CreateOperationRequest, "anvilki
       }
       if (message.subject !== undefined) {
         OperationSubject.encode(message.subject, writer.uint32(34).fork()).join();
+      }
+      if (message.preparation !== undefined) {
+        PreparationIntake.encode(message.preparation, writer.uint32(42).fork()).join();
       }
       return writer;
     },
@@ -2641,6 +3414,14 @@ export const CreateOperationRequest: MessageFns<CreateOperationRequest, "anvilki
               message.subject = OperationSubject.decode(reader, reader.uint32());
               continue;
             }
+            case 5: {
+              if (tag !== 42) {
+                break;
+              }
+
+              message.preparation = PreparationIntake.decode(reader, reader.uint32());
+              continue;
+            }
           }
           if ((tag & 7) === 4 || tag === 0) {
             break;
@@ -2660,6 +3441,7 @@ export const CreateOperationRequest: MessageFns<CreateOperationRequest, "anvilki
         scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
         kind: isSet(object.kind) ? operationKindFromJSON(object.kind) : 0,
         subject: isSet(object.subject) ? OperationSubject.fromJSON(object.subject) : undefined,
+        preparation: isSet(object.preparation) ? PreparationIntake.fromJSON(object.preparation) : undefined,
       };
     },
 
@@ -2676,6 +3458,9 @@ export const CreateOperationRequest: MessageFns<CreateOperationRequest, "anvilki
       }
       if (message.subject !== undefined) {
         obj.subject = OperationSubject.toJSON(message.subject);
+      }
+      if (message.preparation !== undefined) {
+        obj.preparation = PreparationIntake.toJSON(message.preparation);
       }
       return obj;
     },
@@ -2694,6 +3479,9 @@ export const CreateOperationRequest: MessageFns<CreateOperationRequest, "anvilki
       message.kind = object.kind ?? 0;
       message.subject = (object.subject !== undefined && object.subject !== null)
         ? OperationSubject.fromPartial(object.subject)
+        : undefined;
+      message.preparation = (object.preparation !== undefined && object.preparation !== null)
+        ? PreparationIntake.fromPartial(object.preparation)
         : undefined;
       return message;
     },
@@ -6520,7 +7308,7 @@ export const AcceptResultResponse: MessageFns<AcceptResultResponse, "anvilkit.co
 messageTypeRegistry.set(AcceptResultResponse.$type, AcceptResultResponse);
 
 function createBaseGetAcceptedStageRequest(): GetAcceptedStageRequest {
-  return { $type: "anvilkit.control.v1.GetAcceptedStageRequest", attemptId: "", tenantId: "" };
+  return { $type: "anvilkit.control.v1.GetAcceptedStageRequest", attemptId: "", tenantId: "", operationId: "" };
 }
 
 export const GetAcceptedStageRequest: MessageFns<
@@ -6535,6 +7323,9 @@ export const GetAcceptedStageRequest: MessageFns<
     }
     if (message.tenantId !== "") {
       writer.uint32(18).string(message.tenantId);
+    }
+    if (message.operationId !== "") {
+      writer.uint32(26).string(message.operationId);
     }
     return writer;
   },
@@ -6568,6 +7359,14 @@ export const GetAcceptedStageRequest: MessageFns<
             message.tenantId = reader.string();
             continue;
           }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.operationId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -6593,6 +7392,11 @@ export const GetAcceptedStageRequest: MessageFns<
         : isSet(object.tenant_id)
         ? globalThis.String(object.tenant_id)
         : "",
+      operationId: isSet(object.operationId)
+        ? globalThis.String(object.operationId)
+        : isSet(object.operation_id)
+        ? globalThis.String(object.operation_id)
+        : "",
     };
   },
 
@@ -6604,6 +7408,9 @@ export const GetAcceptedStageRequest: MessageFns<
     if (message.tenantId !== "") {
       obj.tenantId = message.tenantId;
     }
+    if (message.operationId !== "") {
+      obj.operationId = message.operationId;
+    }
     return obj;
   },
 
@@ -6614,6 +7421,7 @@ export const GetAcceptedStageRequest: MessageFns<
     const message = createBaseGetAcceptedStageRequest();
     message.attemptId = object.attemptId ?? "";
     message.tenantId = object.tenantId ?? "";
+    message.operationId = object.operationId ?? "";
     return message;
   },
 };
@@ -7242,6 +8050,257 @@ export const CloseAttemptResponse: MessageFns<CloseAttemptResponse, "anvilkit.co
 
 messageTypeRegistry.set(CloseAttemptResponse.$type, CloseAttemptResponse);
 
+function createBaseSettleOperationRequest(): SettleOperationRequest {
+  return {
+    $type: "anvilkit.control.v1.SettleOperationRequest",
+    command: undefined,
+    operationId: "",
+    outcome: 0,
+    failureCode: undefined,
+    phase: "",
+  };
+}
+
+export const SettleOperationRequest: MessageFns<SettleOperationRequest, "anvilkit.control.v1.SettleOperationRequest"> =
+  {
+    $type: "anvilkit.control.v1.SettleOperationRequest" as const,
+
+    encode(message: SettleOperationRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      if (message.command !== undefined) {
+        CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+      }
+      if (message.operationId !== "") {
+        writer.uint32(18).string(message.operationId);
+      }
+      if (message.outcome !== 0) {
+        writer.uint32(24).int32(message.outcome);
+      }
+      if (message.failureCode !== undefined) {
+        writer.uint32(34).string(message.failureCode);
+      }
+      if (message.phase !== "") {
+        writer.uint32(42).string(message.phase);
+      }
+      return writer;
+    },
+
+    decode(input: BinaryReader | Uint8Array, length?: number): SettleOperationRequest {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+      if (previousRecursionDepth >= 100) {
+        throw new globalThis.Error("protobuf decode recursion limit exceeded");
+      }
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+      try {
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = createBaseSettleOperationRequest();
+        while (reader.pos < end) {
+          const tag = reader.uint32();
+          switch (tag >>> 3) {
+            case 1: {
+              if (tag !== 10) {
+                break;
+              }
+
+              message.command = CommandIdentity.decode(reader, reader.uint32());
+              continue;
+            }
+            case 2: {
+              if (tag !== 18) {
+                break;
+              }
+
+              message.operationId = reader.string();
+              continue;
+            }
+            case 3: {
+              if (tag !== 24) {
+                break;
+              }
+
+              message.outcome = reader.int32() as any;
+              continue;
+            }
+            case 4: {
+              if (tag !== 34) {
+                break;
+              }
+
+              message.failureCode = reader.string();
+              continue;
+            }
+            case 5: {
+              if (tag !== 42) {
+                break;
+              }
+
+              message.phase = reader.string();
+              continue;
+            }
+          }
+          if ((tag & 7) === 4 || tag === 0) {
+            break;
+          }
+          reader.skip(tag & 7);
+        }
+        return message;
+      } finally {
+        (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+      }
+    },
+
+    fromJSON(object: any): SettleOperationRequest {
+      return {
+        $type: SettleOperationRequest.$type,
+        command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+        operationId: isSet(object.operationId)
+          ? globalThis.String(object.operationId)
+          : isSet(object.operation_id)
+          ? globalThis.String(object.operation_id)
+          : "",
+        outcome: isSet(object.outcome) ? operationOutcomeFromJSON(object.outcome) : 0,
+        failureCode: isSet(object.failureCode)
+          ? globalThis.String(object.failureCode)
+          : isSet(object.failure_code)
+          ? globalThis.String(object.failure_code)
+          : undefined,
+        phase: isSet(object.phase) ? globalThis.String(object.phase) : "",
+      };
+    },
+
+    toJSON(message: SettleOperationRequest): unknown {
+      const obj: any = {};
+      if (message.command !== undefined) {
+        obj.command = CommandIdentity.toJSON(message.command);
+      }
+      if (message.operationId !== "") {
+        obj.operationId = message.operationId;
+      }
+      if (message.outcome !== 0) {
+        obj.outcome = operationOutcomeToJSON(message.outcome);
+      }
+      if (message.failureCode !== undefined) {
+        obj.failureCode = message.failureCode;
+      }
+      if (message.phase !== "") {
+        obj.phase = message.phase;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<SettleOperationRequest>, I>>(base?: I): SettleOperationRequest {
+      return SettleOperationRequest.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<SettleOperationRequest>, I>>(object: I): SettleOperationRequest {
+      const message = createBaseSettleOperationRequest();
+      message.command = (object.command !== undefined && object.command !== null)
+        ? CommandIdentity.fromPartial(object.command)
+        : undefined;
+      message.operationId = object.operationId ?? "";
+      message.outcome = object.outcome ?? 0;
+      message.failureCode = object.failureCode ?? undefined;
+      message.phase = object.phase ?? "";
+      return message;
+    },
+  };
+
+messageTypeRegistry.set(SettleOperationRequest.$type, SettleOperationRequest);
+
+function createBaseSettleOperationResponse(): SettleOperationResponse {
+  return { $type: "anvilkit.control.v1.SettleOperationResponse", operation: undefined, existing: false };
+}
+
+export const SettleOperationResponse: MessageFns<
+  SettleOperationResponse,
+  "anvilkit.control.v1.SettleOperationResponse"
+> = {
+  $type: "anvilkit.control.v1.SettleOperationResponse" as const,
+
+  encode(message: SettleOperationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.operation !== undefined) {
+      OperationView.encode(message.operation, writer.uint32(10).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(16).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SettleOperationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSettleOperationResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.operation = OperationView.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): SettleOperationResponse {
+    return {
+      $type: SettleOperationResponse.$type,
+      operation: isSet(object.operation) ? OperationView.fromJSON(object.operation) : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: SettleOperationResponse): unknown {
+    const obj: any = {};
+    if (message.operation !== undefined) {
+      obj.operation = OperationView.toJSON(message.operation);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SettleOperationResponse>, I>>(base?: I): SettleOperationResponse {
+    return SettleOperationResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SettleOperationResponse>, I>>(object: I): SettleOperationResponse {
+    const message = createBaseSettleOperationResponse();
+    message.operation = (object.operation !== undefined && object.operation !== null)
+      ? OperationView.fromPartial(object.operation)
+      : undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(SettleOperationResponse.$type, SettleOperationResponse);
+
 export type OperationServiceService = typeof OperationServiceService;
 export const OperationServiceService = {
   /**
@@ -7551,7 +8610,10 @@ export const ExecutionServiceService = {
   },
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
-   * operation lifecycle for single-attempt profiles.
+   * operation lifecycle for single-attempt profiles. For a multi-step
+   * profile (Preparation, Generation) a definite close settles the attempt
+   * only; the operation stays running until SettleOperation, an applied
+   * cancel or an unknown outcome/cleanup (reconciling) ends it.
    */
   closeAttempt: {
     path: "/anvilkit.control.v1.ExecutionService/CloseAttempt" as const,
@@ -7562,6 +8624,23 @@ export const ExecutionServiceService = {
     responseSerialize: (value: CloseAttemptResponse): Buffer =>
       Buffer.from(CloseAttemptResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): CloseAttemptResponse => CloseAttemptResponse.decode(value),
+  },
+  /**
+   * Settles the business outcome of a multi-step operation (DD-01 §2: the
+   * Workflow states the business completion; cleanup, settlement and
+   * Temporal closure stay separate facts). The same command returns the
+   * original; a terminal operation answers its state.
+   */
+  settleOperation: {
+    path: "/anvilkit.control.v1.ExecutionService/SettleOperation" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: SettleOperationRequest): Buffer =>
+      Buffer.from(SettleOperationRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): SettleOperationRequest => SettleOperationRequest.decode(value),
+    responseSerialize: (value: SettleOperationResponse): Buffer =>
+      Buffer.from(SettleOperationResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): SettleOperationResponse => SettleOperationResponse.decode(value),
   },
 } as const;
 
@@ -7599,9 +8678,19 @@ export interface ExecutionServiceServer extends UntypedServiceImplementation {
   getInstance: handleUnaryCall<GetInstanceRequest, GetInstanceResponse>;
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
-   * operation lifecycle for single-attempt profiles.
+   * operation lifecycle for single-attempt profiles. For a multi-step
+   * profile (Preparation, Generation) a definite close settles the attempt
+   * only; the operation stays running until SettleOperation, an applied
+   * cancel or an unknown outcome/cleanup (reconciling) ends it.
    */
   closeAttempt: handleUnaryCall<CloseAttemptRequest, CloseAttemptResponse>;
+  /**
+   * Settles the business outcome of a multi-step operation (DD-01 §2: the
+   * Workflow states the business completion; cleanup, settlement and
+   * Temporal closure stay separate facts). The same command returns the
+   * original; a terminal operation answers its state.
+   */
+  settleOperation: handleUnaryCall<SettleOperationRequest, SettleOperationResponse>;
 }
 
 export interface ExecutionServiceClient extends Client {
@@ -7736,7 +8825,10 @@ export interface ExecutionServiceClient extends Client {
   ): ClientUnaryCall;
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
-   * operation lifecycle for single-attempt profiles.
+   * operation lifecycle for single-attempt profiles. For a multi-step
+   * profile (Preparation, Generation) a definite close settles the attempt
+   * only; the operation stays running until SettleOperation, an applied
+   * cancel or an unknown outcome/cleanup (reconciling) ends it.
    */
   closeAttempt(
     request: CloseAttemptRequest,
@@ -7752,6 +8844,27 @@ export interface ExecutionServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: CloseAttemptResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Settles the business outcome of a multi-step operation (DD-01 §2: the
+   * Workflow states the business completion; cleanup, settlement and
+   * Temporal closure stay separate facts). The same command returns the
+   * original; a terminal operation answers its state.
+   */
+  settleOperation(
+    request: SettleOperationRequest,
+    callback: (error: ServiceError | null, response: SettleOperationResponse) => void,
+  ): ClientUnaryCall;
+  settleOperation(
+    request: SettleOperationRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: SettleOperationResponse) => void,
+  ): ClientUnaryCall;
+  settleOperation(
+    request: SettleOperationRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: SettleOperationResponse) => void,
   ): ClientUnaryCall;
 }
 

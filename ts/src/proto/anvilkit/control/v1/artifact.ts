@@ -320,6 +320,32 @@ export interface GetTransferResponse {
   transfer: Transfer | undefined;
 }
 
+export interface ReadArtifactRequest {
+  $type: "anvilkit.control.v1.ReadArtifactRequest";
+  /** The artifact by handle or by transfer id (one of the two). */
+  handle: string;
+  transferId: string;
+  /** The reading operation; the relationship is checked against it. */
+  operationId: string;
+  /**
+   * The reading physical instance when the reader is a Job's trusted
+   * sidecar; empty for the Workflow's own reads.
+   */
+  instanceId: string;
+}
+
+export interface ReadArtifactResponse {
+  $type: "anvilkit.control.v1.ReadArtifactResponse";
+  transfer:
+    | Transfer
+    | undefined;
+  /**
+   * The scoped download capability of the exact object version (one GET,
+   * the listed headers, valid until expires_at).
+   */
+  download: TransferCapability | undefined;
+}
+
 function createBaseTransfer(): Transfer {
   return {
     $type: "anvilkit.control.v1.Transfer",
@@ -1999,6 +2025,240 @@ export const GetTransferResponse: MessageFns<GetTransferResponse, "anvilkit.cont
 
 messageTypeRegistry.set(GetTransferResponse.$type, GetTransferResponse);
 
+function createBaseReadArtifactRequest(): ReadArtifactRequest {
+  return {
+    $type: "anvilkit.control.v1.ReadArtifactRequest",
+    handle: "",
+    transferId: "",
+    operationId: "",
+    instanceId: "",
+  };
+}
+
+export const ReadArtifactRequest: MessageFns<ReadArtifactRequest, "anvilkit.control.v1.ReadArtifactRequest"> = {
+  $type: "anvilkit.control.v1.ReadArtifactRequest" as const,
+
+  encode(message: ReadArtifactRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.handle !== "") {
+      writer.uint32(10).string(message.handle);
+    }
+    if (message.transferId !== "") {
+      writer.uint32(18).string(message.transferId);
+    }
+    if (message.operationId !== "") {
+      writer.uint32(26).string(message.operationId);
+    }
+    if (message.instanceId !== "") {
+      writer.uint32(34).string(message.instanceId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReadArtifactRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReadArtifactRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.handle = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.transferId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.operationId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.instanceId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ReadArtifactRequest {
+    return {
+      $type: ReadArtifactRequest.$type,
+      handle: isSet(object.handle) ? globalThis.String(object.handle) : "",
+      transferId: isSet(object.transferId)
+        ? globalThis.String(object.transferId)
+        : isSet(object.transfer_id)
+        ? globalThis.String(object.transfer_id)
+        : "",
+      operationId: isSet(object.operationId)
+        ? globalThis.String(object.operationId)
+        : isSet(object.operation_id)
+        ? globalThis.String(object.operation_id)
+        : "",
+      instanceId: isSet(object.instanceId)
+        ? globalThis.String(object.instanceId)
+        : isSet(object.instance_id)
+        ? globalThis.String(object.instance_id)
+        : "",
+    };
+  },
+
+  toJSON(message: ReadArtifactRequest): unknown {
+    const obj: any = {};
+    if (message.handle !== "") {
+      obj.handle = message.handle;
+    }
+    if (message.transferId !== "") {
+      obj.transferId = message.transferId;
+    }
+    if (message.operationId !== "") {
+      obj.operationId = message.operationId;
+    }
+    if (message.instanceId !== "") {
+      obj.instanceId = message.instanceId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReadArtifactRequest>, I>>(base?: I): ReadArtifactRequest {
+    return ReadArtifactRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReadArtifactRequest>, I>>(object: I): ReadArtifactRequest {
+    const message = createBaseReadArtifactRequest();
+    message.handle = object.handle ?? "";
+    message.transferId = object.transferId ?? "";
+    message.operationId = object.operationId ?? "";
+    message.instanceId = object.instanceId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ReadArtifactRequest.$type, ReadArtifactRequest);
+
+function createBaseReadArtifactResponse(): ReadArtifactResponse {
+  return { $type: "anvilkit.control.v1.ReadArtifactResponse", transfer: undefined, download: undefined };
+}
+
+export const ReadArtifactResponse: MessageFns<ReadArtifactResponse, "anvilkit.control.v1.ReadArtifactResponse"> = {
+  $type: "anvilkit.control.v1.ReadArtifactResponse" as const,
+
+  encode(message: ReadArtifactResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.transfer !== undefined) {
+      Transfer.encode(message.transfer, writer.uint32(10).fork()).join();
+    }
+    if (message.download !== undefined) {
+      TransferCapability.encode(message.download, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReadArtifactResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReadArtifactResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.transfer = Transfer.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.download = TransferCapability.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ReadArtifactResponse {
+    return {
+      $type: ReadArtifactResponse.$type,
+      transfer: isSet(object.transfer) ? Transfer.fromJSON(object.transfer) : undefined,
+      download: isSet(object.download) ? TransferCapability.fromJSON(object.download) : undefined,
+    };
+  },
+
+  toJSON(message: ReadArtifactResponse): unknown {
+    const obj: any = {};
+    if (message.transfer !== undefined) {
+      obj.transfer = Transfer.toJSON(message.transfer);
+    }
+    if (message.download !== undefined) {
+      obj.download = TransferCapability.toJSON(message.download);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReadArtifactResponse>, I>>(base?: I): ReadArtifactResponse {
+    return ReadArtifactResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReadArtifactResponse>, I>>(object: I): ReadArtifactResponse {
+    const message = createBaseReadArtifactResponse();
+    message.transfer = (object.transfer !== undefined && object.transfer !== null)
+      ? Transfer.fromPartial(object.transfer)
+      : undefined;
+    message.download = (object.download !== undefined && object.download !== null)
+      ? TransferCapability.fromPartial(object.download)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ReadArtifactResponse.$type, ReadArtifactResponse);
+
 export type ArtifactServiceService = typeof ArtifactServiceService;
 export const ArtifactServiceService = {
   beginTransfer: {
@@ -2042,6 +2302,26 @@ export const ArtifactServiceService = {
     responseSerialize: (value: GetTransferResponse): Buffer => Buffer.from(GetTransferResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetTransferResponse => GetTransferResponse.decode(value),
   },
+  /**
+   * Issues a trusted reader the scoped download capability of a finalized
+   * artifact under an authorized relationship to the reading operation
+   * (P13): the artifact is the operation's own prompt, an accepted answer,
+   * the brief its subject binds, or an artifact bound by an accepted stage
+   * of one of its attempts. A reading physical instance must be the
+   * current one of an executing attempt of that operation. The capability
+   * names the exact object version; the reader verifies the bytes against
+   * the digest and size answered here. Candidates never see it.
+   */
+  readArtifact: {
+    path: "/anvilkit.control.v1.ArtifactService/ReadArtifact" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ReadArtifactRequest): Buffer => Buffer.from(ReadArtifactRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReadArtifactRequest => ReadArtifactRequest.decode(value),
+    responseSerialize: (value: ReadArtifactResponse): Buffer =>
+      Buffer.from(ReadArtifactResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ReadArtifactResponse => ReadArtifactResponse.decode(value),
+  },
 } as const;
 
 export interface ArtifactServiceServer extends UntypedServiceImplementation {
@@ -2050,6 +2330,17 @@ export interface ArtifactServiceServer extends UntypedServiceImplementation {
   resolveHandle: handleUnaryCall<ResolveHandleRequest, ResolveHandleResponse>;
   finalizeTransfer: handleUnaryCall<FinalizeTransferRequest, FinalizeTransferResponse>;
   getTransfer: handleUnaryCall<GetTransferRequest, GetTransferResponse>;
+  /**
+   * Issues a trusted reader the scoped download capability of a finalized
+   * artifact under an authorized relationship to the reading operation
+   * (P13): the artifact is the operation's own prompt, an accepted answer,
+   * the brief its subject binds, or an artifact bound by an accepted stage
+   * of one of its attempts. A reading physical instance must be the
+   * current one of an executing attempt of that operation. The capability
+   * names the exact object version; the reader verifies the bytes against
+   * the digest and size answered here. Candidates never see it.
+   */
+  readArtifact: handleUnaryCall<ReadArtifactRequest, ReadArtifactResponse>;
 }
 
 export interface ArtifactServiceClient extends Client {
@@ -2113,6 +2404,31 @@ export interface ArtifactServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetTransferResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Issues a trusted reader the scoped download capability of a finalized
+   * artifact under an authorized relationship to the reading operation
+   * (P13): the artifact is the operation's own prompt, an accepted answer,
+   * the brief its subject binds, or an artifact bound by an accepted stage
+   * of one of its attempts. A reading physical instance must be the
+   * current one of an executing attempt of that operation. The capability
+   * names the exact object version; the reader verifies the bytes against
+   * the digest and size answered here. Candidates never see it.
+   */
+  readArtifact(
+    request: ReadArtifactRequest,
+    callback: (error: ServiceError | null, response: ReadArtifactResponse) => void,
+  ): ClientUnaryCall;
+  readArtifact(
+    request: ReadArtifactRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ReadArtifactResponse) => void,
+  ): ClientUnaryCall;
+  readArtifact(
+    request: ReadArtifactRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ReadArtifactResponse) => void,
   ): ClientUnaryCall;
 }
 

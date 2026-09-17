@@ -464,6 +464,21 @@ export interface components {
             updatedAt: components["schemas"]["Timestamp"];
             deadline: components["schemas"]["Timestamp"];
             failureCode?: string;
+            activeDeadline?: components["schemas"]["Timestamp"];
+            clarification?: components["schemas"]["Clarification"];
+        };
+        Question: {
+            questionId: components["schemas"]["Id"];
+            text: string;
+        };
+        /** @description The open question set of a waiting preparation; expiresAt is the immutable absolute end of the wait for this round. */
+        Clarification: {
+            questionSetId: components["schemas"]["Id"];
+            questionSetRevision: components["schemas"]["Revision"];
+            round: components["schemas"]["Sequence"];
+            askedAt: components["schemas"]["Timestamp"];
+            expiresAt: components["schemas"]["Timestamp"];
+            questions: components["schemas"]["Question"][];
         };
         CreatePreparationRequest: {
             commandId: components["schemas"]["Id"];

@@ -84,6 +84,36 @@
       "instance": { "role": "developer", "content": "x" }
     },
     {
+      "name": "assistant message with a tool call replayed to the model",
+      "schema": "Message",
+      "valid": true,
+      "instance": { "role": "assistant", "content": "", "toolCalls": [{ "toolCallId": "tc_1", "name": "read_brief", "arguments": "{\"section\":\"hero\"}" }] }
+    },
+    {
+      "name": "tool message answering a tool call by its id",
+      "schema": "Message",
+      "valid": true,
+      "instance": { "role": "tool", "toolCallId": "tc_1", "content": "The brief: one hero." }
+    },
+    {
+      "name": "message tool call without arguments is rejected (the round trip carries the arguments)",
+      "schema": "Message",
+      "valid": false,
+      "instance": { "role": "assistant", "content": "", "toolCalls": [{ "toolCallId": "tc_1", "name": "read_brief" }] }
+    },
+    {
+      "name": "message tool call with a name outside the tool name pattern is rejected",
+      "schema": "Message",
+      "valid": false,
+      "instance": { "role": "assistant", "content": "", "toolCalls": [{ "toolCallId": "tc_1", "name": "1bad name", "arguments": "{}" }] }
+    },
+    {
+      "name": "message tool call carrying a native member is rejected",
+      "schema": "Message",
+      "valid": false,
+      "instance": { "role": "assistant", "content": "", "toolCalls": [{ "toolCallId": "tc_1", "name": "read_brief", "arguments": "{}", "function": {} }] }
+    },
+    {
       "name": "admitted frame",
       "schema": "StreamFrame",
       "valid": true,

@@ -117,7 +117,17 @@ components:
         attemptId: { $ref: "#/components/schemas/Id" }
         instanceId: { $ref: "#/components/schemas/Id" }
         executionEpoch: { $ref: "#/components/schemas/Sequence" }
+    MessageToolCall:
+      description: One tool call an assistant message made, replayed to the model as the round trip the model produced; `arguments` is the JSON object text of the tool_call frame.
+      type: object
+      additionalProperties: false
+      required: [toolCallId, name, arguments]
+      properties:
+        toolCallId: { $ref: "#/components/schemas/Id" }
+        name: { type: string, pattern: "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$" }
+        arguments: { type: string, maxLength: 262144 }
     Message:
+      description: One message of the history. `toolCalls` belongs to assistant messages (the calls the model made); `toolCallId` belongs to tool messages (the result of exactly one earlier assistant tool call). The Proxy refuses either member on another role and a tool message that answers no earlier call.
       type: object
       additionalProperties: false
       required: [role, content]
@@ -125,6 +135,7 @@ components:
         role: { type: string, enum: [system, user, assistant, tool] }
         content: { type: string, maxLength: 1048576 }
         toolCallId: { $ref: "#/components/schemas/Id" }
+        toolCalls: { type: array, maxItems: 64, items: { $ref: "#/components/schemas/MessageToolCall" } }
     ToolDefinition:
       type: object
       additionalProperties: false

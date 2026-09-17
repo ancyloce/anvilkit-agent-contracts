@@ -83,11 +83,19 @@ export interface components {
             instanceId?: components["schemas"]["Id"];
             executionEpoch: components["schemas"]["Sequence"];
         };
+        /** @description One tool call an assistant message made, replayed to the model as the round trip the model produced; `arguments` is the JSON object text of the tool_call frame. */
+        MessageToolCall: {
+            toolCallId: components["schemas"]["Id"];
+            name: string;
+            arguments: string;
+        };
+        /** @description One message of the history. `toolCalls` belongs to assistant messages (the calls the model made); `toolCallId` belongs to tool messages (the result of exactly one earlier assistant tool call). The Proxy refuses either member on another role and a tool message that answers no earlier call. */
         Message: {
             /** @enum {string} */
             role: "system" | "user" | "assistant" | "tool";
             content: string;
             toolCallId?: components["schemas"]["Id"];
+            toolCalls?: components["schemas"]["MessageToolCall"][];
         };
         ToolDefinition: {
             name: string;

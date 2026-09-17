@@ -347,6 +347,7 @@ const (
 	ExecutionService_GetAcceptedStage_FullMethodName = "/anvilkit.control.v1.ExecutionService/GetAcceptedStage"
 	ExecutionService_GetInstance_FullMethodName      = "/anvilkit.control.v1.ExecutionService/GetInstance"
 	ExecutionService_CloseAttempt_FullMethodName     = "/anvilkit.control.v1.ExecutionService/CloseAttempt"
+	ExecutionService_SettleOperation_FullMethodName  = "/anvilkit.control.v1.ExecutionService/SettleOperation"
 )
 
 // ExecutionServiceClient is the client API for ExecutionService service.
@@ -377,8 +378,16 @@ type ExecutionServiceClient interface {
 	// is NOT_FOUND, and an instance that is not current carries no authority.
 	GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error)
 	// Closes the attempt with its outcome and cleanup evidence and settles the
-	// operation lifecycle for single-attempt profiles.
+	// operation lifecycle for single-attempt profiles. For a multi-step
+	// profile (Preparation, Generation) a definite close settles the attempt
+	// only; the operation stays running until SettleOperation, an applied
+	// cancel or an unknown outcome/cleanup (reconciling) ends it.
 	CloseAttempt(ctx context.Context, in *CloseAttemptRequest, opts ...grpc.CallOption) (*CloseAttemptResponse, error)
+	// Settles the business outcome of a multi-step operation (DD-01 §2: the
+	// Workflow states the business completion; cleanup, settlement and
+	// Temporal closure stay separate facts). The same command returns the
+	// original; a terminal operation answers its state.
+	SettleOperation(ctx context.Context, in *SettleOperationRequest, opts ...grpc.CallOption) (*SettleOperationResponse, error)
 }
 
 type executionServiceClient struct {
@@ -469,6 +478,16 @@ func (c *executionServiceClient) CloseAttempt(ctx context.Context, in *CloseAtte
 	return out, nil
 }
 
+func (c *executionServiceClient) SettleOperation(ctx context.Context, in *SettleOperationRequest, opts ...grpc.CallOption) (*SettleOperationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SettleOperationResponse)
+	err := c.cc.Invoke(ctx, ExecutionService_SettleOperation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ExecutionServiceServer is the server API for ExecutionService service.
 // All implementations must embed UnimplementedExecutionServiceServer
 // for forward compatibility.
@@ -497,8 +516,16 @@ type ExecutionServiceServer interface {
 	// is NOT_FOUND, and an instance that is not current carries no authority.
 	GetInstance(context.Context, *GetInstanceRequest) (*GetInstanceResponse, error)
 	// Closes the attempt with its outcome and cleanup evidence and settles the
-	// operation lifecycle for single-attempt profiles.
+	// operation lifecycle for single-attempt profiles. For a multi-step
+	// profile (Preparation, Generation) a definite close settles the attempt
+	// only; the operation stays running until SettleOperation, an applied
+	// cancel or an unknown outcome/cleanup (reconciling) ends it.
 	CloseAttempt(context.Context, *CloseAttemptRequest) (*CloseAttemptResponse, error)
+	// Settles the business outcome of a multi-step operation (DD-01 §2: the
+	// Workflow states the business completion; cleanup, settlement and
+	// Temporal closure stay separate facts). The same command returns the
+	// original; a terminal operation answers its state.
+	SettleOperation(context.Context, *SettleOperationRequest) (*SettleOperationResponse, error)
 	mustEmbedUnimplementedExecutionServiceServer()
 }
 
@@ -532,6 +559,9 @@ func (UnimplementedExecutionServiceServer) GetInstance(context.Context, *GetInst
 }
 func (UnimplementedExecutionServiceServer) CloseAttempt(context.Context, *CloseAttemptRequest) (*CloseAttemptResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CloseAttempt not implemented")
+}
+func (UnimplementedExecutionServiceServer) SettleOperation(context.Context, *SettleOperationRequest) (*SettleOperationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SettleOperation not implemented")
 }
 func (UnimplementedExecutionServiceServer) mustEmbedUnimplementedExecutionServiceServer() {}
 func (UnimplementedExecutionServiceServer) testEmbeddedByValue()                          {}
@@ -698,6 +728,24 @@ func _ExecutionService_CloseAttempt_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ExecutionService_SettleOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SettleOperationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionServiceServer).SettleOperation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionService_SettleOperation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionServiceServer).SettleOperation(ctx, req.(*SettleOperationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ExecutionService_ServiceDesc is the grpc.ServiceDesc for ExecutionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -736,6 +784,10 @@ var ExecutionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloseAttempt",
 			Handler:    _ExecutionService_CloseAttempt_Handler,
+		},
+		{
+			MethodName: "SettleOperation",
+			Handler:    _ExecutionService_SettleOperation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

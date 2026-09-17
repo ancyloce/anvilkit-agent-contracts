@@ -34,6 +34,7 @@ const (
 	ArtifactService_ResolveHandle_FullMethodName    = "/anvilkit.control.v1.ArtifactService/ResolveHandle"
 	ArtifactService_FinalizeTransfer_FullMethodName = "/anvilkit.control.v1.ArtifactService/FinalizeTransfer"
 	ArtifactService_GetTransfer_FullMethodName      = "/anvilkit.control.v1.ArtifactService/GetTransfer"
+	ArtifactService_ReadArtifact_FullMethodName     = "/anvilkit.control.v1.ArtifactService/ReadArtifact"
 )
 
 // ArtifactServiceClient is the client API for ArtifactService service.
@@ -45,6 +46,15 @@ type ArtifactServiceClient interface {
 	ResolveHandle(ctx context.Context, in *ResolveHandleRequest, opts ...grpc.CallOption) (*ResolveHandleResponse, error)
 	FinalizeTransfer(ctx context.Context, in *FinalizeTransferRequest, opts ...grpc.CallOption) (*FinalizeTransferResponse, error)
 	GetTransfer(ctx context.Context, in *GetTransferRequest, opts ...grpc.CallOption) (*GetTransferResponse, error)
+	// Issues a trusted reader the scoped download capability of a finalized
+	// artifact under an authorized relationship to the reading operation
+	// (P13): the artifact is the operation's own prompt, an accepted answer,
+	// the brief its subject binds, or an artifact bound by an accepted stage
+	// of one of its attempts. A reading physical instance must be the
+	// current one of an executing attempt of that operation. The capability
+	// names the exact object version; the reader verifies the bytes against
+	// the digest and size answered here. Candidates never see it.
+	ReadArtifact(ctx context.Context, in *ReadArtifactRequest, opts ...grpc.CallOption) (*ReadArtifactResponse, error)
 }
 
 type artifactServiceClient struct {
@@ -95,6 +105,16 @@ func (c *artifactServiceClient) GetTransfer(ctx context.Context, in *GetTransfer
 	return out, nil
 }
 
+func (c *artifactServiceClient) ReadArtifact(ctx context.Context, in *ReadArtifactRequest, opts ...grpc.CallOption) (*ReadArtifactResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReadArtifactResponse)
+	err := c.cc.Invoke(ctx, ArtifactService_ReadArtifact_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ArtifactServiceServer is the server API for ArtifactService service.
 // All implementations must embed UnimplementedArtifactServiceServer
 // for forward compatibility.
@@ -104,6 +124,15 @@ type ArtifactServiceServer interface {
 	ResolveHandle(context.Context, *ResolveHandleRequest) (*ResolveHandleResponse, error)
 	FinalizeTransfer(context.Context, *FinalizeTransferRequest) (*FinalizeTransferResponse, error)
 	GetTransfer(context.Context, *GetTransferRequest) (*GetTransferResponse, error)
+	// Issues a trusted reader the scoped download capability of a finalized
+	// artifact under an authorized relationship to the reading operation
+	// (P13): the artifact is the operation's own prompt, an accepted answer,
+	// the brief its subject binds, or an artifact bound by an accepted stage
+	// of one of its attempts. A reading physical instance must be the
+	// current one of an executing attempt of that operation. The capability
+	// names the exact object version; the reader verifies the bytes against
+	// the digest and size answered here. Candidates never see it.
+	ReadArtifact(context.Context, *ReadArtifactRequest) (*ReadArtifactResponse, error)
 	mustEmbedUnimplementedArtifactServiceServer()
 }
 
@@ -125,6 +154,9 @@ func (UnimplementedArtifactServiceServer) FinalizeTransfer(context.Context, *Fin
 }
 func (UnimplementedArtifactServiceServer) GetTransfer(context.Context, *GetTransferRequest) (*GetTransferResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTransfer not implemented")
+}
+func (UnimplementedArtifactServiceServer) ReadArtifact(context.Context, *ReadArtifactRequest) (*ReadArtifactResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReadArtifact not implemented")
 }
 func (UnimplementedArtifactServiceServer) mustEmbedUnimplementedArtifactServiceServer() {}
 func (UnimplementedArtifactServiceServer) testEmbeddedByValue()                         {}
@@ -219,6 +251,24 @@ func _ArtifactService_GetTransfer_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ArtifactService_ReadArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadArtifactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ArtifactServiceServer).ReadArtifact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ArtifactService_ReadArtifact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ArtifactServiceServer).ReadArtifact(ctx, req.(*ReadArtifactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ArtifactService_ServiceDesc is the grpc.ServiceDesc for ArtifactService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -241,6 +291,10 @@ var ArtifactService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTransfer",
 			Handler:    _ArtifactService_GetTransfer_Handler,
+		},
+		{
+			MethodName: "ReadArtifact",
+			Handler:    _ArtifactService_ReadArtifact_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

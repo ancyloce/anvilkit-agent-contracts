@@ -950,6 +950,132 @@ func (x *GetTransferResponse) GetTransfer() *Transfer {
 	return nil
 }
 
+type ReadArtifactRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The artifact by handle or by transfer id (one of the two).
+	Handle     string `protobuf:"bytes,1,opt,name=handle,proto3" json:"handle,omitempty"`
+	TransferId string `protobuf:"bytes,2,opt,name=transfer_id,json=transferId,proto3" json:"transfer_id,omitempty"`
+	// The reading operation; the relationship is checked against it.
+	OperationId string `protobuf:"bytes,3,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
+	// The reading physical instance when the reader is a Job's trusted
+	// sidecar; empty for the Workflow's own reads.
+	InstanceId    string `protobuf:"bytes,4,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadArtifactRequest) Reset() {
+	*x = ReadArtifactRequest{}
+	mi := &file_anvilkit_control_v1_artifact_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadArtifactRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadArtifactRequest) ProtoMessage() {}
+
+func (x *ReadArtifactRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_artifact_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadArtifactRequest.ProtoReflect.Descriptor instead.
+func (*ReadArtifactRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_artifact_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ReadArtifactRequest) GetHandle() string {
+	if x != nil {
+		return x.Handle
+	}
+	return ""
+}
+
+func (x *ReadArtifactRequest) GetTransferId() string {
+	if x != nil {
+		return x.TransferId
+	}
+	return ""
+}
+
+func (x *ReadArtifactRequest) GetOperationId() string {
+	if x != nil {
+		return x.OperationId
+	}
+	return ""
+}
+
+func (x *ReadArtifactRequest) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
+	}
+	return ""
+}
+
+type ReadArtifactResponse struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Transfer *Transfer              `protobuf:"bytes,1,opt,name=transfer,proto3" json:"transfer,omitempty"`
+	// The scoped download capability of the exact object version (one GET,
+	// the listed headers, valid until expires_at).
+	Download      *TransferCapability `protobuf:"bytes,2,opt,name=download,proto3" json:"download,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadArtifactResponse) Reset() {
+	*x = ReadArtifactResponse{}
+	mi := &file_anvilkit_control_v1_artifact_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadArtifactResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadArtifactResponse) ProtoMessage() {}
+
+func (x *ReadArtifactResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_artifact_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadArtifactResponse.ProtoReflect.Descriptor instead.
+func (*ReadArtifactResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_artifact_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ReadArtifactResponse) GetTransfer() *Transfer {
+	if x != nil {
+		return x.Transfer
+	}
+	return nil
+}
+
+func (x *ReadArtifactResponse) GetDownload() *TransferCapability {
+	if x != nil {
+		return x.Download
+	}
+	return nil
+}
+
 var File_anvilkit_control_v1_artifact_proto protoreflect.FileDescriptor
 
 const file_anvilkit_control_v1_artifact_proto_rawDesc = "" +
@@ -1045,7 +1171,18 @@ const file_anvilkit_control_v1_artifact_proto_rawDesc = "" +
 	"\x05scope\x18\x02 \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12 \n" +
 	"\x06handle\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06handle\"P\n" +
 	"\x13GetTransferResponse\x129\n" +
-	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer*\xd5\x02\n" +
+	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer\"\xbc\x01\n" +
+	"\x13ReadArtifactRequest\x12 \n" +
+	"\x06handle\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06handle\x12)\n" +
+	"\vtransfer_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\n" +
+	"transferId\x12-\n" +
+	"\foperation_id\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\voperationId\x12)\n" +
+	"\vinstance_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\n" +
+	"instanceId\"\x96\x01\n" +
+	"\x14ReadArtifactResponse\x129\n" +
+	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer\x12C\n" +
+	"\bdownload\x18\x02 \x01(\v2'.anvilkit.control.v1.TransferCapabilityR\bdownload*\xd5\x02\n" +
 	"\rArtifactClass\x12\x1e\n" +
 	"\x1aARTIFACT_CLASS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15ARTIFACT_CLASS_PROMPT\x10\x01\x12\x18\n" +
@@ -1065,12 +1202,13 @@ const file_anvilkit_control_v1_artifact_proto_rawDesc = "" +
 	"\x14TRANSFER_STATE_BEGUN\x10\x01\x12\x1c\n" +
 	"\x18TRANSFER_STATE_FINALIZED\x10\x02\x12\x1b\n" +
 	"\x17TRANSFER_STATE_REJECTED\x10\x03\x12\x1a\n" +
-	"\x16TRANSFER_STATE_EXPIRED\x10\x042\xb4\x03\n" +
+	"\x16TRANSFER_STATE_EXPIRED\x10\x042\x99\x04\n" +
 	"\x0fArtifactService\x12f\n" +
 	"\rBeginTransfer\x12).anvilkit.control.v1.BeginTransferRequest\x1a*.anvilkit.control.v1.BeginTransferResponse\x12f\n" +
 	"\rResolveHandle\x12).anvilkit.control.v1.ResolveHandleRequest\x1a*.anvilkit.control.v1.ResolveHandleResponse\x12o\n" +
 	"\x10FinalizeTransfer\x12,.anvilkit.control.v1.FinalizeTransferRequest\x1a-.anvilkit.control.v1.FinalizeTransferResponse\x12`\n" +
-	"\vGetTransfer\x12'.anvilkit.control.v1.GetTransferRequest\x1a(.anvilkit.control.v1.GetTransferResponseB\xe5\x01\n" +
+	"\vGetTransfer\x12'.anvilkit.control.v1.GetTransferRequest\x1a(.anvilkit.control.v1.GetTransferResponse\x12c\n" +
+	"\fReadArtifact\x12(.anvilkit.control.v1.ReadArtifactRequest\x1a).anvilkit.control.v1.ReadArtifactResponseB\xe5\x01\n" +
 	"\x17com.anvilkit.control.v1B\rArtifactProtoP\x01ZMgithub.com/ancyloce/anvilkit-agent-contracts/go/anvilkit/control/v1;controlv1\xa2\x02\x03ACX\xaa\x02\x13Anvilkit.Control.V1\xca\x02\x13Anvilkit\\Control\\V1\xe2\x02\x1fAnvilkit\\Control\\V1\\GPBMetadata\xea\x02\x15Anvilkit::Control::V1b\x06proto3"
 
 var (
@@ -1086,7 +1224,7 @@ func file_anvilkit_control_v1_artifact_proto_rawDescGZIP() []byte {
 }
 
 var file_anvilkit_control_v1_artifact_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_anvilkit_control_v1_artifact_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_anvilkit_control_v1_artifact_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_anvilkit_control_v1_artifact_proto_goTypes = []any{
 	(ArtifactClass)(0),               // 0: anvilkit.control.v1.ArtifactClass
 	(TransferState)(0),               // 1: anvilkit.control.v1.TransferState
@@ -1100,45 +1238,51 @@ var file_anvilkit_control_v1_artifact_proto_goTypes = []any{
 	(*FinalizeTransferResponse)(nil), // 9: anvilkit.control.v1.FinalizeTransferResponse
 	(*GetTransferRequest)(nil),       // 10: anvilkit.control.v1.GetTransferRequest
 	(*GetTransferResponse)(nil),      // 11: anvilkit.control.v1.GetTransferResponse
-	nil,                              // 12: anvilkit.control.v1.TransferCapability.HeadersEntry
-	(*timestamppb.Timestamp)(nil),    // 13: google.protobuf.Timestamp
-	(*CommandIdentity)(nil),          // 14: anvilkit.control.v1.CommandIdentity
-	(*Scope)(nil),                    // 15: anvilkit.control.v1.Scope
+	(*ReadArtifactRequest)(nil),      // 12: anvilkit.control.v1.ReadArtifactRequest
+	(*ReadArtifactResponse)(nil),     // 13: anvilkit.control.v1.ReadArtifactResponse
+	nil,                              // 14: anvilkit.control.v1.TransferCapability.HeadersEntry
+	(*timestamppb.Timestamp)(nil),    // 15: google.protobuf.Timestamp
+	(*CommandIdentity)(nil),          // 16: anvilkit.control.v1.CommandIdentity
+	(*Scope)(nil),                    // 17: anvilkit.control.v1.Scope
 }
 var file_anvilkit_control_v1_artifact_proto_depIdxs = []int32{
 	0,  // 0: anvilkit.control.v1.Transfer.class:type_name -> anvilkit.control.v1.ArtifactClass
 	1,  // 1: anvilkit.control.v1.Transfer.state:type_name -> anvilkit.control.v1.TransferState
-	13, // 2: anvilkit.control.v1.Transfer.deadline:type_name -> google.protobuf.Timestamp
-	13, // 3: anvilkit.control.v1.Transfer.created_at:type_name -> google.protobuf.Timestamp
-	13, // 4: anvilkit.control.v1.Transfer.finalized_at:type_name -> google.protobuf.Timestamp
-	12, // 5: anvilkit.control.v1.TransferCapability.headers:type_name -> anvilkit.control.v1.TransferCapability.HeadersEntry
-	13, // 6: anvilkit.control.v1.TransferCapability.expires_at:type_name -> google.protobuf.Timestamp
-	14, // 7: anvilkit.control.v1.BeginTransferRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	15, // 8: anvilkit.control.v1.BeginTransferRequest.scope:type_name -> anvilkit.control.v1.Scope
+	15, // 2: anvilkit.control.v1.Transfer.deadline:type_name -> google.protobuf.Timestamp
+	15, // 3: anvilkit.control.v1.Transfer.created_at:type_name -> google.protobuf.Timestamp
+	15, // 4: anvilkit.control.v1.Transfer.finalized_at:type_name -> google.protobuf.Timestamp
+	14, // 5: anvilkit.control.v1.TransferCapability.headers:type_name -> anvilkit.control.v1.TransferCapability.HeadersEntry
+	15, // 6: anvilkit.control.v1.TransferCapability.expires_at:type_name -> google.protobuf.Timestamp
+	16, // 7: anvilkit.control.v1.BeginTransferRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	17, // 8: anvilkit.control.v1.BeginTransferRequest.scope:type_name -> anvilkit.control.v1.Scope
 	0,  // 9: anvilkit.control.v1.BeginTransferRequest.class:type_name -> anvilkit.control.v1.ArtifactClass
-	13, // 10: anvilkit.control.v1.BeginTransferRequest.deadline:type_name -> google.protobuf.Timestamp
+	15, // 10: anvilkit.control.v1.BeginTransferRequest.deadline:type_name -> google.protobuf.Timestamp
 	2,  // 11: anvilkit.control.v1.BeginTransferResponse.transfer:type_name -> anvilkit.control.v1.Transfer
 	3,  // 12: anvilkit.control.v1.BeginTransferResponse.upload:type_name -> anvilkit.control.v1.TransferCapability
 	2,  // 13: anvilkit.control.v1.ResolveHandleResponse.transfer:type_name -> anvilkit.control.v1.Transfer
-	13, // 14: anvilkit.control.v1.ResolveHandleResponse.expires_at:type_name -> google.protobuf.Timestamp
+	15, // 14: anvilkit.control.v1.ResolveHandleResponse.expires_at:type_name -> google.protobuf.Timestamp
 	3,  // 15: anvilkit.control.v1.ResolveHandleResponse.upload:type_name -> anvilkit.control.v1.TransferCapability
-	14, // 16: anvilkit.control.v1.FinalizeTransferRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	16, // 16: anvilkit.control.v1.FinalizeTransferRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
 	2,  // 17: anvilkit.control.v1.FinalizeTransferResponse.transfer:type_name -> anvilkit.control.v1.Transfer
-	15, // 18: anvilkit.control.v1.GetTransferRequest.scope:type_name -> anvilkit.control.v1.Scope
+	17, // 18: anvilkit.control.v1.GetTransferRequest.scope:type_name -> anvilkit.control.v1.Scope
 	2,  // 19: anvilkit.control.v1.GetTransferResponse.transfer:type_name -> anvilkit.control.v1.Transfer
-	4,  // 20: anvilkit.control.v1.ArtifactService.BeginTransfer:input_type -> anvilkit.control.v1.BeginTransferRequest
-	6,  // 21: anvilkit.control.v1.ArtifactService.ResolveHandle:input_type -> anvilkit.control.v1.ResolveHandleRequest
-	8,  // 22: anvilkit.control.v1.ArtifactService.FinalizeTransfer:input_type -> anvilkit.control.v1.FinalizeTransferRequest
-	10, // 23: anvilkit.control.v1.ArtifactService.GetTransfer:input_type -> anvilkit.control.v1.GetTransferRequest
-	5,  // 24: anvilkit.control.v1.ArtifactService.BeginTransfer:output_type -> anvilkit.control.v1.BeginTransferResponse
-	7,  // 25: anvilkit.control.v1.ArtifactService.ResolveHandle:output_type -> anvilkit.control.v1.ResolveHandleResponse
-	9,  // 26: anvilkit.control.v1.ArtifactService.FinalizeTransfer:output_type -> anvilkit.control.v1.FinalizeTransferResponse
-	11, // 27: anvilkit.control.v1.ArtifactService.GetTransfer:output_type -> anvilkit.control.v1.GetTransferResponse
-	24, // [24:28] is the sub-list for method output_type
-	20, // [20:24] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	2,  // 20: anvilkit.control.v1.ReadArtifactResponse.transfer:type_name -> anvilkit.control.v1.Transfer
+	3,  // 21: anvilkit.control.v1.ReadArtifactResponse.download:type_name -> anvilkit.control.v1.TransferCapability
+	4,  // 22: anvilkit.control.v1.ArtifactService.BeginTransfer:input_type -> anvilkit.control.v1.BeginTransferRequest
+	6,  // 23: anvilkit.control.v1.ArtifactService.ResolveHandle:input_type -> anvilkit.control.v1.ResolveHandleRequest
+	8,  // 24: anvilkit.control.v1.ArtifactService.FinalizeTransfer:input_type -> anvilkit.control.v1.FinalizeTransferRequest
+	10, // 25: anvilkit.control.v1.ArtifactService.GetTransfer:input_type -> anvilkit.control.v1.GetTransferRequest
+	12, // 26: anvilkit.control.v1.ArtifactService.ReadArtifact:input_type -> anvilkit.control.v1.ReadArtifactRequest
+	5,  // 27: anvilkit.control.v1.ArtifactService.BeginTransfer:output_type -> anvilkit.control.v1.BeginTransferResponse
+	7,  // 28: anvilkit.control.v1.ArtifactService.ResolveHandle:output_type -> anvilkit.control.v1.ResolveHandleResponse
+	9,  // 29: anvilkit.control.v1.ArtifactService.FinalizeTransfer:output_type -> anvilkit.control.v1.FinalizeTransferResponse
+	11, // 30: anvilkit.control.v1.ArtifactService.GetTransfer:output_type -> anvilkit.control.v1.GetTransferResponse
+	13, // 31: anvilkit.control.v1.ArtifactService.ReadArtifact:output_type -> anvilkit.control.v1.ReadArtifactResponse
+	27, // [27:32] is the sub-list for method output_type
+	22, // [22:27] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_artifact_proto_init() }
@@ -1155,7 +1299,7 @@ func file_anvilkit_control_v1_artifact_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_anvilkit_control_v1_artifact_proto_rawDesc), len(file_anvilkit_control_v1_artifact_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   11,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

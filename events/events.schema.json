@@ -149,7 +149,7 @@
         "kind": { "type": "string", "enum": ["background.requested"] },
         "taskId": { "$ref": "#/$defs/id" },
         "generation": { "$ref": "#/$defs/sequence" },
-        "taskKind": { "type": "string", "enum": ["knowledge-ingest", "knowledge-project", "memory-project", "mcp-catalog-refresh"] },
+        "taskKind": { "type": "string", "enum": ["knowledge-ingest", "knowledge-project", "memory-project", "mcp-catalog-refresh", "local-check"], "description": "The stable queue kinds and local-check, the fixture kind of the background lane (fixed DEVELOPMENT_ONLY computation used to qualify owner claims, acceptance, the relays and the Worker; P14)." },
         "inputDigest": { "$ref": "#/$defs/digest" }
       }
     },

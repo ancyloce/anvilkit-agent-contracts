@@ -92,6 +92,42 @@
         "correlationId": "req_01J9",
         "payload": { "kind": "background.requested", "taskId": "task_01J9", "generation": "1", "taskKind": "knowledge-ingest", "inputDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
       }
+    },
+    {
+      "name": "background.requested of the local-check fixture kind from the MCP owner",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5e", "eventType": "background.requested", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.mcp.background.requested", "tenantId": "tenant_a",
+        "aggregateType": "background_request", "aggregateId": "task_01JA", "aggregateRevision": "1", "occurredAt": "2026-09-17T12:00:02Z",
+        "correlationId": "req_01JA",
+        "payload": { "kind": "background.requested", "taskId": "task_01JA", "generation": "1", "taskKind": "local-check", "inputDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" }
+      }
+    },
+    {
+      "name": "background.requested with an unknown task kind is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5e", "eventType": "background.requested", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.mcp.background.requested", "tenantId": "tenant_a",
+        "aggregateType": "background_request", "aggregateId": "task_01JA", "aggregateRevision": "1", "occurredAt": "2026-09-17T12:00:02Z",
+        "correlationId": "req_01JA",
+        "payload": { "kind": "background.requested", "taskId": "task_01JA", "generation": "1", "taskKind": "fixed-check", "inputDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" }
+      }
+    },
+    {
+      "name": "background.completed with an accepted result digest",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5f", "eventType": "background.completed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.background.completed", "tenantId": "tenant_a",
+        "aggregateType": "background_request", "aggregateId": "task_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-17T12:00:03Z",
+        "correlationId": "req_01J9",
+        "payload": { "kind": "background.completed", "taskId": "task_01J9", "generation": "1", "state": "accepted", "resultDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444" }
+      }
     }
   ]
 }

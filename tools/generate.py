@@ -17,6 +17,7 @@ Generated outputs (checked in, never hand-edited; consumers listed in README.md)
   go/agentapi/agent.gen.go                            oapi-codegen (types, Gin strict server, embedded spec)
   go/modelproxyapi/model-proxy.gen.go                 oapi-codegen (types, client, embedded spec)
   go/jobschema/{job.schema.json,profiles.json}        verbatim copies of jobs/ for Go embedding
+  ts/src/jobs/{job.schema.json,profiles.json}         verbatim copies of jobs/ for TypeScript consumers
   ts/src/proto/**/*.ts                                ts-proto (grpc-js services) via buf (buf.gen.ts.yaml)
   ts/src/proto/descriptors.ts                         buf build (FileDescriptorSet, base64) for the TS validation boundary
   ts/src/openapi/{agent,model-proxy,inference}.ts     openapi-typescript
@@ -75,6 +76,8 @@ OUTPUTS = [
     ("go/modelproxyapi", "oapi-codegen"),
     ("go/jobschema/job.schema.json", "copy"),
     ("go/jobschema/profiles.json", "copy"),
+    ("ts/src/jobs/job.schema.json", "copy"),
+    ("ts/src/jobs/profiles.json", "copy"),
     ("ts/src/proto", "ts-proto"),
     ("ts/src/openapi", "openapi-typescript"),
     ("python/anvilkit_generated_clients/inference.py", "datamodel-codegen"),
@@ -145,6 +148,9 @@ def generate(target_root: pathlib.Path) -> None:
         shutil.copyfile(ROOT / "jobs" / name, jobschema / name)
 
     gen_ts = target_root / "ts/src"
+    (gen_ts / "jobs").mkdir(parents=True, exist_ok=True)
+    for name in ("job.schema.json", "profiles.json"):
+        shutil.copyfile(ROOT / "jobs" / name, gen_ts / "jobs" / name)
     shutil.rmtree(gen_ts / "proto", ignore_errors=True)
     (gen_ts / "proto").mkdir(parents=True, exist_ok=True)
     run([str(tools["buf"]), "generate", "--template", str(contracts / "buf.gen.ts.yaml"), "-o", str(gen_ts / "proto")], contracts, env)

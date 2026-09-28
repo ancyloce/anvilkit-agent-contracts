@@ -85,6 +85,10 @@ components:
         generation: { type: string, pattern: "^(0|[1-9][0-9]{0,19})$" }
         profileId: { $ref: "#/components/schemas/Id" }
     EmbeddingRequest:
+      description: |
+        inputDigest is "sha256:" and the hex SHA-256 over, in order, compute.profileId, inputKind and every
+        input, each written as its UTF-8 byte length in decimal ASCII, a line feed (0x0A) and its UTF-8
+        bytes. The service recomputes it and refuses a mismatch (INVALID_ARGUMENT); the response echoes it.
       type: object
       additionalProperties: false
       required: [compute, inputKind, inputs, inputDigest]
@@ -116,6 +120,10 @@ components:
         dense: { type: array, items: { type: array, items: { type: number } } }
         sparse: { type: array, items: { $ref: "#/components/schemas/SparseVector" } }
     RerankRequest:
+      description: |
+        inputDigest is "sha256:" and the hex SHA-256 over, in order, compute.profileId, query and, for every
+        candidate, its candidateId and text, each written as its UTF-8 byte length in decimal ASCII, a line
+        feed (0x0A) and its UTF-8 bytes. The service recomputes it and refuses a mismatch (INVALID_ARGUMENT).
       type: object
       additionalProperties: false
       required: [compute, query, candidates, inputDigest]

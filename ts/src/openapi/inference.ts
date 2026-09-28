@@ -57,6 +57,11 @@ export interface components {
             generation: string;
             profileId: components["schemas"]["Id"];
         };
+        /**
+         * @description inputDigest is "sha256:" and the hex SHA-256 over, in order, compute.profileId, inputKind and every
+         *     input, each written as its UTF-8 byte length in decimal ASCII, a line feed (0x0A) and its UTF-8
+         *     bytes. The service recomputes it and refuses a mismatch (INVALID_ARGUMENT); the response echoes it.
+         */
         EmbeddingRequest: {
             compute: components["schemas"]["ComputeIdentity"];
             /** @enum {string} */
@@ -77,6 +82,11 @@ export interface components {
             dense: number[][];
             sparse: components["schemas"]["SparseVector"][];
         };
+        /**
+         * @description inputDigest is "sha256:" and the hex SHA-256 over, in order, compute.profileId, query and, for every
+         *     candidate, its candidateId and text, each written as its UTF-8 byte length in decimal ASCII, a line
+         *     feed (0x0A) and its UTF-8 bytes. The service recomputes it and refuses a mismatch (INVALID_ARGUMENT).
+         */
         RerankRequest: {
             compute: components["schemas"]["ComputeIdentity"];
             query: string;

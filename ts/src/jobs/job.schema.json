@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:anvilkit:jobs:v1",
+  "title": "AnvilKit Job contracts",
+  "description": "Launch envelope, fixed Job profile and result manifest for the short-lived Job classes (DD-03 §4). The launcher accepts only a reviewed profile id and typed inputs; the result manifest is issued by the trusted observer, never by candidate code. schemaVersion is 1.",
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sequence": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$" },
+    "launchKey": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" },
+    "jobKind": { "type": "string", "enum": ["codegen", "validator", "preview", "parser", "migration"] },
+    "verdict": { "type": "string", "enum": ["certified", "repairable", "invalid", "infrastructure_failed", "canceled"] },
+    "failureCode": {
+      "type": "string",
+      "enum": [
+        "CANDIDATE_BUILD_FAILED", "CANDIDATE_TEST_FAILED", "PROTECTED_FIXTURE_ALTERED", "MISSING_CSS",
+        "INVALID_EXPORTS", "DUPLICATE_RUNTIME", "PATH_ESCAPE", "PROFILE_UNQUALIFIED", "IMAGE_PULL_FAILED",
+        "POD_EVICTED", "DEADLINE_EXCEEDED", "OBSERVER_FAILED", "RESULT_DIGEST_MISMATCH", "CANCELED"
+      ]
+    },
+    "resource": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(m|Mi|Gi)?$" },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "digest"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Image repository. A name without a registry host (no '.', ':' or 'localhost' in its first component) is completed with the launching environment's registry; the digest is the identity the profile pins." },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "profileId", "revision", "jobKind", "image", "entrypoint", "resources", "deadlineSeconds", "candidateCode"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "profileId": { "$ref": "#/$defs/id" },
+        "revision": { "$ref": "#/$defs/sequence" },
+        "jobKind": { "$ref": "#/$defs/jobKind" },
+        "description": { "type": "string", "maxLength": 512 },
+        "image": { "$ref": "#/$defs/image" },
+        "sidecarImage": {
+          "$ref": "#/$defs/image",
+          "description": "The trusted access sidecar image of a harness profile (DD-03 §5): its presence selects the fixed two-container layout (supervisor UID 0 with SETUID/SETGID/SETPCAP only, sidecar UID 10002, separate sockets/workspace/verdict mounts). Required for every candidateCode profile."
+        },
+        "entrypoint": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "type": "string", "maxLength": 4096 } },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpu", "memory"],
+          "properties": { "cpu": { "$ref": "#/$defs/resource" }, "memory": { "$ref": "#/$defs/resource" } }
+        },
+        "deadlineSeconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "runtimeClass": { "type": "string", "enum": ["gvisor"] },
+        "candidateCode": { "type": "boolean", "description": "true only for profiles that execute untrusted candidate code; such profiles require runtimeClass (gVisor) and sidecarImage (the qualified harness layout, P09) and stay disabled until their negative tests pass on the target runtime." },
+        "expectedResult": {
+          "type": "object",
+          "description": "Fixture-only expectation of the one fixed result: the trusted observer compares the reported output with it and Control binds an embedded fixed result to exactly this digest and byte size; present for the local-check and fixed-task fixtures.",
+          "additionalProperties": false,
+          "required": ["resultDigest", "resultSizeBytes"],
+          "properties": { "resultDigest": { "$ref": "#/$defs/digest" }, "resultSizeBytes": { "$ref": "#/$defs/sequence" } }
+        },
+        "parser": { "$ref": "#/$defs/parserLimits" }
+      },
+      "allOf": [
+        { "if": { "properties": { "candidateCode": { "const": true } } }, "then": { "required": ["runtimeClass", "sidecarImage"] } },
+        {
+          "if": { "properties": { "jobKind": { "const": "parser" } }, "required": ["jobKind"] },
+          "then": { "required": ["parser"], "properties": { "candidateCode": { "const": false }, "sidecarImage": false } },
+          "else": { "not": { "required": ["parser"] } }
+        }
+      ]
+    },
+    "mediaType": {
+      "type": "string",
+      "description": "The document media types a parser profile may admit (DD-07 §2); generic archives, executables and remote references are never inputs.",
+      "enum": ["application/pdf", "text/plain", "text/markdown", "text/html", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+    },
+    "parseFailureCode": {
+      "type": "string",
+      "description": "Why the fixed parser refused a document (verdict rejected): a verified outcome of the parser, not an infrastructure failure.",
+      "enum": [
+        "INPUT_TOO_LARGE", "INPUT_DIGEST_MISMATCH", "UNSUPPORTED_MEDIA_TYPE", "MEDIA_TYPE_MISMATCH", "PAGE_LIMIT_EXCEEDED",
+        "ARCHIVE_BOMB", "ARCHIVE_ENTRY_LIMIT", "PATH_ESCAPE", "ENCRYPTED_DOCUMENT", "MALFORMED_DOCUMENT", "OUTPUT_TOO_LARGE",
+        "CHUNK_LIMIT_EXCEEDED"
+      ]
+    },
+    "parserLimits": {
+      "type": "object",
+      "description": "The fixed parser, bounds and chunker of a parser profile (DD-07 §2, SEC-10): the parser refuses input outside them; the Knowledge launcher and its trusted acceptance enforce them again.",
+      "additionalProperties": false,
+      "required": ["parserName", "parserVersion", "mediaTypes", "maxInputBytes", "maxPages", "maxDecompressedBytes", "maxDecompressionRatio", "maxArchiveEntries", "maxOutputBytes", "maxChunks", "chunker"],
+      "properties": {
+        "parserName": { "type": "string", "enum": ["docling"] },
+        "parserVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "mediaTypes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/mediaType" } },
+        "maxInputBytes": { "type": "integer", "minimum": 1, "maximum": 268435456 },
+        "maxPages": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "maxDecompressedBytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 },
+        "maxDecompressionRatio": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "maxArchiveEntries": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "maxOutputBytes": { "type": "integer", "minimum": 1, "maximum": 268435456 },
+        "maxChunks": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "chunker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["chunkerId", "revision", "maxChunkChars"],
+          "properties": {
+            "chunkerId": { "$ref": "#/$defs/id" },
+            "revision": { "$ref": "#/$defs/sequence" },
+            "maxChunkChars": { "type": "integer", "minimum": 64, "maximum": 32768 }
+          }
+        }
+      }
+    },
+    "parseInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["digest", "sizeBytes", "mediaType"],
+      "properties": { "digest": { "$ref": "#/$defs/digest" }, "sizeBytes": { "$ref": "#/$defs/sequence" }, "mediaType": { "$ref": "#/$defs/mediaType" } }
+    },
+    "parseEnvelope": {
+      "type": "object",
+      "description": "The launch envelope of a parser Job (DD-07 §2): the Knowledge launcher binds the claimed ingest task, the fixed profile and the exact input identity; the trusted stager verifies the staged bytes against input before the parser runs. It carries no tenant, ACL, storage key or credential.",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchId", "launchKey", "taskId", "generation", "attempt", "profileId", "profileRevision", "jobKind", "deadline", "input"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchId": { "$ref": "#/$defs/id" },
+        "launchKey": { "$ref": "#/$defs/launchKey" },
+        "taskId": { "$ref": "#/$defs/id" },
+        "generation": { "$ref": "#/$defs/sequence" },
+        "attempt": { "$ref": "#/$defs/sequence" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "profileRevision": { "$ref": "#/$defs/sequence" },
+        "jobKind": { "const": "parser" },
+        "deadline": { "$ref": "#/$defs/timestamp" },
+        "input": { "$ref": "#/$defs/parseInput" }
+      }
+    },
+    "chunkLocator": {
+      "type": "object",
+      "description": "Where a chunk came from in the original document: the element kind, the heading path above it, the 1-based page of paged formats and the 1-based line range of text formats. Provenance, never instructions.",
+      "additionalProperties": false,
+      "required": ["element", "headingPath"],
+      "properties": {
+        "element": { "type": "string", "enum": ["text", "heading", "list", "table", "code", "caption"] },
+        "headingPath": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "page": { "type": "integer", "minimum": 1 },
+        "lineStart": { "type": "integer", "minimum": 1 },
+        "lineEnd": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "parseChunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordinal", "text", "contentDigest", "locator", "qualityFlags"],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "contentDigest": { "$ref": "#/$defs/digest", "description": "SHA-256 of the UTF-8 bytes of text." },
+        "locator": { "$ref": "#/$defs/chunkLocator" },
+        "qualityFlags": {
+          "type": "array",
+          "description": "Observations for retrieval and review; instruction_like marks text that reads like an instruction to a model, which stays data.",
+          "uniqueItems": true,
+          "maxItems": 8,
+          "items": { "type": "string", "enum": ["instruction_like", "split_block", "table", "code", "low_text"] }
+        }
+      }
+    },
+    "parseResult": {
+      "type": "object",
+      "description": "The parser Job's output document (DD-07 §2): the fixed parser's verdict and chunks. Knowledge's trusted acceptance reads these actual bytes, validates them here and against the envelope and profile, and only then derives chunk identities; nothing in a document changes the Source Registry.",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchKey", "profileId", "profileRevision", "verdict", "input", "parser", "chunker", "pageCount", "chunks", "completedAt"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchKey": { "$ref": "#/$defs/launchKey" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "profileRevision": { "$ref": "#/$defs/sequence" },
+        "verdict": { "type": "string", "enum": ["parsed", "rejected"] },
+        "failureCode": { "$ref": "#/$defs/parseFailureCode" },
+        "input": { "$ref": "#/$defs/parseInput" },
+        "parser": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": { "name": { "type": "string", "enum": ["docling"] }, "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" } }
+        },
+        "chunker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["chunkerId", "revision"],
+          "properties": { "chunkerId": { "$ref": "#/$defs/id" }, "revision": { "$ref": "#/$defs/sequence" } }
+        },
+        "pageCount": { "type": "integer", "minimum": 0 },
+        "chunks": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/parseChunk" } },
+        "completedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "if": { "properties": { "verdict": { "const": "rejected" } } },
+      "then": { "required": ["failureCode"], "properties": { "chunks": { "type": "array", "maxItems": 0 } } },
+      "else": { "not": { "required": ["failureCode"] } }
+    },
+    "launchEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchId", "launchKey", "operationId", "attemptId", "profileId", "profileRevision", "jobKind", "executionEpoch", "launchEpoch", "deadline", "inputs"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchId": { "$ref": "#/$defs/id" },
+        "launchKey": { "$ref": "#/$defs/launchKey" },
+        "operationId": { "$ref": "#/$defs/id" },
+        "attemptId": { "$ref": "#/$defs/id" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "profileRevision": { "$ref": "#/$defs/sequence" },
+        "jobKind": { "$ref": "#/$defs/jobKind" },
+        "executionEpoch": { "$ref": "#/$defs/sequence" },
+        "launchEpoch": { "$ref": "#/$defs/sequence" },
+        "deadline": { "$ref": "#/$defs/timestamp" },
+        "inputs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "digest"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+              "digest": { "$ref": "#/$defs/digest" },
+              "handle": { "type": "string", "maxLength": 256 }
+            }
+          }
+        }
+      }
+    },
+    "resultManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchId", "attemptId", "jobKind", "profileId", "verdict", "outputs", "completedAt"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchId": { "$ref": "#/$defs/id" },
+        "attemptId": { "$ref": "#/$defs/id" },
+        "jobKind": { "$ref": "#/$defs/jobKind" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "verdict": { "$ref": "#/$defs/verdict" },
+        "failureCode": { "$ref": "#/$defs/failureCode" },
+        "outputs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["class", "digest", "sizeBytes"],
+            "properties": {
+              "class": { "type": "string", "enum": ["source", "stage", "npm", "browser", "css", "evidence", "result", "chunks"], "description": "The artifact class the handle must be a finalized transfer of. stage is the joint stage of a codegen team attempt (DD-03 \u00a73: the graph checkpoint snapshot, the Pi session and the stage manifest in one archive), bound beside the sealed source it belongs to." },
+              "digest": { "$ref": "#/$defs/digest" },
+              "sizeBytes": { "$ref": "#/$defs/sequence" },
+              "handle": { "type": "string", "maxLength": 256 }
+            }
+          }
+        },
+        "completedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "allOf": [
+        { "if": { "properties": { "verdict": { "const": "certified" } } }, "then": { "not": { "required": ["failureCode"] } } },
+        { "if": { "properties": { "verdict": { "enum": ["invalid", "repairable", "infrastructure_failed"] } } }, "then": { "required": ["failureCode"] } }
+      ]
+    }
+  }
+}

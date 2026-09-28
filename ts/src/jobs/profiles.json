@@ -1,0 +1,219 @@
+{
+  "$comment": "Fixed Job profiles (contracts/jobs/job.schema.json#/$defs/profile). Only reviewed profiles here can be launched; the launcher never accepts an arbitrary image, command or volume. local-check-v1 is the trusted qualification fixture of P05: it runs no candidate code and no model call. codegen-fixed-v1 and harness-wiring-dev-v1 are the P09 harness profiles and validator-fixed-dev-v1 the P10 fixed validator profile (the harness layout with the anvilkit-validator image): their image digests are recorded from the reviewed builds, and the launcher additionally requires each profile to be enabled for its environment. codegen-team-dev-v1 is the P12 team profile (the anvilkit-codegen-team image: the validator image plus the trusted supervisor and the team package); it runs model-written code and stays DISABLED until the gVisor qualification. parser-docling-dev-v1 and parser-docling-v1 are the P15 parser profiles (the anvilkit-parser image, launched only by the Knowledge parser launcher in anvilkit-parsing); the gVisor one stays DISABLED until its qualification.",
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "schemaVersion": 1,
+      "profileId": "local-check-v1",
+      "revision": "1",
+      "jobKind": "validator",
+      "description": "Fixed qualification fixture: computes the digest of a fixed input and reports a result manifest through the Pod termination message; the trusted observer verifies it against expectedResult.",
+      "image": {
+        "repository": "docker.io/library/busybox",
+        "digest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0"
+      },
+      "entrypoint": [
+        "/bin/sh",
+        "-c",
+        "set -e; d=$(printf \"anvilkit-local-check-v1\\n\" | sha256sum | cut -d\" \" -f1); printf '{\"schemaVersion\":1,\"launchId\":\"%s\",\"attemptId\":\"%s\",\"jobKind\":\"validator\",\"profileId\":\"local-check-v1\",\"verdict\":\"certified\",\"outputs\":[{\"class\":\"result\",\"digest\":\"sha256:%s\",\"sizeBytes\":\"24\"}],\"completedAt\":\"%s\"}' \"$ANVILKIT_LAUNCH_ID\" \"$ANVILKIT_ATTEMPT_ID\" \"$d\" \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" > /dev/termination-log"
+      ],
+      "resources": {
+        "cpu": "100m",
+        "memory": "64Mi"
+      },
+      "deadlineSeconds": 120,
+      "candidateCode": false,
+      "expectedResult": {
+        "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3",
+        "resultSizeBytes": "24"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "codegen-fixed-v1",
+      "revision": "2",
+      "jobKind": "codegen",
+      "description": "Trusted harness with the fixed non-paid candidate task (P09b): the supervisor drops to the candidate UID, the observer verifies the output bytes, the finalizer submits through the access sidecar. Requires the gVisor RuntimeClass; DISABLED until its negative tests pass on the target runtime (G-04/G-05).",
+      "image": {
+        "repository": "anvilkit-codegen",
+        "digest": "sha256:262b46398818c5164c1eb7defa977cd5d9ae94092a819d28c8bf86f3878b4864"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+      },
+      "entrypoint": [
+        "/usr/local/bin/anvilkit-codegen-supervisor"
+      ],
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      },
+      "deadlineSeconds": 600,
+      "runtimeClass": "gvisor",
+      "candidateCode": true
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "harness-wiring-dev-v1",
+      "revision": "2",
+      "jobKind": "codegen",
+      "description": "DEVELOPMENT_ONLY wiring fixture: the same trusted image, entrypoint, sidecar and fixed task as codegen-fixed-v1 on an unqualified runtime (no RuntimeClass). It verifies launcher templates, sidecar identity, the artifact flow and duplicate-Pod fencing on the development foundation; it qualifies no candidate isolation and is never enabled outside development.",
+      "image": {
+        "repository": "anvilkit-codegen",
+        "digest": "sha256:262b46398818c5164c1eb7defa977cd5d9ae94092a819d28c8bf86f3878b4864"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+      },
+      "entrypoint": [
+        "/usr/local/bin/anvilkit-codegen-supervisor"
+      ],
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      },
+      "deadlineSeconds": 600,
+      "candidateCode": false
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "validator-fixed-dev-v1",
+      "revision": "6",
+      "jobKind": "validator",
+      "description": "DEVELOPMENT_ONLY fixed validator (P10d): the anvilkit-validator image runs the complete-source, protected-build and independent-certification chain on the reviewed fixed component baked into it (no candidate input; SSR and browser host checks in the Pod with the image's Chromium headless shell), uploads npm/browser/css/evidence through the access sidecar and submits the result manifest. Harness layout without RuntimeClass; it qualifies no candidate isolation and is never enabled outside development.",
+      "image": {
+        "repository": "anvilkit-validator",
+        "digest": "sha256:cc52643d0ec4bc8692394dbb1bc01aeaf7bcbe2cbe76a7484619c25eaaf8546d"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+      },
+      "entrypoint": [
+        "/usr/local/bin/node",
+        "/anvilkit/validator/dist/job.js"
+      ],
+      "resources": {
+        "cpu": "1",
+        "memory": "1Gi"
+      },
+      "deadlineSeconds": 900,
+      "candidateCode": false
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "codegen-team-dev-v1",
+      "revision": "2",
+      "jobKind": "codegen",
+      "description": "Bounded LangGraph/Pi coding team (P12): the trusted supervisor runs the team coordinator and launches the Pi coder as the candidate; the sealed source, the joint stage and the evidence are accepted through the access sidecar and the independent validator chain runs in the Pod. It executes model-written code: requires the gVisor RuntimeClass; DISABLED until its negative tests pass on the target runtime (G-04/G-05).",
+      "image": {
+        "repository": "anvilkit-codegen-team",
+        "digest": "sha256:bbfdcf9c5ebb53ea6ca76f876cf9aca9f8b8eb9c75894a81cc8a0212864fc66a"
+      },
+      "sidecarImage": {
+        "repository": "anvilkit-job-access-sidecar",
+        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+      },
+      "entrypoint": [
+        "/usr/local/bin/anvilkit-codegen-supervisor",
+        "team"
+      ],
+      "resources": {
+        "cpu": "2",
+        "memory": "3Gi"
+      },
+      "deadlineSeconds": 3600,
+      "runtimeClass": "gvisor",
+      "candidateCode": true
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "parser-docling-dev-v1",
+      "revision": "1",
+      "jobKind": "parser",
+      "description": "DEVELOPMENT_ONLY fixed Docling parser (P15): the anvilkit-parser image with the pinned layout weights, OCR, tables, remote services and plugins off; the trusted stager moves one input and one output through presigned URLs. Knowledge launches it in anvilkit-parsing on an unqualified runtime (no RuntimeClass); it qualifies no parser isolation and is never enabled outside development.",
+      "image": {
+        "repository": "anvilkit-parser",
+        "digest": "sha256:70b7a7385255c3733c2013f0f330a608315196164b5af09477adb635234c5e52"
+      },
+      "entrypoint": [
+        "/usr/local/bin/anvilkit-parse"
+      ],
+      "resources": {
+        "cpu": "2",
+        "memory": "3Gi"
+      },
+      "deadlineSeconds": 600,
+      "candidateCode": false,
+      "parser": {
+        "parserName": "docling",
+        "parserVersion": "2.130.0",
+        "mediaTypes": [
+          "application/pdf",
+          "text/plain",
+          "text/markdown",
+          "text/html",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ],
+        "maxInputBytes": 33554432,
+        "maxPages": 200,
+        "maxDecompressedBytes": 134217728,
+        "maxDecompressionRatio": 100,
+        "maxArchiveEntries": 2000,
+        "maxOutputBytes": 33554432,
+        "maxChunks": 5000,
+        "chunker": {
+          "chunkerId": "docling-hierarchical",
+          "revision": "1",
+          "maxChunkChars": 2000
+        }
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "profileId": "parser-docling-v1",
+      "revision": "1",
+      "jobKind": "parser",
+      "description": "The same fixed Docling parser and stager under the gVisor RuntimeClass in the anvilkit-parsing namespace (SEC-10). DISABLED until its negative tests pass on the target runtime (malicious archives, path escapes, plugin/model downloads, egress) and ENV-04 measures its resources.",
+      "image": {
+        "repository": "anvilkit-parser",
+        "digest": "sha256:70b7a7385255c3733c2013f0f330a608315196164b5af09477adb635234c5e52"
+      },
+      "entrypoint": [
+        "/usr/local/bin/anvilkit-parse"
+      ],
+      "resources": {
+        "cpu": "2",
+        "memory": "3Gi"
+      },
+      "deadlineSeconds": 600,
+      "runtimeClass": "gvisor",
+      "candidateCode": false,
+      "parser": {
+        "parserName": "docling",
+        "parserVersion": "2.130.0",
+        "mediaTypes": [
+          "application/pdf",
+          "text/plain",
+          "text/markdown",
+          "text/html",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ],
+        "maxInputBytes": 33554432,
+        "maxPages": 200,
+        "maxDecompressedBytes": 134217728,
+        "maxDecompressionRatio": 100,
+        "maxArchiveEntries": 2000,
+        "maxOutputBytes": 33554432,
+        "maxChunks": 5000,
+        "chunker": {
+          "chunkerId": "docling-hierarchical",
+          "revision": "1",
+          "maxChunkChars": 2000
+        }
+      }
+    }
+  ]
+}

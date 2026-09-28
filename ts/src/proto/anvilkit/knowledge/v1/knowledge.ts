@@ -321,6 +321,69 @@ export function taskStateToJSON(object: TaskState): string {
   }
 }
 
+export enum ParseState {
+  PARSE_STATE_UNSPECIFIED = 0,
+  /** PARSE_STATE_LAUNCHED - The parser Job of this claim is created or being created. */
+  PARSE_STATE_LAUNCHED = 1,
+  /** PARSE_STATE_RUNNING - The Job runs; call again after the returned interval. */
+  PARSE_STATE_RUNNING = 2,
+  /**
+   * PARSE_STATE_COMPLETED - The output was read and verified by Knowledge: result_ref and
+   * result_digest are what SubmitTaskResult must carry. A document the
+   * parser refused (verdict rejected) also completes here; acceptance
+   * records the ingest as failed with the parser's failure code.
+   */
+  PARSE_STATE_COMPLETED = 3,
+  /**
+   * PARSE_STATE_FAILED - No verifiable output (Job failure, deadline, missing or invalid
+   * result): the claimant reports failure_code as a failed attempt.
+   */
+  PARSE_STATE_FAILED = 4,
+  UNRECOGNIZED = -1,
+}
+
+export function parseStateFromJSON(object: any): ParseState {
+  switch (object) {
+    case 0:
+    case "PARSE_STATE_UNSPECIFIED":
+      return ParseState.PARSE_STATE_UNSPECIFIED;
+    case 1:
+    case "PARSE_STATE_LAUNCHED":
+      return ParseState.PARSE_STATE_LAUNCHED;
+    case 2:
+    case "PARSE_STATE_RUNNING":
+      return ParseState.PARSE_STATE_RUNNING;
+    case 3:
+    case "PARSE_STATE_COMPLETED":
+      return ParseState.PARSE_STATE_COMPLETED;
+    case 4:
+    case "PARSE_STATE_FAILED":
+      return ParseState.PARSE_STATE_FAILED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return ParseState.UNRECOGNIZED;
+  }
+}
+
+export function parseStateToJSON(object: ParseState): string {
+  switch (object) {
+    case ParseState.PARSE_STATE_UNSPECIFIED:
+      return "PARSE_STATE_UNSPECIFIED";
+    case ParseState.PARSE_STATE_LAUNCHED:
+      return "PARSE_STATE_LAUNCHED";
+    case ParseState.PARSE_STATE_RUNNING:
+      return "PARSE_STATE_RUNNING";
+    case ParseState.PARSE_STATE_COMPLETED:
+      return "PARSE_STATE_COMPLETED";
+    case ParseState.PARSE_STATE_FAILED:
+      return "PARSE_STATE_FAILED";
+    case ParseState.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 export interface CommandIdentity {
   $type: "anvilkit.knowledge.v1.CommandIdentity";
   tenantId: string;
@@ -652,6 +715,26 @@ export interface GetTaskRequest {
 export interface GetTaskResponse {
   $type: "anvilkit.knowledge.v1.GetTaskResponse";
   task: BackgroundTask | undefined;
+}
+
+export interface AdvanceParseRequest {
+  $type: "anvilkit.knowledge.v1.AdvanceParseRequest";
+  taskId: string;
+  generation: string;
+  workerId: string;
+  inputDigest: string;
+}
+
+export interface AdvanceParseResponse {
+  $type: "anvilkit.knowledge.v1.AdvanceParseResponse";
+  state: ParseState;
+  resultRef: string;
+  resultDigest: string;
+  failureCode?:
+    | string
+    | undefined;
+  /** Suggested wait before the next call while LAUNCHED or RUNNING. */
+  retryAfterMs: number;
 }
 
 function createBaseCommandIdentity(): CommandIdentity {
@@ -6164,6 +6247,307 @@ export const GetTaskResponse: MessageFns<GetTaskResponse, "anvilkit.knowledge.v1
 
 messageTypeRegistry.set(GetTaskResponse.$type, GetTaskResponse);
 
+function createBaseAdvanceParseRequest(): AdvanceParseRequest {
+  return {
+    $type: "anvilkit.knowledge.v1.AdvanceParseRequest",
+    taskId: "",
+    generation: "",
+    workerId: "",
+    inputDigest: "",
+  };
+}
+
+export const AdvanceParseRequest: MessageFns<AdvanceParseRequest, "anvilkit.knowledge.v1.AdvanceParseRequest"> = {
+  $type: "anvilkit.knowledge.v1.AdvanceParseRequest" as const,
+
+  encode(message: AdvanceParseRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.taskId !== "") {
+      writer.uint32(10).string(message.taskId);
+    }
+    if (message.generation !== "") {
+      writer.uint32(18).string(message.generation);
+    }
+    if (message.workerId !== "") {
+      writer.uint32(26).string(message.workerId);
+    }
+    if (message.inputDigest !== "") {
+      writer.uint32(34).string(message.inputDigest);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceParseRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceParseRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.taskId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.generation = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.workerId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.inputDigest = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceParseRequest {
+    return {
+      $type: AdvanceParseRequest.$type,
+      taskId: isSet(object.taskId)
+        ? globalThis.String(object.taskId)
+        : isSet(object.task_id)
+        ? globalThis.String(object.task_id)
+        : "",
+      generation: isSet(object.generation) ? globalThis.String(object.generation) : "",
+      workerId: isSet(object.workerId)
+        ? globalThis.String(object.workerId)
+        : isSet(object.worker_id)
+        ? globalThis.String(object.worker_id)
+        : "",
+      inputDigest: isSet(object.inputDigest)
+        ? globalThis.String(object.inputDigest)
+        : isSet(object.input_digest)
+        ? globalThis.String(object.input_digest)
+        : "",
+    };
+  },
+
+  toJSON(message: AdvanceParseRequest): unknown {
+    const obj: any = {};
+    if (message.taskId !== "") {
+      obj.taskId = message.taskId;
+    }
+    if (message.generation !== "") {
+      obj.generation = message.generation;
+    }
+    if (message.workerId !== "") {
+      obj.workerId = message.workerId;
+    }
+    if (message.inputDigest !== "") {
+      obj.inputDigest = message.inputDigest;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceParseRequest>, I>>(base?: I): AdvanceParseRequest {
+    return AdvanceParseRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceParseRequest>, I>>(object: I): AdvanceParseRequest {
+    const message = createBaseAdvanceParseRequest();
+    message.taskId = object.taskId ?? "";
+    message.generation = object.generation ?? "";
+    message.workerId = object.workerId ?? "";
+    message.inputDigest = object.inputDigest ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceParseRequest.$type, AdvanceParseRequest);
+
+function createBaseAdvanceParseResponse(): AdvanceParseResponse {
+  return {
+    $type: "anvilkit.knowledge.v1.AdvanceParseResponse",
+    state: 0,
+    resultRef: "",
+    resultDigest: "",
+    failureCode: undefined,
+    retryAfterMs: 0,
+  };
+}
+
+export const AdvanceParseResponse: MessageFns<AdvanceParseResponse, "anvilkit.knowledge.v1.AdvanceParseResponse"> = {
+  $type: "anvilkit.knowledge.v1.AdvanceParseResponse" as const,
+
+  encode(message: AdvanceParseResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.state !== 0) {
+      writer.uint32(8).int32(message.state);
+    }
+    if (message.resultRef !== "") {
+      writer.uint32(18).string(message.resultRef);
+    }
+    if (message.resultDigest !== "") {
+      writer.uint32(26).string(message.resultDigest);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(34).string(message.failureCode);
+    }
+    if (message.retryAfterMs !== 0) {
+      writer.uint32(40).uint32(message.retryAfterMs);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceParseResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceParseResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.state = reader.int32() as any;
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.resultRef = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.resultDigest = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.retryAfterMs = reader.uint32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceParseResponse {
+    return {
+      $type: AdvanceParseResponse.$type,
+      state: isSet(object.state) ? parseStateFromJSON(object.state) : 0,
+      resultRef: isSet(object.resultRef)
+        ? globalThis.String(object.resultRef)
+        : isSet(object.result_ref)
+        ? globalThis.String(object.result_ref)
+        : "",
+      resultDigest: isSet(object.resultDigest)
+        ? globalThis.String(object.resultDigest)
+        : isSet(object.result_digest)
+        ? globalThis.String(object.result_digest)
+        : "",
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
+      retryAfterMs: isSet(object.retryAfterMs)
+        ? globalThis.Number(object.retryAfterMs)
+        : isSet(object.retry_after_ms)
+        ? globalThis.Number(object.retry_after_ms)
+        : 0,
+    };
+  },
+
+  toJSON(message: AdvanceParseResponse): unknown {
+    const obj: any = {};
+    if (message.state !== 0) {
+      obj.state = parseStateToJSON(message.state);
+    }
+    if (message.resultRef !== "") {
+      obj.resultRef = message.resultRef;
+    }
+    if (message.resultDigest !== "") {
+      obj.resultDigest = message.resultDigest;
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
+    if (message.retryAfterMs !== 0) {
+      obj.retryAfterMs = Math.round(message.retryAfterMs);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceParseResponse>, I>>(base?: I): AdvanceParseResponse {
+    return AdvanceParseResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceParseResponse>, I>>(object: I): AdvanceParseResponse {
+    const message = createBaseAdvanceParseResponse();
+    message.state = object.state ?? 0;
+    message.resultRef = object.resultRef ?? "";
+    message.resultDigest = object.resultDigest ?? "";
+    message.failureCode = object.failureCode ?? undefined;
+    message.retryAfterMs = object.retryAfterMs ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceParseResponse.$type, AdvanceParseResponse);
+
 export type SourceServiceService = typeof SourceServiceService;
 export const SourceServiceService = {
   /**
@@ -6732,6 +7116,51 @@ export const BackgroundTaskServiceClient = makeGenericClientConstructor(
 ) as unknown as {
   new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): BackgroundTaskServiceClient;
   service: typeof BackgroundTaskServiceService;
+  serviceName: string;
+};
+
+export type IngestServiceService = typeof IngestServiceService;
+export const IngestServiceService = {
+  advanceParse: {
+    path: "/anvilkit.knowledge.v1.IngestService/AdvanceParse" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AdvanceParseRequest): Buffer => Buffer.from(AdvanceParseRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AdvanceParseRequest => AdvanceParseRequest.decode(value),
+    responseSerialize: (value: AdvanceParseResponse): Buffer =>
+      Buffer.from(AdvanceParseResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AdvanceParseResponse => AdvanceParseResponse.decode(value),
+  },
+} as const;
+
+export interface IngestServiceServer extends UntypedServiceImplementation {
+  advanceParse: handleUnaryCall<AdvanceParseRequest, AdvanceParseResponse>;
+}
+
+export interface IngestServiceClient extends Client {
+  advanceParse(
+    request: AdvanceParseRequest,
+    callback: (error: ServiceError | null, response: AdvanceParseResponse) => void,
+  ): ClientUnaryCall;
+  advanceParse(
+    request: AdvanceParseRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AdvanceParseResponse) => void,
+  ): ClientUnaryCall;
+  advanceParse(
+    request: AdvanceParseRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AdvanceParseResponse) => void,
+  ): ClientUnaryCall;
+}
+
+export const IngestServiceClient = makeGenericClientConstructor(
+  IngestServiceService,
+  "anvilkit.knowledge.v1.IngestService",
+) as unknown as {
+  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): IngestServiceClient;
+  service: typeof IngestServiceService;
   serviceName: string;
 };
 

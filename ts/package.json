@@ -7,7 +7,8 @@
   "exports": {
     "./proto/*": "./src/proto/*.ts",
     "./openapi/*": "./src/openapi/*.ts",
-    "./validation/*": "./src/validation/*.ts"
+    "./validation/*": "./src/validation/*.ts",
+    "./jobs/*": "./src/jobs/*"
   },
   "scripts": {
     "check-types": "tsc --noEmit -p tsconfig.json",

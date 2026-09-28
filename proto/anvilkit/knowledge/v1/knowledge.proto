@@ -509,3 +509,56 @@ message GetTaskRequest {
 message GetTaskResponse {
   BackgroundTask task = 1;
 }
+
+// ---------------------------------------------------------------------------
+// IngestService: the parse step of a claimed knowledge-ingest task (DD-07
+// §2). The Background Worker holding the current claim asks Knowledge to
+// launch and observe the isolated parser Job of that claim; Knowledge's
+// parser launcher owns the fixed template and namespace, and its trusted
+// acceptance reads the actual output bytes. The call is idempotent per
+// (task, generation, worker): the first call launches, later calls observe.
+// It never returns artifact access, a storage key or document text, and a
+// superseded, expired or foreign claimant is refused.
+// ---------------------------------------------------------------------------
+
+enum ParseState {
+  PARSE_STATE_UNSPECIFIED = 0;
+  // The parser Job of this claim is created or being created.
+  PARSE_STATE_LAUNCHED = 1;
+  // The Job runs; call again after the returned interval.
+  PARSE_STATE_RUNNING = 2;
+  // The output was read and verified by Knowledge: result_ref and
+  // result_digest are what SubmitTaskResult must carry. A document the
+  // parser refused (verdict rejected) also completes here; acceptance
+  // records the ingest as failed with the parser's failure code.
+  PARSE_STATE_COMPLETED = 3;
+  // No verifiable output (Job failure, deadline, missing or invalid
+  // result): the claimant reports failure_code as a failed attempt.
+  PARSE_STATE_FAILED = 4;
+}
+
+service IngestService {
+  rpc AdvanceParse(AdvanceParseRequest) returns (AdvanceParseResponse);
+}
+
+message AdvanceParseRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string input_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message AdvanceParseResponse {
+  ParseState state = 1;
+  string result_ref = 2;
+  string result_digest = 3;
+  optional string failure_code = 4;
+  // Suggested wait before the next call while LAUNCHED or RUNNING.
+  uint32 retry_after_ms = 5;
+}

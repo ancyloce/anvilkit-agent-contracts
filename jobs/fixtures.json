@@ -171,6 +171,102 @@
         "outputs": [{ "class": "result", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "sizeBytes": "064" }],
         "completedAt": "2026-09-14T11:59:00Z"
       }
+    },
+    {
+      "name": "parser profile: fixed Docling bounds and chunker, no candidate code",
+      "ref": "#/$defs/profile",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "parser", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": false, "parser": {"parserName": "docling", "parserVersion": "2.130.0", "mediaTypes": ["application/pdf", "text/markdown"], "maxInputBytes": 33554432, "maxPages": 200, "maxDecompressedBytes": 134217728, "maxDecompressionRatio": 100, "maxArchiveEntries": 2000, "maxOutputBytes": 33554432, "maxChunks": 5000, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1", "maxChunkChars": 2000}}}
+    },
+    {
+      "name": "parser profile without its parser bounds is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "parser", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": false}
+    },
+    {
+      "name": "parser profile with the harness sidecar is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "parser", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": false, "parser": {"parserName": "docling", "parserVersion": "2.130.0", "mediaTypes": ["application/pdf", "text/markdown"], "maxInputBytes": 33554432, "maxPages": 200, "maxDecompressedBytes": 134217728, "maxDecompressionRatio": 100, "maxArchiveEntries": 2000, "maxOutputBytes": 33554432, "maxChunks": 5000, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1", "maxChunkChars": 2000}}, "sidecarImage": {"repository": "anvilkit-job-access-sidecar", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+    },
+    {
+      "name": "parser profile declaring candidate code is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "parser", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": true, "parser": {"parserName": "docling", "parserVersion": "2.130.0", "mediaTypes": ["application/pdf", "text/markdown"], "maxInputBytes": 33554432, "maxPages": 200, "maxDecompressedBytes": 134217728, "maxDecompressionRatio": 100, "maxArchiveEntries": 2000, "maxOutputBytes": 33554432, "maxChunks": 5000, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1", "maxChunkChars": 2000}}, "runtimeClass": "gvisor", "sidecarImage": {"repository": "x", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+    },
+    {
+      "name": "non-parser profile carrying parser bounds is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "validator", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": false, "parser": {"parserName": "docling", "parserVersion": "2.130.0", "mediaTypes": ["application/pdf", "text/markdown"], "maxInputBytes": 33554432, "maxPages": 200, "maxDecompressedBytes": 134217728, "maxDecompressionRatio": 100, "maxArchiveEntries": 2000, "maxOutputBytes": 33554432, "maxChunks": 5000, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1", "maxChunkChars": 2000}}}
+    },
+    {
+      "name": "parser profile admitting a generic archive media type is rejected",
+      "ref": "#/$defs/profile",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "parser", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": false, "parser": {"parserName": "docling", "parserVersion": "2.130.0", "mediaTypes": ["application/zip"], "maxInputBytes": 33554432, "maxPages": 200, "maxDecompressedBytes": 134217728, "maxDecompressionRatio": 100, "maxArchiveEntries": 2000, "maxOutputBytes": 33554432, "maxChunks": 5000, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1", "maxChunkChars": 2000}}}
+    },
+    {
+      "name": "parse envelope: claimed task, attempt, fixed profile and exact input",
+      "ref": "#/$defs/parseEnvelope",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "launchId": "parse-01", "launchKey": "parse-3f2a", "taskId": "ingest_src_01", "generation": "1", "attempt": "1", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "jobKind": "parser", "deadline": "2026-09-18T12:00:00Z", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}}
+    },
+    {
+      "name": "parse envelope carrying a tenant or ACL is rejected",
+      "ref": "#/$defs/parseEnvelope",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "launchId": "parse-01", "launchKey": "parse-3f2a", "taskId": "ingest_src_01", "generation": "1", "attempt": "1", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "jobKind": "parser", "deadline": "2026-09-18T12:00:00Z", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "tenantId": "t1"}
+    },
+    {
+      "name": "parse envelope with a storage handle is rejected",
+      "ref": "#/$defs/parseEnvelope",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "launchId": "parse-01", "launchKey": "parse-3f2a", "taskId": "ingest_src_01", "generation": "1", "attempt": "1", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "jobKind": "parser", "deadline": "2026-09-18T12:00:00Z", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf", "handle": "s3://bucket/key"}}
+    },
+    {
+      "name": "parse result: parsed chunks with locators",
+      "ref": "#/$defs/parseResult",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "launchKey": "parse-3f2a", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "verdict": "parsed", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "parser": {"name": "docling", "version": "2.130.0"}, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1"}, "pageCount": 1, "chunks": [{"ordinal": 0, "text": "Brand colors are teal and slate.", "contentDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "locator": {"element": "text", "headingPath": ["Brand", "Colors"], "page": 1}, "qualityFlags": []}], "completedAt": "2026-09-18T11:59:00Z"}
+    },
+    {
+      "name": "parse result: rejected document with its failure code and no chunks",
+      "ref": "#/$defs/parseResult",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "launchKey": "parse-3f2a", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "verdict": "rejected", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "parser": {"name": "docling", "version": "2.130.0"}, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1"}, "pageCount": 0, "chunks": [], "completedAt": "2026-09-18T11:59:00Z", "failureCode": "ARCHIVE_BOMB"}
+    },
+    {
+      "name": "rejected parse result without a failure code is rejected",
+      "ref": "#/$defs/parseResult",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "launchKey": "parse-3f2a", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "verdict": "rejected", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "parser": {"name": "docling", "version": "2.130.0"}, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1"}, "pageCount": 1, "chunks": [], "completedAt": "2026-09-18T11:59:00Z"}
+    },
+    {
+      "name": "rejected parse result carrying chunks is rejected",
+      "ref": "#/$defs/parseResult",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "launchKey": "parse-3f2a", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "verdict": "rejected", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "parser": {"name": "docling", "version": "2.130.0"}, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1"}, "pageCount": 1, "chunks": [{"ordinal": 0, "text": "Brand colors are teal and slate.", "contentDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "locator": {"element": "text", "headingPath": ["Brand", "Colors"], "page": 1}, "qualityFlags": []}], "completedAt": "2026-09-18T11:59:00Z", "failureCode": "PATH_ESCAPE"}
+    },
+    {
+      "name": "parsed result with a failure code is rejected",
+      "ref": "#/$defs/parseResult",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "launchKey": "parse-3f2a", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "verdict": "parsed", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "parser": {"name": "docling", "version": "2.130.0"}, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1"}, "pageCount": 1, "chunks": [{"ordinal": 0, "text": "Brand colors are teal and slate.", "contentDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "locator": {"element": "text", "headingPath": ["Brand", "Colors"], "page": 1}, "qualityFlags": []}], "completedAt": "2026-09-18T11:59:00Z", "failureCode": "MALFORMED_DOCUMENT"}
+    },
+    {
+      "name": "parse chunk assigning an ACL or source is rejected",
+      "ref": "#/$defs/parseResult",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "launchKey": "parse-3f2a", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "verdict": "parsed", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "parser": {"name": "docling", "version": "2.130.0"}, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1"}, "pageCount": 1, "chunks": [{"ordinal": 0, "text": "Brand colors are teal and slate.", "contentDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "locator": {"element": "text", "headingPath": ["Brand", "Colors"], "page": 1}, "qualityFlags": [], "acl": ["tenant:t2"]}], "completedAt": "2026-09-18T11:59:00Z"}
+    },
+    {
+      "name": "parse chunk with an unknown quality flag is rejected",
+      "ref": "#/$defs/parseResult",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "launchKey": "parse-3f2a", "profileId": "parser-docling-dev-v1", "profileRevision": "1", "verdict": "parsed", "input": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "sizeBytes": "1024", "mediaType": "application/pdf"}, "parser": {"name": "docling", "version": "2.130.0"}, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1"}, "pageCount": 1, "chunks": [{"ordinal": 0, "text": "Brand colors are teal and slate.", "contentDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "locator": {"element": "text", "headingPath": ["Brand", "Colors"], "page": 1}, "qualityFlags": ["trusted_instruction"]}], "completedAt": "2026-09-18T11:59:00Z"}
     }
   ]
 }

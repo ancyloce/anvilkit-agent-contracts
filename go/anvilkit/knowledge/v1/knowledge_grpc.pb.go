@@ -974,3 +974,105 @@ var BackgroundTaskService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "anvilkit/knowledge/v1/knowledge.proto",
 }
+
+const (
+	IngestService_AdvanceParse_FullMethodName = "/anvilkit.knowledge.v1.IngestService/AdvanceParse"
+)
+
+// IngestServiceClient is the client API for IngestService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type IngestServiceClient interface {
+	AdvanceParse(ctx context.Context, in *AdvanceParseRequest, opts ...grpc.CallOption) (*AdvanceParseResponse, error)
+}
+
+type ingestServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewIngestServiceClient(cc grpc.ClientConnInterface) IngestServiceClient {
+	return &ingestServiceClient{cc}
+}
+
+func (c *ingestServiceClient) AdvanceParse(ctx context.Context, in *AdvanceParseRequest, opts ...grpc.CallOption) (*AdvanceParseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdvanceParseResponse)
+	err := c.cc.Invoke(ctx, IngestService_AdvanceParse_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// IngestServiceServer is the server API for IngestService service.
+// All implementations must embed UnimplementedIngestServiceServer
+// for forward compatibility.
+type IngestServiceServer interface {
+	AdvanceParse(context.Context, *AdvanceParseRequest) (*AdvanceParseResponse, error)
+	mustEmbedUnimplementedIngestServiceServer()
+}
+
+// UnimplementedIngestServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedIngestServiceServer struct{}
+
+func (UnimplementedIngestServiceServer) AdvanceParse(context.Context, *AdvanceParseRequest) (*AdvanceParseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdvanceParse not implemented")
+}
+func (UnimplementedIngestServiceServer) mustEmbedUnimplementedIngestServiceServer() {}
+func (UnimplementedIngestServiceServer) testEmbeddedByValue()                       {}
+
+// UnsafeIngestServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to IngestServiceServer will
+// result in compilation errors.
+type UnsafeIngestServiceServer interface {
+	mustEmbedUnimplementedIngestServiceServer()
+}
+
+func RegisterIngestServiceServer(s grpc.ServiceRegistrar, srv IngestServiceServer) {
+	// If the following call panics, it indicates UnimplementedIngestServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&IngestService_ServiceDesc, srv)
+}
+
+func _IngestService_AdvanceParse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdvanceParseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IngestServiceServer).AdvanceParse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IngestService_AdvanceParse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IngestServiceServer).AdvanceParse(ctx, req.(*AdvanceParseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// IngestService_ServiceDesc is the grpc.ServiceDesc for IngestService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var IngestService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "anvilkit.knowledge.v1.IngestService",
+	HandlerType: (*IngestServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "AdvanceParse",
+			Handler:    _IngestService_AdvanceParse_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "anvilkit/knowledge/v1/knowledge.proto",
+}

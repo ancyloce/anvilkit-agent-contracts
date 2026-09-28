@@ -60,10 +60,148 @@
           "additionalProperties": false,
           "required": ["resultDigest", "resultSizeBytes"],
           "properties": { "resultDigest": { "$ref": "#/$defs/digest" }, "resultSizeBytes": { "$ref": "#/$defs/sequence" } }
-        }
+        },
+        "parser": { "$ref": "#/$defs/parserLimits" }
       },
-      "if": { "properties": { "candidateCode": { "const": true } } },
-      "then": { "required": ["runtimeClass", "sidecarImage"] }
+      "allOf": [
+        { "if": { "properties": { "candidateCode": { "const": true } } }, "then": { "required": ["runtimeClass", "sidecarImage"] } },
+        {
+          "if": { "properties": { "jobKind": { "const": "parser" } }, "required": ["jobKind"] },
+          "then": { "required": ["parser"], "properties": { "candidateCode": { "const": false }, "sidecarImage": false } },
+          "else": { "not": { "required": ["parser"] } }
+        }
+      ]
+    },
+    "mediaType": {
+      "type": "string",
+      "description": "The document media types a parser profile may admit (DD-07 §2); generic archives, executables and remote references are never inputs.",
+      "enum": ["application/pdf", "text/plain", "text/markdown", "text/html", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+    },
+    "parseFailureCode": {
+      "type": "string",
+      "description": "Why the fixed parser refused a document (verdict rejected): a verified outcome of the parser, not an infrastructure failure.",
+      "enum": [
+        "INPUT_TOO_LARGE", "INPUT_DIGEST_MISMATCH", "UNSUPPORTED_MEDIA_TYPE", "MEDIA_TYPE_MISMATCH", "PAGE_LIMIT_EXCEEDED",
+        "ARCHIVE_BOMB", "ARCHIVE_ENTRY_LIMIT", "PATH_ESCAPE", "ENCRYPTED_DOCUMENT", "MALFORMED_DOCUMENT", "OUTPUT_TOO_LARGE",
+        "CHUNK_LIMIT_EXCEEDED"
+      ]
+    },
+    "parserLimits": {
+      "type": "object",
+      "description": "The fixed parser, bounds and chunker of a parser profile (DD-07 §2, SEC-10): the parser refuses input outside them; the Knowledge launcher and its trusted acceptance enforce them again.",
+      "additionalProperties": false,
+      "required": ["parserName", "parserVersion", "mediaTypes", "maxInputBytes", "maxPages", "maxDecompressedBytes", "maxDecompressionRatio", "maxArchiveEntries", "maxOutputBytes", "maxChunks", "chunker"],
+      "properties": {
+        "parserName": { "type": "string", "enum": ["docling"] },
+        "parserVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "mediaTypes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/mediaType" } },
+        "maxInputBytes": { "type": "integer", "minimum": 1, "maximum": 268435456 },
+        "maxPages": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "maxDecompressedBytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 },
+        "maxDecompressionRatio": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "maxArchiveEntries": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "maxOutputBytes": { "type": "integer", "minimum": 1, "maximum": 268435456 },
+        "maxChunks": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "chunker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["chunkerId", "revision", "maxChunkChars"],
+          "properties": {
+            "chunkerId": { "$ref": "#/$defs/id" },
+            "revision": { "$ref": "#/$defs/sequence" },
+            "maxChunkChars": { "type": "integer", "minimum": 64, "maximum": 32768 }
+          }
+        }
+      }
+    },
+    "parseInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["digest", "sizeBytes", "mediaType"],
+      "properties": { "digest": { "$ref": "#/$defs/digest" }, "sizeBytes": { "$ref": "#/$defs/sequence" }, "mediaType": { "$ref": "#/$defs/mediaType" } }
+    },
+    "parseEnvelope": {
+      "type": "object",
+      "description": "The launch envelope of a parser Job (DD-07 §2): the Knowledge launcher binds the claimed ingest task, the fixed profile and the exact input identity; the trusted stager verifies the staged bytes against input before the parser runs. It carries no tenant, ACL, storage key or credential.",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchId", "launchKey", "taskId", "generation", "attempt", "profileId", "profileRevision", "jobKind", "deadline", "input"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchId": { "$ref": "#/$defs/id" },
+        "launchKey": { "$ref": "#/$defs/launchKey" },
+        "taskId": { "$ref": "#/$defs/id" },
+        "generation": { "$ref": "#/$defs/sequence" },
+        "attempt": { "$ref": "#/$defs/sequence" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "profileRevision": { "$ref": "#/$defs/sequence" },
+        "jobKind": { "const": "parser" },
+        "deadline": { "$ref": "#/$defs/timestamp" },
+        "input": { "$ref": "#/$defs/parseInput" }
+      }
+    },
+    "chunkLocator": {
+      "type": "object",
+      "description": "Where a chunk came from in the original document: the element kind, the heading path above it, the 1-based page of paged formats and the 1-based line range of text formats. Provenance, never instructions.",
+      "additionalProperties": false,
+      "required": ["element", "headingPath"],
+      "properties": {
+        "element": { "type": "string", "enum": ["text", "heading", "list", "table", "code", "caption"] },
+        "headingPath": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "page": { "type": "integer", "minimum": 1 },
+        "lineStart": { "type": "integer", "minimum": 1 },
+        "lineEnd": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "parseChunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordinal", "text", "contentDigest", "locator", "qualityFlags"],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "contentDigest": { "$ref": "#/$defs/digest", "description": "SHA-256 of the UTF-8 bytes of text." },
+        "locator": { "$ref": "#/$defs/chunkLocator" },
+        "qualityFlags": {
+          "type": "array",
+          "description": "Observations for retrieval and review; instruction_like marks text that reads like an instruction to a model, which stays data.",
+          "uniqueItems": true,
+          "maxItems": 8,
+          "items": { "type": "string", "enum": ["instruction_like", "split_block", "table", "code", "low_text"] }
+        }
+      }
+    },
+    "parseResult": {
+      "type": "object",
+      "description": "The parser Job's output document (DD-07 §2): the fixed parser's verdict and chunks. Knowledge's trusted acceptance reads these actual bytes, validates them here and against the envelope and profile, and only then derives chunk identities; nothing in a document changes the Source Registry.",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launchKey", "profileId", "profileRevision", "verdict", "input", "parser", "chunker", "pageCount", "chunks", "completedAt"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launchKey": { "$ref": "#/$defs/launchKey" },
+        "profileId": { "$ref": "#/$defs/id" },
+        "profileRevision": { "$ref": "#/$defs/sequence" },
+        "verdict": { "type": "string", "enum": ["parsed", "rejected"] },
+        "failureCode": { "$ref": "#/$defs/parseFailureCode" },
+        "input": { "$ref": "#/$defs/parseInput" },
+        "parser": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": { "name": { "type": "string", "enum": ["docling"] }, "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" } }
+        },
+        "chunker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["chunkerId", "revision"],
+          "properties": { "chunkerId": { "$ref": "#/$defs/id" }, "revision": { "$ref": "#/$defs/sequence" } }
+        },
+        "pageCount": { "type": "integer", "minimum": 0 },
+        "chunks": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/parseChunk" } },
+        "completedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "if": { "properties": { "verdict": { "const": "rejected" } } },
+      "then": { "required": ["failureCode"], "properties": { "chunks": { "type": "array", "maxItems": 0 } } },
+      "else": { "not": { "required": ["failureCode"] } }
     },
     "launchEnvelope": {
       "type": "object",

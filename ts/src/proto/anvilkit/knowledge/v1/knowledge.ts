@@ -384,6 +384,61 @@ export function parseStateToJSON(object: ParseState): string {
   }
 }
 
+export enum IndexState {
+  INDEX_STATE_UNSPECIFIED = 0,
+  /** INDEX_STATE_RUNNING - Batches remain to be written or verified; call again after the interval. */
+  INDEX_STATE_RUNNING = 1,
+  /**
+   * INDEX_STATE_MATERIALIZED - Every point was written and read back by Knowledge: result_ref and
+   * result_digest (the digest of Knowledge's point manifest) are what
+   * SubmitTaskResult must carry.
+   */
+  INDEX_STATE_MATERIALIZED = 2,
+  /**
+   * INDEX_STATE_FAILED - No verifiable index (a stale or unqualified profile, a revoked source,
+   * a refused computation): the claimant reports failure_code.
+   */
+  INDEX_STATE_FAILED = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function indexStateFromJSON(object: any): IndexState {
+  switch (object) {
+    case 0:
+    case "INDEX_STATE_UNSPECIFIED":
+      return IndexState.INDEX_STATE_UNSPECIFIED;
+    case 1:
+    case "INDEX_STATE_RUNNING":
+      return IndexState.INDEX_STATE_RUNNING;
+    case 2:
+    case "INDEX_STATE_MATERIALIZED":
+      return IndexState.INDEX_STATE_MATERIALIZED;
+    case 3:
+    case "INDEX_STATE_FAILED":
+      return IndexState.INDEX_STATE_FAILED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return IndexState.UNRECOGNIZED;
+  }
+}
+
+export function indexStateToJSON(object: IndexState): string {
+  switch (object) {
+    case IndexState.INDEX_STATE_UNSPECIFIED:
+      return "INDEX_STATE_UNSPECIFIED";
+    case IndexState.INDEX_STATE_RUNNING:
+      return "INDEX_STATE_RUNNING";
+    case IndexState.INDEX_STATE_MATERIALIZED:
+      return "INDEX_STATE_MATERIALIZED";
+    case IndexState.INDEX_STATE_FAILED:
+      return "INDEX_STATE_FAILED";
+    case IndexState.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 export interface CommandIdentity {
   $type: "anvilkit.knowledge.v1.CommandIdentity";
   tenantId: string;
@@ -734,6 +789,26 @@ export interface AdvanceParseResponse {
     | string
     | undefined;
   /** Suggested wait before the next call while LAUNCHED or RUNNING. */
+  retryAfterMs: number;
+}
+
+export interface AdvanceIndexRequest {
+  $type: "anvilkit.knowledge.v1.AdvanceIndexRequest";
+  taskId: string;
+  generation: string;
+  workerId: string;
+  inputDigest: string;
+}
+
+export interface AdvanceIndexResponse {
+  $type: "anvilkit.knowledge.v1.AdvanceIndexResponse";
+  state: IndexState;
+  resultRef: string;
+  resultDigest: string;
+  failureCode?:
+    | string
+    | undefined;
+  /** Suggested wait before the next call while RUNNING. */
   retryAfterMs: number;
 }
 
@@ -6548,6 +6623,307 @@ export const AdvanceParseResponse: MessageFns<AdvanceParseResponse, "anvilkit.kn
 
 messageTypeRegistry.set(AdvanceParseResponse.$type, AdvanceParseResponse);
 
+function createBaseAdvanceIndexRequest(): AdvanceIndexRequest {
+  return {
+    $type: "anvilkit.knowledge.v1.AdvanceIndexRequest",
+    taskId: "",
+    generation: "",
+    workerId: "",
+    inputDigest: "",
+  };
+}
+
+export const AdvanceIndexRequest: MessageFns<AdvanceIndexRequest, "anvilkit.knowledge.v1.AdvanceIndexRequest"> = {
+  $type: "anvilkit.knowledge.v1.AdvanceIndexRequest" as const,
+
+  encode(message: AdvanceIndexRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.taskId !== "") {
+      writer.uint32(10).string(message.taskId);
+    }
+    if (message.generation !== "") {
+      writer.uint32(18).string(message.generation);
+    }
+    if (message.workerId !== "") {
+      writer.uint32(26).string(message.workerId);
+    }
+    if (message.inputDigest !== "") {
+      writer.uint32(34).string(message.inputDigest);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceIndexRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceIndexRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.taskId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.generation = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.workerId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.inputDigest = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceIndexRequest {
+    return {
+      $type: AdvanceIndexRequest.$type,
+      taskId: isSet(object.taskId)
+        ? globalThis.String(object.taskId)
+        : isSet(object.task_id)
+        ? globalThis.String(object.task_id)
+        : "",
+      generation: isSet(object.generation) ? globalThis.String(object.generation) : "",
+      workerId: isSet(object.workerId)
+        ? globalThis.String(object.workerId)
+        : isSet(object.worker_id)
+        ? globalThis.String(object.worker_id)
+        : "",
+      inputDigest: isSet(object.inputDigest)
+        ? globalThis.String(object.inputDigest)
+        : isSet(object.input_digest)
+        ? globalThis.String(object.input_digest)
+        : "",
+    };
+  },
+
+  toJSON(message: AdvanceIndexRequest): unknown {
+    const obj: any = {};
+    if (message.taskId !== "") {
+      obj.taskId = message.taskId;
+    }
+    if (message.generation !== "") {
+      obj.generation = message.generation;
+    }
+    if (message.workerId !== "") {
+      obj.workerId = message.workerId;
+    }
+    if (message.inputDigest !== "") {
+      obj.inputDigest = message.inputDigest;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceIndexRequest>, I>>(base?: I): AdvanceIndexRequest {
+    return AdvanceIndexRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceIndexRequest>, I>>(object: I): AdvanceIndexRequest {
+    const message = createBaseAdvanceIndexRequest();
+    message.taskId = object.taskId ?? "";
+    message.generation = object.generation ?? "";
+    message.workerId = object.workerId ?? "";
+    message.inputDigest = object.inputDigest ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceIndexRequest.$type, AdvanceIndexRequest);
+
+function createBaseAdvanceIndexResponse(): AdvanceIndexResponse {
+  return {
+    $type: "anvilkit.knowledge.v1.AdvanceIndexResponse",
+    state: 0,
+    resultRef: "",
+    resultDigest: "",
+    failureCode: undefined,
+    retryAfterMs: 0,
+  };
+}
+
+export const AdvanceIndexResponse: MessageFns<AdvanceIndexResponse, "anvilkit.knowledge.v1.AdvanceIndexResponse"> = {
+  $type: "anvilkit.knowledge.v1.AdvanceIndexResponse" as const,
+
+  encode(message: AdvanceIndexResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.state !== 0) {
+      writer.uint32(8).int32(message.state);
+    }
+    if (message.resultRef !== "") {
+      writer.uint32(18).string(message.resultRef);
+    }
+    if (message.resultDigest !== "") {
+      writer.uint32(26).string(message.resultDigest);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(34).string(message.failureCode);
+    }
+    if (message.retryAfterMs !== 0) {
+      writer.uint32(40).uint32(message.retryAfterMs);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceIndexResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceIndexResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.state = reader.int32() as any;
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.resultRef = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.resultDigest = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.retryAfterMs = reader.uint32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceIndexResponse {
+    return {
+      $type: AdvanceIndexResponse.$type,
+      state: isSet(object.state) ? indexStateFromJSON(object.state) : 0,
+      resultRef: isSet(object.resultRef)
+        ? globalThis.String(object.resultRef)
+        : isSet(object.result_ref)
+        ? globalThis.String(object.result_ref)
+        : "",
+      resultDigest: isSet(object.resultDigest)
+        ? globalThis.String(object.resultDigest)
+        : isSet(object.result_digest)
+        ? globalThis.String(object.result_digest)
+        : "",
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
+      retryAfterMs: isSet(object.retryAfterMs)
+        ? globalThis.Number(object.retryAfterMs)
+        : isSet(object.retry_after_ms)
+        ? globalThis.Number(object.retry_after_ms)
+        : 0,
+    };
+  },
+
+  toJSON(message: AdvanceIndexResponse): unknown {
+    const obj: any = {};
+    if (message.state !== 0) {
+      obj.state = indexStateToJSON(message.state);
+    }
+    if (message.resultRef !== "") {
+      obj.resultRef = message.resultRef;
+    }
+    if (message.resultDigest !== "") {
+      obj.resultDigest = message.resultDigest;
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
+    if (message.retryAfterMs !== 0) {
+      obj.retryAfterMs = Math.round(message.retryAfterMs);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceIndexResponse>, I>>(base?: I): AdvanceIndexResponse {
+    return AdvanceIndexResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceIndexResponse>, I>>(object: I): AdvanceIndexResponse {
+    const message = createBaseAdvanceIndexResponse();
+    message.state = object.state ?? 0;
+    message.resultRef = object.resultRef ?? "";
+    message.resultDigest = object.resultDigest ?? "";
+    message.failureCode = object.failureCode ?? undefined;
+    message.retryAfterMs = object.retryAfterMs ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceIndexResponse.$type, AdvanceIndexResponse);
+
 export type SourceServiceService = typeof SourceServiceService;
 export const SourceServiceService = {
   /**
@@ -7131,10 +7507,37 @@ export const IngestServiceService = {
       Buffer.from(AdvanceParseResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): AdvanceParseResponse => AdvanceParseResponse.decode(value),
   },
+  /**
+   * The index step of a claimed knowledge-project task (DD-07 §3): Knowledge
+   * embeds the accepted chunks of one source revision through Inference and
+   * writes them as named dense/sparse points of one index generation under
+   * deterministic ids, a bounded batch per call, then verifies that every
+   * point is materialized. Same claimant rules and idempotence as
+   * AdvanceParse; no text, vector, key or collection name crosses.
+   */
+  advanceIndex: {
+    path: "/anvilkit.knowledge.v1.IngestService/AdvanceIndex" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AdvanceIndexRequest): Buffer => Buffer.from(AdvanceIndexRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AdvanceIndexRequest => AdvanceIndexRequest.decode(value),
+    responseSerialize: (value: AdvanceIndexResponse): Buffer =>
+      Buffer.from(AdvanceIndexResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AdvanceIndexResponse => AdvanceIndexResponse.decode(value),
+  },
 } as const;
 
 export interface IngestServiceServer extends UntypedServiceImplementation {
   advanceParse: handleUnaryCall<AdvanceParseRequest, AdvanceParseResponse>;
+  /**
+   * The index step of a claimed knowledge-project task (DD-07 §3): Knowledge
+   * embeds the accepted chunks of one source revision through Inference and
+   * writes them as named dense/sparse points of one index generation under
+   * deterministic ids, a bounded batch per call, then verifies that every
+   * point is materialized. Same claimant rules and idempotence as
+   * AdvanceParse; no text, vector, key or collection name crosses.
+   */
+  advanceIndex: handleUnaryCall<AdvanceIndexRequest, AdvanceIndexResponse>;
 }
 
 export interface IngestServiceClient extends Client {
@@ -7152,6 +7555,29 @@ export interface IngestServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: AdvanceParseResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * The index step of a claimed knowledge-project task (DD-07 §3): Knowledge
+   * embeds the accepted chunks of one source revision through Inference and
+   * writes them as named dense/sparse points of one index generation under
+   * deterministic ids, a bounded batch per call, then verifies that every
+   * point is materialized. Same claimant rules and idempotence as
+   * AdvanceParse; no text, vector, key or collection name crosses.
+   */
+  advanceIndex(
+    request: AdvanceIndexRequest,
+    callback: (error: ServiceError | null, response: AdvanceIndexResponse) => void,
+  ): ClientUnaryCall;
+  advanceIndex(
+    request: AdvanceIndexRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AdvanceIndexResponse) => void,
+  ): ClientUnaryCall;
+  advanceIndex(
+    request: AdvanceIndexRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AdvanceIndexResponse) => void,
   ): ClientUnaryCall;
 }
 

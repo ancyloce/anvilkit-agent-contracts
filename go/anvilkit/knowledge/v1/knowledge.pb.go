@@ -384,6 +384,64 @@ func (ParseState) EnumDescriptor() ([]byte, []int) {
 	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{5}
 }
 
+type IndexState int32
+
+const (
+	IndexState_INDEX_STATE_UNSPECIFIED IndexState = 0
+	// Batches remain to be written or verified; call again after the interval.
+	IndexState_INDEX_STATE_RUNNING IndexState = 1
+	// Every point was written and read back by Knowledge: result_ref and
+	// result_digest (the digest of Knowledge's point manifest) are what
+	// SubmitTaskResult must carry.
+	IndexState_INDEX_STATE_MATERIALIZED IndexState = 2
+	// No verifiable index (a stale or unqualified profile, a revoked source,
+	// a refused computation): the claimant reports failure_code.
+	IndexState_INDEX_STATE_FAILED IndexState = 3
+)
+
+// Enum value maps for IndexState.
+var (
+	IndexState_name = map[int32]string{
+		0: "INDEX_STATE_UNSPECIFIED",
+		1: "INDEX_STATE_RUNNING",
+		2: "INDEX_STATE_MATERIALIZED",
+		3: "INDEX_STATE_FAILED",
+	}
+	IndexState_value = map[string]int32{
+		"INDEX_STATE_UNSPECIFIED":  0,
+		"INDEX_STATE_RUNNING":      1,
+		"INDEX_STATE_MATERIALIZED": 2,
+		"INDEX_STATE_FAILED":       3,
+	}
+)
+
+func (x IndexState) Enum() *IndexState {
+	p := new(IndexState)
+	*p = x
+	return p
+}
+
+func (x IndexState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (IndexState) Descriptor() protoreflect.EnumDescriptor {
+	return file_anvilkit_knowledge_v1_knowledge_proto_enumTypes[6].Descriptor()
+}
+
+func (IndexState) Type() protoreflect.EnumType {
+	return &file_anvilkit_knowledge_v1_knowledge_proto_enumTypes[6]
+}
+
+func (x IndexState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use IndexState.Descriptor instead.
+func (IndexState) EnumDescriptor() ([]byte, []int) {
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{6}
+}
+
 type CommandIdentity struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -3304,6 +3362,151 @@ func (x *AdvanceParseResponse) GetRetryAfterMs() uint32 {
 	return 0
 }
 
+type AdvanceIndexRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Generation    string                 `protobuf:"bytes,2,opt,name=generation,proto3" json:"generation,omitempty"`
+	WorkerId      string                 `protobuf:"bytes,3,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	InputDigest   string                 `protobuf:"bytes,4,opt,name=input_digest,json=inputDigest,proto3" json:"input_digest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdvanceIndexRequest) Reset() {
+	*x = AdvanceIndexRequest{}
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvanceIndexRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvanceIndexRequest) ProtoMessage() {}
+
+func (x *AdvanceIndexRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvanceIndexRequest.ProtoReflect.Descriptor instead.
+func (*AdvanceIndexRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *AdvanceIndexRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *AdvanceIndexRequest) GetGeneration() string {
+	if x != nil {
+		return x.Generation
+	}
+	return ""
+}
+
+func (x *AdvanceIndexRequest) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+func (x *AdvanceIndexRequest) GetInputDigest() string {
+	if x != nil {
+		return x.InputDigest
+	}
+	return ""
+}
+
+type AdvanceIndexResponse struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	State        IndexState             `protobuf:"varint,1,opt,name=state,proto3,enum=anvilkit.knowledge.v1.IndexState" json:"state,omitempty"`
+	ResultRef    string                 `protobuf:"bytes,2,opt,name=result_ref,json=resultRef,proto3" json:"result_ref,omitempty"`
+	ResultDigest string                 `protobuf:"bytes,3,opt,name=result_digest,json=resultDigest,proto3" json:"result_digest,omitempty"`
+	FailureCode  *string                `protobuf:"bytes,4,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
+	// Suggested wait before the next call while RUNNING.
+	RetryAfterMs  uint32 `protobuf:"varint,5,opt,name=retry_after_ms,json=retryAfterMs,proto3" json:"retry_after_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdvanceIndexResponse) Reset() {
+	*x = AdvanceIndexResponse{}
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvanceIndexResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvanceIndexResponse) ProtoMessage() {}
+
+func (x *AdvanceIndexResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvanceIndexResponse.ProtoReflect.Descriptor instead.
+func (*AdvanceIndexResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *AdvanceIndexResponse) GetState() IndexState {
+	if x != nil {
+		return x.State
+	}
+	return IndexState_INDEX_STATE_UNSPECIFIED
+}
+
+func (x *AdvanceIndexResponse) GetResultRef() string {
+	if x != nil {
+		return x.ResultRef
+	}
+	return ""
+}
+
+func (x *AdvanceIndexResponse) GetResultDigest() string {
+	if x != nil {
+		return x.ResultDigest
+	}
+	return ""
+}
+
+func (x *AdvanceIndexResponse) GetFailureCode() string {
+	if x != nil && x.FailureCode != nil {
+		return *x.FailureCode
+	}
+	return ""
+}
+
+func (x *AdvanceIndexResponse) GetRetryAfterMs() uint32 {
+	if x != nil {
+		return x.RetryAfterMs
+	}
+	return 0
+}
+
 var File_anvilkit_knowledge_v1_knowledge_proto protoreflect.FileDescriptor
 
 const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
@@ -3604,6 +3807,23 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\rresult_digest\x18\x03 \x01(\tR\fresultDigest\x12&\n" +
 	"\ffailure_code\x18\x04 \x01(\tH\x00R\vfailureCode\x88\x01\x01\x12$\n" +
 	"\x0eretry_after_ms\x18\x05 \x01(\rR\fretryAfterMsB\x0f\n" +
+	"\r_failure_code\"\xe3\x01\n" +
+	"\x13AdvanceIndexRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06taskId\x12=\n" +
+	"\n" +
+	"generation\x18\x02 \x01(\tB\x1d\xbaH\x1ar\x182\x16^(0|[1-9][0-9]{0,19})$R\n" +
+	"generation\x12'\n" +
+	"\tworker_id\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\bworkerId\x12?\n" +
+	"\finput_digest\x18\x04 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\vinputDigest\"\xf2\x01\n" +
+	"\x14AdvanceIndexResponse\x127\n" +
+	"\x05state\x18\x01 \x01(\x0e2!.anvilkit.knowledge.v1.IndexStateR\x05state\x12\x1d\n" +
+	"\n" +
+	"result_ref\x18\x02 \x01(\tR\tresultRef\x12#\n" +
+	"\rresult_digest\x18\x03 \x01(\tR\fresultDigest\x12&\n" +
+	"\ffailure_code\x18\x04 \x01(\tH\x00R\vfailureCode\x88\x01\x01\x12$\n" +
+	"\x0eretry_after_ms\x18\x05 \x01(\rR\fretryAfterMsB\x0f\n" +
 	"\r_failure_code*\x8b\x01\n" +
 	"\n" +
 	"SourceKind\x12\x1b\n" +
@@ -3648,7 +3868,13 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\x14PARSE_STATE_LAUNCHED\x10\x01\x12\x17\n" +
 	"\x13PARSE_STATE_RUNNING\x10\x02\x12\x19\n" +
 	"\x15PARSE_STATE_COMPLETED\x10\x03\x12\x16\n" +
-	"\x12PARSE_STATE_FAILED\x10\x042\xa8\x04\n" +
+	"\x12PARSE_STATE_FAILED\x10\x04*x\n" +
+	"\n" +
+	"IndexState\x12\x1b\n" +
+	"\x17INDEX_STATE_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13INDEX_STATE_RUNNING\x10\x01\x12\x1c\n" +
+	"\x18INDEX_STATE_MATERIALIZED\x10\x02\x12\x16\n" +
+	"\x12INDEX_STATE_FAILED\x10\x032\xa8\x04\n" +
 	"\rSourceService\x12m\n" +
 	"\x0eRegisterSource\x12,.anvilkit.knowledge.v1.RegisterSourceRequest\x1a-.anvilkit.knowledge.v1.RegisterSourceResponse\x12^\n" +
 	"\tGetSource\x12'.anvilkit.knowledge.v1.GetSourceRequest\x1a(.anvilkit.knowledge.v1.GetSourceResponse\x12d\n" +
@@ -3670,9 +3896,10 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\tClaimTask\x12'.anvilkit.knowledge.v1.ClaimTaskRequest\x1a(.anvilkit.knowledge.v1.ClaimTaskResponse\x12j\n" +
 	"\rHeartbeatTask\x12+.anvilkit.knowledge.v1.HeartbeatTaskRequest\x1a,.anvilkit.knowledge.v1.HeartbeatTaskResponse\x12s\n" +
 	"\x10SubmitTaskResult\x12..anvilkit.knowledge.v1.SubmitTaskResultRequest\x1a/.anvilkit.knowledge.v1.SubmitTaskResultResponse\x12X\n" +
-	"\aGetTask\x12%.anvilkit.knowledge.v1.GetTaskRequest\x1a&.anvilkit.knowledge.v1.GetTaskResponse2x\n" +
+	"\aGetTask\x12%.anvilkit.knowledge.v1.GetTaskRequest\x1a&.anvilkit.knowledge.v1.GetTaskResponse2\xe1\x01\n" +
 	"\rIngestService\x12g\n" +
-	"\fAdvanceParse\x12*.anvilkit.knowledge.v1.AdvanceParseRequest\x1a+.anvilkit.knowledge.v1.AdvanceParseResponseB\xf4\x01\n" +
+	"\fAdvanceParse\x12*.anvilkit.knowledge.v1.AdvanceParseRequest\x1a+.anvilkit.knowledge.v1.AdvanceParseResponse\x12g\n" +
+	"\fAdvanceIndex\x12*.anvilkit.knowledge.v1.AdvanceIndexRequest\x1a+.anvilkit.knowledge.v1.AdvanceIndexResponseB\xf4\x01\n" +
 	"\x19com.anvilkit.knowledge.v1B\x0eKnowledgeProtoP\x01ZQgithub.com/ancyloce/anvilkit-agent-contracts/go/anvilkit/knowledge/v1;knowledgev1\xa2\x02\x03AKX\xaa\x02\x15Anvilkit.Knowledge.V1\xca\x02\x15Anvilkit\\Knowledge\\V1\xe2\x02!Anvilkit\\Knowledge\\V1\\GPBMetadata\xea\x02\x17Anvilkit::Knowledge::V1b\x06proto3"
 
 var (
@@ -3687,8 +3914,8 @@ func file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP() []byte {
 	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescData
 }
 
-var file_anvilkit_knowledge_v1_knowledge_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_anvilkit_knowledge_v1_knowledge_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_anvilkit_knowledge_v1_knowledge_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_anvilkit_knowledge_v1_knowledge_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
 var file_anvilkit_knowledge_v1_knowledge_proto_goTypes = []any{
 	(SourceKind)(0),                    // 0: anvilkit.knowledge.v1.SourceKind
 	(IngestState)(0),                   // 1: anvilkit.knowledge.v1.IngestState
@@ -3696,146 +3923,152 @@ var file_anvilkit_knowledge_v1_knowledge_proto_goTypes = []any{
 	(FactDecision)(0),                  // 3: anvilkit.knowledge.v1.FactDecision
 	(TaskState)(0),                     // 4: anvilkit.knowledge.v1.TaskState
 	(ParseState)(0),                    // 5: anvilkit.knowledge.v1.ParseState
-	(*CommandIdentity)(nil),            // 6: anvilkit.knowledge.v1.CommandIdentity
-	(*Scope)(nil),                      // 7: anvilkit.knowledge.v1.Scope
-	(*AccessEntry)(nil),                // 8: anvilkit.knowledge.v1.AccessEntry
-	(*Source)(nil),                     // 9: anvilkit.knowledge.v1.Source
-	(*RegisterSourceRequest)(nil),      // 10: anvilkit.knowledge.v1.RegisterSourceRequest
-	(*RegisterSourceResponse)(nil),     // 11: anvilkit.knowledge.v1.RegisterSourceResponse
-	(*GetSourceRequest)(nil),           // 12: anvilkit.knowledge.v1.GetSourceRequest
-	(*GetSourceResponse)(nil),          // 13: anvilkit.knowledge.v1.GetSourceResponse
-	(*ListSourcesRequest)(nil),         // 14: anvilkit.knowledge.v1.ListSourcesRequest
-	(*ListSourcesResponse)(nil),        // 15: anvilkit.knowledge.v1.ListSourcesResponse
-	(*UpdateSourceAccessRequest)(nil),  // 16: anvilkit.knowledge.v1.UpdateSourceAccessRequest
-	(*UpdateSourceAccessResponse)(nil), // 17: anvilkit.knowledge.v1.UpdateSourceAccessResponse
-	(*DeleteSourceRequest)(nil),        // 18: anvilkit.knowledge.v1.DeleteSourceRequest
-	(*DeleteSourceResponse)(nil),       // 19: anvilkit.knowledge.v1.DeleteSourceResponse
-	(*Snapshot)(nil),                   // 20: anvilkit.knowledge.v1.Snapshot
-	(*CreateSnapshotRequest)(nil),      // 21: anvilkit.knowledge.v1.CreateSnapshotRequest
-	(*CreateSnapshotResponse)(nil),     // 22: anvilkit.knowledge.v1.CreateSnapshotResponse
-	(*GetSnapshotRequest)(nil),         // 23: anvilkit.knowledge.v1.GetSnapshotRequest
-	(*GetSnapshotResponse)(nil),        // 24: anvilkit.knowledge.v1.GetSnapshotResponse
-	(*Citation)(nil),                   // 25: anvilkit.knowledge.v1.Citation
-	(*ContextItem)(nil),                // 26: anvilkit.knowledge.v1.ContextItem
-	(*SearchRequest)(nil),              // 27: anvilkit.knowledge.v1.SearchRequest
-	(*SearchResponse)(nil),             // 28: anvilkit.knowledge.v1.SearchResponse
-	(*MemoryFact)(nil),                 // 29: anvilkit.knowledge.v1.MemoryFact
-	(*ProposeFactRequest)(nil),         // 30: anvilkit.knowledge.v1.ProposeFactRequest
-	(*ProposeFactResponse)(nil),        // 31: anvilkit.knowledge.v1.ProposeFactResponse
-	(*DecideFactRequest)(nil),          // 32: anvilkit.knowledge.v1.DecideFactRequest
-	(*DecideFactResponse)(nil),         // 33: anvilkit.knowledge.v1.DecideFactResponse
-	(*GetFactRequest)(nil),             // 34: anvilkit.knowledge.v1.GetFactRequest
-	(*GetFactResponse)(nil),            // 35: anvilkit.knowledge.v1.GetFactResponse
-	(*ListFactsRequest)(nil),           // 36: anvilkit.knowledge.v1.ListFactsRequest
-	(*ListFactsResponse)(nil),          // 37: anvilkit.knowledge.v1.ListFactsResponse
-	(*BackgroundTask)(nil),             // 38: anvilkit.knowledge.v1.BackgroundTask
-	(*ClaimTaskRequest)(nil),           // 39: anvilkit.knowledge.v1.ClaimTaskRequest
-	(*ClaimTaskResponse)(nil),          // 40: anvilkit.knowledge.v1.ClaimTaskResponse
-	(*HeartbeatTaskRequest)(nil),       // 41: anvilkit.knowledge.v1.HeartbeatTaskRequest
-	(*HeartbeatTaskResponse)(nil),      // 42: anvilkit.knowledge.v1.HeartbeatTaskResponse
-	(*SubmitTaskResultRequest)(nil),    // 43: anvilkit.knowledge.v1.SubmitTaskResultRequest
-	(*SubmitTaskResultResponse)(nil),   // 44: anvilkit.knowledge.v1.SubmitTaskResultResponse
-	(*GetTaskRequest)(nil),             // 45: anvilkit.knowledge.v1.GetTaskRequest
-	(*GetTaskResponse)(nil),            // 46: anvilkit.knowledge.v1.GetTaskResponse
-	(*AdvanceParseRequest)(nil),        // 47: anvilkit.knowledge.v1.AdvanceParseRequest
-	(*AdvanceParseResponse)(nil),       // 48: anvilkit.knowledge.v1.AdvanceParseResponse
-	(*timestamppb.Timestamp)(nil),      // 49: google.protobuf.Timestamp
+	(IndexState)(0),                    // 6: anvilkit.knowledge.v1.IndexState
+	(*CommandIdentity)(nil),            // 7: anvilkit.knowledge.v1.CommandIdentity
+	(*Scope)(nil),                      // 8: anvilkit.knowledge.v1.Scope
+	(*AccessEntry)(nil),                // 9: anvilkit.knowledge.v1.AccessEntry
+	(*Source)(nil),                     // 10: anvilkit.knowledge.v1.Source
+	(*RegisterSourceRequest)(nil),      // 11: anvilkit.knowledge.v1.RegisterSourceRequest
+	(*RegisterSourceResponse)(nil),     // 12: anvilkit.knowledge.v1.RegisterSourceResponse
+	(*GetSourceRequest)(nil),           // 13: anvilkit.knowledge.v1.GetSourceRequest
+	(*GetSourceResponse)(nil),          // 14: anvilkit.knowledge.v1.GetSourceResponse
+	(*ListSourcesRequest)(nil),         // 15: anvilkit.knowledge.v1.ListSourcesRequest
+	(*ListSourcesResponse)(nil),        // 16: anvilkit.knowledge.v1.ListSourcesResponse
+	(*UpdateSourceAccessRequest)(nil),  // 17: anvilkit.knowledge.v1.UpdateSourceAccessRequest
+	(*UpdateSourceAccessResponse)(nil), // 18: anvilkit.knowledge.v1.UpdateSourceAccessResponse
+	(*DeleteSourceRequest)(nil),        // 19: anvilkit.knowledge.v1.DeleteSourceRequest
+	(*DeleteSourceResponse)(nil),       // 20: anvilkit.knowledge.v1.DeleteSourceResponse
+	(*Snapshot)(nil),                   // 21: anvilkit.knowledge.v1.Snapshot
+	(*CreateSnapshotRequest)(nil),      // 22: anvilkit.knowledge.v1.CreateSnapshotRequest
+	(*CreateSnapshotResponse)(nil),     // 23: anvilkit.knowledge.v1.CreateSnapshotResponse
+	(*GetSnapshotRequest)(nil),         // 24: anvilkit.knowledge.v1.GetSnapshotRequest
+	(*GetSnapshotResponse)(nil),        // 25: anvilkit.knowledge.v1.GetSnapshotResponse
+	(*Citation)(nil),                   // 26: anvilkit.knowledge.v1.Citation
+	(*ContextItem)(nil),                // 27: anvilkit.knowledge.v1.ContextItem
+	(*SearchRequest)(nil),              // 28: anvilkit.knowledge.v1.SearchRequest
+	(*SearchResponse)(nil),             // 29: anvilkit.knowledge.v1.SearchResponse
+	(*MemoryFact)(nil),                 // 30: anvilkit.knowledge.v1.MemoryFact
+	(*ProposeFactRequest)(nil),         // 31: anvilkit.knowledge.v1.ProposeFactRequest
+	(*ProposeFactResponse)(nil),        // 32: anvilkit.knowledge.v1.ProposeFactResponse
+	(*DecideFactRequest)(nil),          // 33: anvilkit.knowledge.v1.DecideFactRequest
+	(*DecideFactResponse)(nil),         // 34: anvilkit.knowledge.v1.DecideFactResponse
+	(*GetFactRequest)(nil),             // 35: anvilkit.knowledge.v1.GetFactRequest
+	(*GetFactResponse)(nil),            // 36: anvilkit.knowledge.v1.GetFactResponse
+	(*ListFactsRequest)(nil),           // 37: anvilkit.knowledge.v1.ListFactsRequest
+	(*ListFactsResponse)(nil),          // 38: anvilkit.knowledge.v1.ListFactsResponse
+	(*BackgroundTask)(nil),             // 39: anvilkit.knowledge.v1.BackgroundTask
+	(*ClaimTaskRequest)(nil),           // 40: anvilkit.knowledge.v1.ClaimTaskRequest
+	(*ClaimTaskResponse)(nil),          // 41: anvilkit.knowledge.v1.ClaimTaskResponse
+	(*HeartbeatTaskRequest)(nil),       // 42: anvilkit.knowledge.v1.HeartbeatTaskRequest
+	(*HeartbeatTaskResponse)(nil),      // 43: anvilkit.knowledge.v1.HeartbeatTaskResponse
+	(*SubmitTaskResultRequest)(nil),    // 44: anvilkit.knowledge.v1.SubmitTaskResultRequest
+	(*SubmitTaskResultResponse)(nil),   // 45: anvilkit.knowledge.v1.SubmitTaskResultResponse
+	(*GetTaskRequest)(nil),             // 46: anvilkit.knowledge.v1.GetTaskRequest
+	(*GetTaskResponse)(nil),            // 47: anvilkit.knowledge.v1.GetTaskResponse
+	(*AdvanceParseRequest)(nil),        // 48: anvilkit.knowledge.v1.AdvanceParseRequest
+	(*AdvanceParseResponse)(nil),       // 49: anvilkit.knowledge.v1.AdvanceParseResponse
+	(*AdvanceIndexRequest)(nil),        // 50: anvilkit.knowledge.v1.AdvanceIndexRequest
+	(*AdvanceIndexResponse)(nil),       // 51: anvilkit.knowledge.v1.AdvanceIndexResponse
+	(*timestamppb.Timestamp)(nil),      // 52: google.protobuf.Timestamp
 }
 var file_anvilkit_knowledge_v1_knowledge_proto_depIdxs = []int32{
 	0,  // 0: anvilkit.knowledge.v1.Source.kind:type_name -> anvilkit.knowledge.v1.SourceKind
-	8,  // 1: anvilkit.knowledge.v1.Source.access:type_name -> anvilkit.knowledge.v1.AccessEntry
+	9,  // 1: anvilkit.knowledge.v1.Source.access:type_name -> anvilkit.knowledge.v1.AccessEntry
 	1,  // 2: anvilkit.knowledge.v1.Source.ingest:type_name -> anvilkit.knowledge.v1.IngestState
-	49, // 3: anvilkit.knowledge.v1.Source.created_at:type_name -> google.protobuf.Timestamp
-	49, // 4: anvilkit.knowledge.v1.Source.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 5: anvilkit.knowledge.v1.RegisterSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	7,  // 6: anvilkit.knowledge.v1.RegisterSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	52, // 3: anvilkit.knowledge.v1.Source.created_at:type_name -> google.protobuf.Timestamp
+	52, // 4: anvilkit.knowledge.v1.Source.updated_at:type_name -> google.protobuf.Timestamp
+	7,  // 5: anvilkit.knowledge.v1.RegisterSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	8,  // 6: anvilkit.knowledge.v1.RegisterSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
 	0,  // 7: anvilkit.knowledge.v1.RegisterSourceRequest.kind:type_name -> anvilkit.knowledge.v1.SourceKind
-	8,  // 8: anvilkit.knowledge.v1.RegisterSourceRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
-	9,  // 9: anvilkit.knowledge.v1.RegisterSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	7,  // 10: anvilkit.knowledge.v1.GetSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	9,  // 11: anvilkit.knowledge.v1.GetSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	7,  // 12: anvilkit.knowledge.v1.ListSourcesRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	9,  // 13: anvilkit.knowledge.v1.ListSourcesResponse.sources:type_name -> anvilkit.knowledge.v1.Source
-	6,  // 14: anvilkit.knowledge.v1.UpdateSourceAccessRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	7,  // 15: anvilkit.knowledge.v1.UpdateSourceAccessRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	8,  // 16: anvilkit.knowledge.v1.UpdateSourceAccessRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
-	9,  // 17: anvilkit.knowledge.v1.UpdateSourceAccessResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	6,  // 18: anvilkit.knowledge.v1.DeleteSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	7,  // 19: anvilkit.knowledge.v1.DeleteSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	9,  // 20: anvilkit.knowledge.v1.DeleteSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	49, // 21: anvilkit.knowledge.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
-	6,  // 22: anvilkit.knowledge.v1.CreateSnapshotRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	7,  // 23: anvilkit.knowledge.v1.CreateSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	20, // 24: anvilkit.knowledge.v1.CreateSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
-	7,  // 25: anvilkit.knowledge.v1.GetSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	20, // 26: anvilkit.knowledge.v1.GetSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
-	25, // 27: anvilkit.knowledge.v1.ContextItem.citation:type_name -> anvilkit.knowledge.v1.Citation
-	7,  // 28: anvilkit.knowledge.v1.SearchRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	49, // 29: anvilkit.knowledge.v1.SearchRequest.deadline:type_name -> google.protobuf.Timestamp
-	26, // 30: anvilkit.knowledge.v1.SearchResponse.items:type_name -> anvilkit.knowledge.v1.ContextItem
+	9,  // 8: anvilkit.knowledge.v1.RegisterSourceRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
+	10, // 9: anvilkit.knowledge.v1.RegisterSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	8,  // 10: anvilkit.knowledge.v1.GetSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	10, // 11: anvilkit.knowledge.v1.GetSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	8,  // 12: anvilkit.knowledge.v1.ListSourcesRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	10, // 13: anvilkit.knowledge.v1.ListSourcesResponse.sources:type_name -> anvilkit.knowledge.v1.Source
+	7,  // 14: anvilkit.knowledge.v1.UpdateSourceAccessRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	8,  // 15: anvilkit.knowledge.v1.UpdateSourceAccessRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	9,  // 16: anvilkit.knowledge.v1.UpdateSourceAccessRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
+	10, // 17: anvilkit.knowledge.v1.UpdateSourceAccessResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	7,  // 18: anvilkit.knowledge.v1.DeleteSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	8,  // 19: anvilkit.knowledge.v1.DeleteSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	10, // 20: anvilkit.knowledge.v1.DeleteSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	52, // 21: anvilkit.knowledge.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
+	7,  // 22: anvilkit.knowledge.v1.CreateSnapshotRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	8,  // 23: anvilkit.knowledge.v1.CreateSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	21, // 24: anvilkit.knowledge.v1.CreateSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
+	8,  // 25: anvilkit.knowledge.v1.GetSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	21, // 26: anvilkit.knowledge.v1.GetSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
+	26, // 27: anvilkit.knowledge.v1.ContextItem.citation:type_name -> anvilkit.knowledge.v1.Citation
+	8,  // 28: anvilkit.knowledge.v1.SearchRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	52, // 29: anvilkit.knowledge.v1.SearchRequest.deadline:type_name -> google.protobuf.Timestamp
+	27, // 30: anvilkit.knowledge.v1.SearchResponse.items:type_name -> anvilkit.knowledge.v1.ContextItem
 	2,  // 31: anvilkit.knowledge.v1.MemoryFact.state:type_name -> anvilkit.knowledge.v1.FactState
-	49, // 32: anvilkit.knowledge.v1.MemoryFact.expires_at:type_name -> google.protobuf.Timestamp
-	49, // 33: anvilkit.knowledge.v1.MemoryFact.created_at:type_name -> google.protobuf.Timestamp
-	49, // 34: anvilkit.knowledge.v1.MemoryFact.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 35: anvilkit.knowledge.v1.ProposeFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	7,  // 36: anvilkit.knowledge.v1.ProposeFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	49, // 37: anvilkit.knowledge.v1.ProposeFactRequest.expires_at:type_name -> google.protobuf.Timestamp
-	29, // 38: anvilkit.knowledge.v1.ProposeFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
-	6,  // 39: anvilkit.knowledge.v1.DecideFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	7,  // 40: anvilkit.knowledge.v1.DecideFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	52, // 32: anvilkit.knowledge.v1.MemoryFact.expires_at:type_name -> google.protobuf.Timestamp
+	52, // 33: anvilkit.knowledge.v1.MemoryFact.created_at:type_name -> google.protobuf.Timestamp
+	52, // 34: anvilkit.knowledge.v1.MemoryFact.updated_at:type_name -> google.protobuf.Timestamp
+	7,  // 35: anvilkit.knowledge.v1.ProposeFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	8,  // 36: anvilkit.knowledge.v1.ProposeFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	52, // 37: anvilkit.knowledge.v1.ProposeFactRequest.expires_at:type_name -> google.protobuf.Timestamp
+	30, // 38: anvilkit.knowledge.v1.ProposeFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
+	7,  // 39: anvilkit.knowledge.v1.DecideFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	8,  // 40: anvilkit.knowledge.v1.DecideFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
 	3,  // 41: anvilkit.knowledge.v1.DecideFactRequest.decision:type_name -> anvilkit.knowledge.v1.FactDecision
-	29, // 42: anvilkit.knowledge.v1.DecideFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
-	7,  // 43: anvilkit.knowledge.v1.GetFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	29, // 44: anvilkit.knowledge.v1.GetFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
-	7,  // 45: anvilkit.knowledge.v1.ListFactsRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	30, // 42: anvilkit.knowledge.v1.DecideFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
+	8,  // 43: anvilkit.knowledge.v1.GetFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	30, // 44: anvilkit.knowledge.v1.GetFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
+	8,  // 45: anvilkit.knowledge.v1.ListFactsRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
 	2,  // 46: anvilkit.knowledge.v1.ListFactsRequest.state:type_name -> anvilkit.knowledge.v1.FactState
-	29, // 47: anvilkit.knowledge.v1.ListFactsResponse.facts:type_name -> anvilkit.knowledge.v1.MemoryFact
+	30, // 47: anvilkit.knowledge.v1.ListFactsResponse.facts:type_name -> anvilkit.knowledge.v1.MemoryFact
 	4,  // 48: anvilkit.knowledge.v1.BackgroundTask.state:type_name -> anvilkit.knowledge.v1.TaskState
-	49, // 49: anvilkit.knowledge.v1.BackgroundTask.lease_until:type_name -> google.protobuf.Timestamp
-	38, // 50: anvilkit.knowledge.v1.ClaimTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
-	38, // 51: anvilkit.knowledge.v1.HeartbeatTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
-	38, // 52: anvilkit.knowledge.v1.SubmitTaskResultResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
-	38, // 53: anvilkit.knowledge.v1.GetTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	52, // 49: anvilkit.knowledge.v1.BackgroundTask.lease_until:type_name -> google.protobuf.Timestamp
+	39, // 50: anvilkit.knowledge.v1.ClaimTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	39, // 51: anvilkit.knowledge.v1.HeartbeatTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	39, // 52: anvilkit.knowledge.v1.SubmitTaskResultResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	39, // 53: anvilkit.knowledge.v1.GetTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
 	5,  // 54: anvilkit.knowledge.v1.AdvanceParseResponse.state:type_name -> anvilkit.knowledge.v1.ParseState
-	10, // 55: anvilkit.knowledge.v1.SourceService.RegisterSource:input_type -> anvilkit.knowledge.v1.RegisterSourceRequest
-	12, // 56: anvilkit.knowledge.v1.SourceService.GetSource:input_type -> anvilkit.knowledge.v1.GetSourceRequest
-	14, // 57: anvilkit.knowledge.v1.SourceService.ListSources:input_type -> anvilkit.knowledge.v1.ListSourcesRequest
-	16, // 58: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:input_type -> anvilkit.knowledge.v1.UpdateSourceAccessRequest
-	18, // 59: anvilkit.knowledge.v1.SourceService.DeleteSource:input_type -> anvilkit.knowledge.v1.DeleteSourceRequest
-	21, // 60: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:input_type -> anvilkit.knowledge.v1.CreateSnapshotRequest
-	23, // 61: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:input_type -> anvilkit.knowledge.v1.GetSnapshotRequest
-	27, // 62: anvilkit.knowledge.v1.RetrievalService.Search:input_type -> anvilkit.knowledge.v1.SearchRequest
-	30, // 63: anvilkit.knowledge.v1.MemoryService.ProposeFact:input_type -> anvilkit.knowledge.v1.ProposeFactRequest
-	32, // 64: anvilkit.knowledge.v1.MemoryService.DecideFact:input_type -> anvilkit.knowledge.v1.DecideFactRequest
-	34, // 65: anvilkit.knowledge.v1.MemoryService.GetFact:input_type -> anvilkit.knowledge.v1.GetFactRequest
-	36, // 66: anvilkit.knowledge.v1.MemoryService.ListFacts:input_type -> anvilkit.knowledge.v1.ListFactsRequest
-	39, // 67: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:input_type -> anvilkit.knowledge.v1.ClaimTaskRequest
-	41, // 68: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:input_type -> anvilkit.knowledge.v1.HeartbeatTaskRequest
-	43, // 69: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:input_type -> anvilkit.knowledge.v1.SubmitTaskResultRequest
-	45, // 70: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:input_type -> anvilkit.knowledge.v1.GetTaskRequest
-	47, // 71: anvilkit.knowledge.v1.IngestService.AdvanceParse:input_type -> anvilkit.knowledge.v1.AdvanceParseRequest
-	11, // 72: anvilkit.knowledge.v1.SourceService.RegisterSource:output_type -> anvilkit.knowledge.v1.RegisterSourceResponse
-	13, // 73: anvilkit.knowledge.v1.SourceService.GetSource:output_type -> anvilkit.knowledge.v1.GetSourceResponse
-	15, // 74: anvilkit.knowledge.v1.SourceService.ListSources:output_type -> anvilkit.knowledge.v1.ListSourcesResponse
-	17, // 75: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:output_type -> anvilkit.knowledge.v1.UpdateSourceAccessResponse
-	19, // 76: anvilkit.knowledge.v1.SourceService.DeleteSource:output_type -> anvilkit.knowledge.v1.DeleteSourceResponse
-	22, // 77: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:output_type -> anvilkit.knowledge.v1.CreateSnapshotResponse
-	24, // 78: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:output_type -> anvilkit.knowledge.v1.GetSnapshotResponse
-	28, // 79: anvilkit.knowledge.v1.RetrievalService.Search:output_type -> anvilkit.knowledge.v1.SearchResponse
-	31, // 80: anvilkit.knowledge.v1.MemoryService.ProposeFact:output_type -> anvilkit.knowledge.v1.ProposeFactResponse
-	33, // 81: anvilkit.knowledge.v1.MemoryService.DecideFact:output_type -> anvilkit.knowledge.v1.DecideFactResponse
-	35, // 82: anvilkit.knowledge.v1.MemoryService.GetFact:output_type -> anvilkit.knowledge.v1.GetFactResponse
-	37, // 83: anvilkit.knowledge.v1.MemoryService.ListFacts:output_type -> anvilkit.knowledge.v1.ListFactsResponse
-	40, // 84: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:output_type -> anvilkit.knowledge.v1.ClaimTaskResponse
-	42, // 85: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:output_type -> anvilkit.knowledge.v1.HeartbeatTaskResponse
-	44, // 86: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:output_type -> anvilkit.knowledge.v1.SubmitTaskResultResponse
-	46, // 87: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:output_type -> anvilkit.knowledge.v1.GetTaskResponse
-	48, // 88: anvilkit.knowledge.v1.IngestService.AdvanceParse:output_type -> anvilkit.knowledge.v1.AdvanceParseResponse
-	72, // [72:89] is the sub-list for method output_type
-	55, // [55:72] is the sub-list for method input_type
-	55, // [55:55] is the sub-list for extension type_name
-	55, // [55:55] is the sub-list for extension extendee
-	0,  // [0:55] is the sub-list for field type_name
+	6,  // 55: anvilkit.knowledge.v1.AdvanceIndexResponse.state:type_name -> anvilkit.knowledge.v1.IndexState
+	11, // 56: anvilkit.knowledge.v1.SourceService.RegisterSource:input_type -> anvilkit.knowledge.v1.RegisterSourceRequest
+	13, // 57: anvilkit.knowledge.v1.SourceService.GetSource:input_type -> anvilkit.knowledge.v1.GetSourceRequest
+	15, // 58: anvilkit.knowledge.v1.SourceService.ListSources:input_type -> anvilkit.knowledge.v1.ListSourcesRequest
+	17, // 59: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:input_type -> anvilkit.knowledge.v1.UpdateSourceAccessRequest
+	19, // 60: anvilkit.knowledge.v1.SourceService.DeleteSource:input_type -> anvilkit.knowledge.v1.DeleteSourceRequest
+	22, // 61: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:input_type -> anvilkit.knowledge.v1.CreateSnapshotRequest
+	24, // 62: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:input_type -> anvilkit.knowledge.v1.GetSnapshotRequest
+	28, // 63: anvilkit.knowledge.v1.RetrievalService.Search:input_type -> anvilkit.knowledge.v1.SearchRequest
+	31, // 64: anvilkit.knowledge.v1.MemoryService.ProposeFact:input_type -> anvilkit.knowledge.v1.ProposeFactRequest
+	33, // 65: anvilkit.knowledge.v1.MemoryService.DecideFact:input_type -> anvilkit.knowledge.v1.DecideFactRequest
+	35, // 66: anvilkit.knowledge.v1.MemoryService.GetFact:input_type -> anvilkit.knowledge.v1.GetFactRequest
+	37, // 67: anvilkit.knowledge.v1.MemoryService.ListFacts:input_type -> anvilkit.knowledge.v1.ListFactsRequest
+	40, // 68: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:input_type -> anvilkit.knowledge.v1.ClaimTaskRequest
+	42, // 69: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:input_type -> anvilkit.knowledge.v1.HeartbeatTaskRequest
+	44, // 70: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:input_type -> anvilkit.knowledge.v1.SubmitTaskResultRequest
+	46, // 71: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:input_type -> anvilkit.knowledge.v1.GetTaskRequest
+	48, // 72: anvilkit.knowledge.v1.IngestService.AdvanceParse:input_type -> anvilkit.knowledge.v1.AdvanceParseRequest
+	50, // 73: anvilkit.knowledge.v1.IngestService.AdvanceIndex:input_type -> anvilkit.knowledge.v1.AdvanceIndexRequest
+	12, // 74: anvilkit.knowledge.v1.SourceService.RegisterSource:output_type -> anvilkit.knowledge.v1.RegisterSourceResponse
+	14, // 75: anvilkit.knowledge.v1.SourceService.GetSource:output_type -> anvilkit.knowledge.v1.GetSourceResponse
+	16, // 76: anvilkit.knowledge.v1.SourceService.ListSources:output_type -> anvilkit.knowledge.v1.ListSourcesResponse
+	18, // 77: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:output_type -> anvilkit.knowledge.v1.UpdateSourceAccessResponse
+	20, // 78: anvilkit.knowledge.v1.SourceService.DeleteSource:output_type -> anvilkit.knowledge.v1.DeleteSourceResponse
+	23, // 79: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:output_type -> anvilkit.knowledge.v1.CreateSnapshotResponse
+	25, // 80: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:output_type -> anvilkit.knowledge.v1.GetSnapshotResponse
+	29, // 81: anvilkit.knowledge.v1.RetrievalService.Search:output_type -> anvilkit.knowledge.v1.SearchResponse
+	32, // 82: anvilkit.knowledge.v1.MemoryService.ProposeFact:output_type -> anvilkit.knowledge.v1.ProposeFactResponse
+	34, // 83: anvilkit.knowledge.v1.MemoryService.DecideFact:output_type -> anvilkit.knowledge.v1.DecideFactResponse
+	36, // 84: anvilkit.knowledge.v1.MemoryService.GetFact:output_type -> anvilkit.knowledge.v1.GetFactResponse
+	38, // 85: anvilkit.knowledge.v1.MemoryService.ListFacts:output_type -> anvilkit.knowledge.v1.ListFactsResponse
+	41, // 86: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:output_type -> anvilkit.knowledge.v1.ClaimTaskResponse
+	43, // 87: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:output_type -> anvilkit.knowledge.v1.HeartbeatTaskResponse
+	45, // 88: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:output_type -> anvilkit.knowledge.v1.SubmitTaskResultResponse
+	47, // 89: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:output_type -> anvilkit.knowledge.v1.GetTaskResponse
+	49, // 90: anvilkit.knowledge.v1.IngestService.AdvanceParse:output_type -> anvilkit.knowledge.v1.AdvanceParseResponse
+	51, // 91: anvilkit.knowledge.v1.IngestService.AdvanceIndex:output_type -> anvilkit.knowledge.v1.AdvanceIndexResponse
+	74, // [74:92] is the sub-list for method output_type
+	56, // [56:74] is the sub-list for method input_type
+	56, // [56:56] is the sub-list for extension type_name
+	56, // [56:56] is the sub-list for extension extendee
+	0,  // [0:56] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_knowledge_v1_knowledge_proto_init() }
@@ -3849,13 +4082,14 @@ func file_anvilkit_knowledge_v1_knowledge_proto_init() {
 	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[32].OneofWrappers = []any{}
 	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[37].OneofWrappers = []any{}
 	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[42].OneofWrappers = []any{}
+	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[44].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_anvilkit_knowledge_v1_knowledge_proto_rawDesc), len(file_anvilkit_knowledge_v1_knowledge_proto_rawDesc)),
-			NumEnums:      6,
-			NumMessages:   43,
+			NumEnums:      7,
+			NumMessages:   45,
 			NumExtensions: 0,
 			NumServices:   6,
 		},

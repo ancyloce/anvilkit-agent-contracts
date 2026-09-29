@@ -977,6 +977,7 @@ var BackgroundTaskService_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	IngestService_AdvanceParse_FullMethodName = "/anvilkit.knowledge.v1.IngestService/AdvanceParse"
+	IngestService_AdvanceIndex_FullMethodName = "/anvilkit.knowledge.v1.IngestService/AdvanceIndex"
 )
 
 // IngestServiceClient is the client API for IngestService service.
@@ -984,6 +985,13 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type IngestServiceClient interface {
 	AdvanceParse(ctx context.Context, in *AdvanceParseRequest, opts ...grpc.CallOption) (*AdvanceParseResponse, error)
+	// The index step of a claimed knowledge-project task (DD-07 §3): Knowledge
+	// embeds the accepted chunks of one source revision through Inference and
+	// writes them as named dense/sparse points of one index generation under
+	// deterministic ids, a bounded batch per call, then verifies that every
+	// point is materialized. Same claimant rules and idempotence as
+	// AdvanceParse; no text, vector, key or collection name crosses.
+	AdvanceIndex(ctx context.Context, in *AdvanceIndexRequest, opts ...grpc.CallOption) (*AdvanceIndexResponse, error)
 }
 
 type ingestServiceClient struct {
@@ -1004,11 +1012,28 @@ func (c *ingestServiceClient) AdvanceParse(ctx context.Context, in *AdvanceParse
 	return out, nil
 }
 
+func (c *ingestServiceClient) AdvanceIndex(ctx context.Context, in *AdvanceIndexRequest, opts ...grpc.CallOption) (*AdvanceIndexResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdvanceIndexResponse)
+	err := c.cc.Invoke(ctx, IngestService_AdvanceIndex_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IngestServiceServer is the server API for IngestService service.
 // All implementations must embed UnimplementedIngestServiceServer
 // for forward compatibility.
 type IngestServiceServer interface {
 	AdvanceParse(context.Context, *AdvanceParseRequest) (*AdvanceParseResponse, error)
+	// The index step of a claimed knowledge-project task (DD-07 §3): Knowledge
+	// embeds the accepted chunks of one source revision through Inference and
+	// writes them as named dense/sparse points of one index generation under
+	// deterministic ids, a bounded batch per call, then verifies that every
+	// point is materialized. Same claimant rules and idempotence as
+	// AdvanceParse; no text, vector, key or collection name crosses.
+	AdvanceIndex(context.Context, *AdvanceIndexRequest) (*AdvanceIndexResponse, error)
 	mustEmbedUnimplementedIngestServiceServer()
 }
 
@@ -1021,6 +1046,9 @@ type UnimplementedIngestServiceServer struct{}
 
 func (UnimplementedIngestServiceServer) AdvanceParse(context.Context, *AdvanceParseRequest) (*AdvanceParseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AdvanceParse not implemented")
+}
+func (UnimplementedIngestServiceServer) AdvanceIndex(context.Context, *AdvanceIndexRequest) (*AdvanceIndexResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdvanceIndex not implemented")
 }
 func (UnimplementedIngestServiceServer) mustEmbedUnimplementedIngestServiceServer() {}
 func (UnimplementedIngestServiceServer) testEmbeddedByValue()                       {}
@@ -1061,6 +1089,24 @@ func _IngestService_AdvanceParse_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IngestService_AdvanceIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdvanceIndexRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IngestServiceServer).AdvanceIndex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IngestService_AdvanceIndex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IngestServiceServer).AdvanceIndex(ctx, req.(*AdvanceIndexRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IngestService_ServiceDesc is the grpc.ServiceDesc for IngestService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1071,6 +1117,10 @@ var IngestService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AdvanceParse",
 			Handler:    _IngestService_AdvanceParse_Handler,
+		},
+		{
+			MethodName: "AdvanceIndex",
+			Handler:    _IngestService_AdvanceIndex_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

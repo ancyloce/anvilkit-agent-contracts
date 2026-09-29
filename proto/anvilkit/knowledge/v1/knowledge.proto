@@ -539,6 +539,13 @@ enum ParseState {
 
 service IngestService {
   rpc AdvanceParse(AdvanceParseRequest) returns (AdvanceParseResponse);
+  // The index step of a claimed knowledge-project task (DD-07 §3): Knowledge
+  // embeds the accepted chunks of one source revision through Inference and
+  // writes them as named dense/sparse points of one index generation under
+  // deterministic ids, a bounded batch per call, then verifies that every
+  // point is materialized. Same claimant rules and idempotence as
+  // AdvanceParse; no text, vector, key or collection name crosses.
+  rpc AdvanceIndex(AdvanceIndexRequest) returns (AdvanceIndexResponse);
 }
 
 message AdvanceParseRequest {
@@ -560,5 +567,40 @@ message AdvanceParseResponse {
   string result_digest = 3;
   optional string failure_code = 4;
   // Suggested wait before the next call while LAUNCHED or RUNNING.
+  uint32 retry_after_ms = 5;
+}
+
+enum IndexState {
+  INDEX_STATE_UNSPECIFIED = 0;
+  // Batches remain to be written or verified; call again after the interval.
+  INDEX_STATE_RUNNING = 1;
+  // Every point was written and read back by Knowledge: result_ref and
+  // result_digest (the digest of Knowledge's point manifest) are what
+  // SubmitTaskResult must carry.
+  INDEX_STATE_MATERIALIZED = 2;
+  // No verifiable index (a stale or unqualified profile, a revoked source,
+  // a refused computation): the claimant reports failure_code.
+  INDEX_STATE_FAILED = 3;
+}
+
+message AdvanceIndexRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string input_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message AdvanceIndexResponse {
+  IndexState state = 1;
+  string result_ref = 2;
+  string result_digest = 3;
+  optional string failure_code = 4;
+  // Suggested wait before the next call while RUNNING.
   uint32 retry_after_ms = 5;
 }

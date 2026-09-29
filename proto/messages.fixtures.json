@@ -352,6 +352,8 @@
         "attemptId": "att_01J9ABCDEF", "instanceId": "inst_01J9ABCDEF", "profileId": "local-check-v1", "verdict": "VERDICT_CERTIFIED",
         "resultDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "resultManifest": "e30=", "observerIdentity": "anvilkit-agent-workflow", "executionEpoch": "01"
       }
-    }
+    },
+    {"name": "advance the index step of a claimed knowledge-project task", "message": "anvilkit.knowledge.v1.AdvanceIndexRequest", "valid": true, "instance": {"taskId": "index-src-0123-r1-g1", "generation": "1", "workerId": "worker-a/1/1", "inputDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"}},
+    {"name": "advance index with a malformed input digest is rejected", "message": "anvilkit.knowledge.v1.AdvanceIndexRequest", "valid": false, "instance": {"taskId": "index-src-0123-r1-g1", "generation": "1", "workerId": "worker-a/1/1", "inputDigest": "sha256:XYZ"}}
   ]
 }

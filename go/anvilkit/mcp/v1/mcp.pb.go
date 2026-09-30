@@ -510,6 +510,10 @@ func (x *Money) GetAmount() string {
 	return ""
 }
 
+// One method of a descriptor revision. Schemas and annotations are read
+// from the live server; side effects, price, idempotency and query support
+// are the listing's declarations that the reviewer approves with the exact
+// descriptor digest.
 type ToolSchema struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Method             string                 `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
@@ -517,8 +521,13 @@ type ToolSchema struct {
 	OutputSchemaDigest string                 `protobuf:"bytes,3,opt,name=output_schema_digest,json=outputSchemaDigest,proto3" json:"output_schema_digest,omitempty"`
 	SideEffecting      bool                   `protobuf:"varint,4,opt,name=side_effecting,json=sideEffecting,proto3" json:"side_effecting,omitempty"`
 	UnitPrice          *Money                 `protobuf:"bytes,5,opt,name=unit_price,json=unitPrice,proto3" json:"unit_price,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Repeating the same call cannot cause a second effect.
+	Idempotent bool `protobuf:"varint,6,opt,name=idempotent,proto3" json:"idempotent,omitempty"`
+	// The server answers a query for an original call by its identity.
+	QuerySupported    bool   `protobuf:"varint,7,opt,name=query_supported,json=querySupported,proto3" json:"query_supported,omitempty"`
+	AnnotationsDigest string `protobuf:"bytes,8,opt,name=annotations_digest,json=annotationsDigest,proto3" json:"annotations_digest,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ToolSchema) Reset() {
@@ -586,6 +595,27 @@ func (x *ToolSchema) GetUnitPrice() *Money {
 	return nil
 }
 
+func (x *ToolSchema) GetIdempotent() bool {
+	if x != nil {
+		return x.Idempotent
+	}
+	return false
+}
+
+func (x *ToolSchema) GetQuerySupported() bool {
+	if x != nil {
+		return x.QuerySupported
+	}
+	return false
+}
+
+func (x *ToolSchema) GetAnnotationsDigest() string {
+	if x != nil {
+		return x.AnnotationsDigest
+	}
+	return ""
+}
+
 // Descriptor is one reviewed revision of a server; a changed descriptor is a
 // new revision and existing grants do not migrate automatically.
 type Descriptor struct {
@@ -602,8 +632,25 @@ type Descriptor struct {
 	ReviewId          *string                `protobuf:"bytes,10,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
 	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// What the live server reported at discovery (initialize / tools, resources
+	// and prompts listings through the connection layer).
+	ServerName      string `protobuf:"bytes,13,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
+	ServerVersion   string `protobuf:"bytes,14,opt,name=server_version,json=serverVersion,proto3" json:"server_version,omitempty"`
+	ResourcesDigest string `protobuf:"bytes,15,opt,name=resources_digest,json=resourcesDigest,proto3" json:"resources_digest,omitempty"`
+	PromptsDigest   string `protobuf:"bytes,16,opt,name=prompts_digest,json=promptsDigest,proto3" json:"prompts_digest,omitempty"`
+	// The declared data class, network scope (hosts the server may reach) and
+	// licenses the review covers.
+	DataClass    string   `protobuf:"bytes,17,opt,name=data_class,json=dataClass,proto3" json:"data_class,omitempty"`
+	NetworkScope []string `protobuf:"bytes,18,rep,name=network_scope,json=networkScope,proto3" json:"network_scope,omitempty"`
+	Licenses     []string `protobuf:"bytes,19,rep,name=licenses,proto3" json:"licenses,omitempty"`
+	// Explicit remote revision evidence: the retrieval that produced this
+	// revision (hosted servers expose no binary hash; nothing here claims
+	// pinned upstream bytes).
+	RevisionEvidence string  `protobuf:"bytes,20,opt,name=revision_evidence,json=revisionEvidence,proto3" json:"revision_evidence,omitempty"`
+	DiscoveredBy     string  `protobuf:"bytes,21,opt,name=discovered_by,json=discoveredBy,proto3" json:"discovered_by,omitempty"`
+	Reviewer         *string `protobuf:"bytes,22,opt,name=reviewer,proto3,oneof" json:"reviewer,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Descriptor) Reset() {
@@ -718,6 +765,76 @@ func (x *Descriptor) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *Descriptor) GetServerName() string {
+	if x != nil {
+		return x.ServerName
+	}
+	return ""
+}
+
+func (x *Descriptor) GetServerVersion() string {
+	if x != nil {
+		return x.ServerVersion
+	}
+	return ""
+}
+
+func (x *Descriptor) GetResourcesDigest() string {
+	if x != nil {
+		return x.ResourcesDigest
+	}
+	return ""
+}
+
+func (x *Descriptor) GetPromptsDigest() string {
+	if x != nil {
+		return x.PromptsDigest
+	}
+	return ""
+}
+
+func (x *Descriptor) GetDataClass() string {
+	if x != nil {
+		return x.DataClass
+	}
+	return ""
+}
+
+func (x *Descriptor) GetNetworkScope() []string {
+	if x != nil {
+		return x.NetworkScope
+	}
+	return nil
+}
+
+func (x *Descriptor) GetLicenses() []string {
+	if x != nil {
+		return x.Licenses
+	}
+	return nil
+}
+
+func (x *Descriptor) GetRevisionEvidence() string {
+	if x != nil {
+		return x.RevisionEvidence
+	}
+	return ""
+}
+
+func (x *Descriptor) GetDiscoveredBy() string {
+	if x != nil {
+		return x.DiscoveredBy
+	}
+	return ""
+}
+
+func (x *Descriptor) GetReviewer() string {
+	if x != nil && x.Reviewer != nil {
+		return *x.Reviewer
+	}
+	return ""
 }
 
 type ListCatalogRequest struct {
@@ -952,10 +1069,20 @@ type DiscoverServerRequest struct {
 	Transport         string                 `protobuf:"bytes,4,opt,name=transport,proto3" json:"transport,omitempty"`
 	ProtocolVersion   string                 `protobuf:"bytes,5,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
 	Provenance        string                 `protobuf:"bytes,6,opt,name=provenance,proto3" json:"provenance,omitempty"`
-	DescriptorDigest  string                 `protobuf:"bytes,7,opt,name=descriptor_digest,json=descriptorDigest,proto3" json:"descriptor_digest,omitempty"`
-	Tools             []*ToolSchema          `protobuf:"bytes,8,rep,name=tools,proto3" json:"tools,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// The descriptor digest the caller expects (for example from a registry
+	// listing); empty accepts whatever the live retrieval yields. A mismatch
+	// records nothing.
+	DescriptorDigest string `protobuf:"bytes,7,opt,name=descriptor_digest,json=descriptorDigest,proto3" json:"descriptor_digest,omitempty"`
+	// The listing's declarations per method (side effects, price, idempotency,
+	// query support); every live method must be declared and every declared
+	// method must exist live. Schema digests, when given, must equal the live
+	// ones.
+	Tools         []*ToolSchema `protobuf:"bytes,8,rep,name=tools,proto3" json:"tools,omitempty"`
+	DataClass     string        `protobuf:"bytes,9,opt,name=data_class,json=dataClass,proto3" json:"data_class,omitempty"`
+	NetworkScope  []string      `protobuf:"bytes,10,rep,name=network_scope,json=networkScope,proto3" json:"network_scope,omitempty"`
+	Licenses      []string      `protobuf:"bytes,11,rep,name=licenses,proto3" json:"licenses,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DiscoverServerRequest) Reset() {
@@ -1040,6 +1167,27 @@ func (x *DiscoverServerRequest) GetDescriptorDigest() string {
 func (x *DiscoverServerRequest) GetTools() []*ToolSchema {
 	if x != nil {
 		return x.Tools
+	}
+	return nil
+}
+
+func (x *DiscoverServerRequest) GetDataClass() string {
+	if x != nil {
+		return x.DataClass
+	}
+	return ""
+}
+
+func (x *DiscoverServerRequest) GetNetworkScope() []string {
+	if x != nil {
+		return x.NetworkScope
+	}
+	return nil
+}
+
+func (x *DiscoverServerRequest) GetLicenses() []string {
+	if x != nil {
+		return x.Licenses
 	}
 	return nil
 }
@@ -1386,8 +1534,23 @@ type Grant struct {
 	ExpiresAt          *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	CreatedAt          *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt          *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// The security dimensions the grant revision binds (DD-08 §2); the policy
+	// digest registered with Control covers all of them.
+	CanonicalResource string   `protobuf:"bytes,17,opt,name=canonical_resource,json=canonicalResource,proto3" json:"canonical_resource,omitempty"`
+	Transport         string   `protobuf:"bytes,18,opt,name=transport,proto3" json:"transport,omitempty"`
+	ProtocolVersion   string   `protobuf:"bytes,19,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	Issuer            string   `protobuf:"bytes,20,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	Audience          string   `protobuf:"bytes,21,opt,name=audience,proto3" json:"audience,omitempty"`
+	ResourceSelectors []string `protobuf:"bytes,22,rep,name=resource_selectors,json=resourceSelectors,proto3" json:"resource_selectors,omitempty"`
+	PromptSelectors   []string `protobuf:"bytes,23,rep,name=prompt_selectors,json=promptSelectors,proto3" json:"prompt_selectors,omitempty"`
+	DataClass         string   `protobuf:"bytes,24,opt,name=data_class,json=dataClass,proto3" json:"data_class,omitempty"`
+	PolicyDigest      string   `protobuf:"bytes,25,opt,name=policy_digest,json=policyDigest,proto3" json:"policy_digest,omitempty"`
+	PolicyEpoch       string   `protobuf:"bytes,26,opt,name=policy_epoch,json=policyEpoch,proto3" json:"policy_epoch,omitempty"`
+	// The last management outcome that kept the grant non-executable (a
+	// failed or unanswered registration, a disabled descriptor).
+	FailureCode   *string `protobuf:"bytes,27,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Grant) Reset() {
@@ -1532,6 +1695,83 @@ func (x *Grant) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Grant) GetCanonicalResource() string {
+	if x != nil {
+		return x.CanonicalResource
+	}
+	return ""
+}
+
+func (x *Grant) GetTransport() string {
+	if x != nil {
+		return x.Transport
+	}
+	return ""
+}
+
+func (x *Grant) GetProtocolVersion() string {
+	if x != nil {
+		return x.ProtocolVersion
+	}
+	return ""
+}
+
+func (x *Grant) GetIssuer() string {
+	if x != nil {
+		return x.Issuer
+	}
+	return ""
+}
+
+func (x *Grant) GetAudience() string {
+	if x != nil {
+		return x.Audience
+	}
+	return ""
+}
+
+func (x *Grant) GetResourceSelectors() []string {
+	if x != nil {
+		return x.ResourceSelectors
+	}
+	return nil
+}
+
+func (x *Grant) GetPromptSelectors() []string {
+	if x != nil {
+		return x.PromptSelectors
+	}
+	return nil
+}
+
+func (x *Grant) GetDataClass() string {
+	if x != nil {
+		return x.DataClass
+	}
+	return ""
+}
+
+func (x *Grant) GetPolicyDigest() string {
+	if x != nil {
+		return x.PolicyDigest
+	}
+	return ""
+}
+
+func (x *Grant) GetPolicyEpoch() string {
+	if x != nil {
+		return x.PolicyEpoch
+	}
+	return ""
+}
+
+func (x *Grant) GetFailureCode() string {
+	if x != nil && x.FailureCode != nil {
+		return *x.FailureCode
+	}
+	return ""
+}
+
 type CreateGrantRequest struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Command            *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
@@ -1545,8 +1785,14 @@ type CreateGrantRequest struct {
 	Purpose            string                 `protobuf:"bytes,9,opt,name=purpose,proto3" json:"purpose,omitempty"`
 	CostCap            *Money                 `protobuf:"bytes,10,opt,name=cost_cap,json=costCap,proto3" json:"cost_cap,omitempty"`
 	ExpiresAt          *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Resource and prompt selectors the grant allows (exact names of the
+	// descriptor's resources and prompts); none when the grant covers tools only.
+	ResourceSelectors []string `protobuf:"bytes,12,rep,name=resource_selectors,json=resourceSelectors,proto3" json:"resource_selectors,omitempty"`
+	PromptSelectors   []string `protobuf:"bytes,13,rep,name=prompt_selectors,json=promptSelectors,proto3" json:"prompt_selectors,omitempty"`
+	// The data class of the purpose; it may not exceed the descriptor's.
+	DataClass     string `protobuf:"bytes,14,opt,name=data_class,json=dataClass,proto3" json:"data_class,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateGrantRequest) Reset() {
@@ -1654,6 +1900,27 @@ func (x *CreateGrantRequest) GetExpiresAt() *timestamppb.Timestamp {
 		return x.ExpiresAt
 	}
 	return nil
+}
+
+func (x *CreateGrantRequest) GetResourceSelectors() []string {
+	if x != nil {
+		return x.ResourceSelectors
+	}
+	return nil
+}
+
+func (x *CreateGrantRequest) GetPromptSelectors() []string {
+	if x != nil {
+		return x.PromptSelectors
+	}
+	return nil
+}
+
+func (x *CreateGrantRequest) GetDataClass() string {
+	if x != nil {
+		return x.DataClass
+	}
+	return ""
 }
 
 type CreateGrantResponse struct {
@@ -2112,8 +2379,12 @@ type GetRevocationProgressResponse struct {
 	SendersConverged    bool   `protobuf:"varint,3,opt,name=senders_converged,json=sendersConverged,proto3" json:"senders_converged,omitempty"`
 	InFlightCalls       string `protobuf:"bytes,4,opt,name=in_flight_calls,json=inFlightCalls,proto3" json:"in_flight_calls,omitempty"`
 	UnknownCalls        string `protobuf:"bytes,5,opt,name=unknown_calls,json=unknownCalls,proto3" json:"unknown_calls,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Control's barrier state (fenced, converging, converged) as last read, and
+	// MCP's own tool requests of the grant that are not yet terminal.
+	ControlState  string `protobuf:"bytes,6,opt,name=control_state,json=controlState,proto3" json:"control_state,omitempty"`
+	OpenCalls     string `protobuf:"bytes,7,opt,name=open_calls,json=openCalls,proto3" json:"open_calls,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetRevocationProgressResponse) Reset() {
@@ -2181,6 +2452,20 @@ func (x *GetRevocationProgressResponse) GetUnknownCalls() string {
 	return ""
 }
 
+func (x *GetRevocationProgressResponse) GetControlState() string {
+	if x != nil {
+		return x.ControlState
+	}
+	return ""
+}
+
+func (x *GetRevocationProgressResponse) GetOpenCalls() string {
+	if x != nil {
+		return x.OpenCalls
+	}
+	return ""
+}
+
 type ToolCall struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	CallId            string                 `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
@@ -2197,8 +2482,17 @@ type ToolCall struct {
 	FailureCode       *string                `protobuf:"bytes,12,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
 	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// The bounded, normalized typed result (JSON: content blocks, structured
+	// content, isError) of a SUCCEEDED or FAILED call; result_digest is its
+	// SHA-256. Returned content, links and prompts are untrusted data.
+	Result []byte `protobuf:"bytes,15,opt,name=result,proto3" json:"result,omitempty"`
+	// The descriptor revision, digest and protocol version the call was bound
+	// to at acceptance (the grant revision's).
+	DescriptorRevision string `protobuf:"bytes,16,opt,name=descriptor_revision,json=descriptorRevision,proto3" json:"descriptor_revision,omitempty"`
+	DescriptorDigest   string `protobuf:"bytes,17,opt,name=descriptor_digest,json=descriptorDigest,proto3" json:"descriptor_digest,omitempty"`
+	ProtocolVersion    string `protobuf:"bytes,18,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ToolCall) Reset() {
@@ -2329,6 +2623,34 @@ func (x *ToolCall) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *ToolCall) GetResult() []byte {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+func (x *ToolCall) GetDescriptorRevision() string {
+	if x != nil {
+		return x.DescriptorRevision
+	}
+	return ""
+}
+
+func (x *ToolCall) GetDescriptorDigest() string {
+	if x != nil {
+		return x.DescriptorDigest
+	}
+	return ""
+}
+
+func (x *ToolCall) GetProtocolVersion() string {
+	if x != nil {
+		return x.ProtocolVersion
+	}
+	return ""
+}
+
 type CreateCallRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Command        *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
@@ -2341,8 +2663,16 @@ type CreateCallRequest struct {
 	OperationId    string                 `protobuf:"bytes,8,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
 	AttemptId      string                 `protobuf:"bytes,9,opt,name=attempt_id,json=attemptId,proto3" json:"attempt_id,omitempty"`
 	Deadline       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=deadline,proto3" json:"deadline,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The rest of the execution binding Control admits the dispatch under
+	// (with operation_id and attempt_id).
+	InstanceId     string `protobuf:"bytes,11,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	ExecutionEpoch string `protobuf:"bytes,12,opt,name=execution_epoch,json=executionEpoch,proto3" json:"execution_epoch,omitempty"`
+	// The argument bytes (a JSON object, bounded): argument_digest is their
+	// SHA-256 and argument_ref the caller's reference of them. MCP verifies
+	// the digest and validates them against the grant revision's input schema.
+	Arguments     []byte `protobuf:"bytes,13,opt,name=arguments,proto3" json:"arguments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateCallRequest) Reset() {
@@ -2441,6 +2771,27 @@ func (x *CreateCallRequest) GetAttemptId() string {
 func (x *CreateCallRequest) GetDeadline() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Deadline
+	}
+	return nil
+}
+
+func (x *CreateCallRequest) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
+	}
+	return ""
+}
+
+func (x *CreateCallRequest) GetExecutionEpoch() string {
+	if x != nil {
+		return x.ExecutionEpoch
+	}
+	return ""
+}
+
+func (x *CreateCallRequest) GetArguments() []byte {
+	if x != nil {
+		return x.Arguments
 	}
 	return nil
 }
@@ -3189,7 +3540,7 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\x05Money\x12-\n" +
 	"\bcurrency\x18\x01 \x01(\tB\x11\xbaH\x0er\f2\n" +
 	"^[A-Z]{3}$R\bcurrency\x127\n" +
-	"\x06amount\x18\x02 \x01(\tB\x1f\xbaH\x1cr\x1a2\x18^-?(0|[1-9][0-9]{0,29})$R\x06amount\"\xe4\x01\n" +
+	"\x06amount\x18\x02 \x01(\tB\x1f\xbaH\x1cr\x1a2\x18^-?(0|[1-9][0-9]{0,29})$R\x06amount\"\xdc\x02\n" +
 	"\n" +
 	"ToolSchema\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12.\n" +
@@ -3197,7 +3548,12 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\x14output_schema_digest\x18\x03 \x01(\tR\x12outputSchemaDigest\x12%\n" +
 	"\x0eside_effecting\x18\x04 \x01(\bR\rsideEffecting\x125\n" +
 	"\n" +
-	"unit_price\x18\x05 \x01(\v2\x16.anvilkit.mcp.v1.MoneyR\tunitPrice\"\x98\x04\n" +
+	"unit_price\x18\x05 \x01(\v2\x16.anvilkit.mcp.v1.MoneyR\tunitPrice\x12\x1e\n" +
+	"\n" +
+	"idempotent\x18\x06 \x01(\bR\n" +
+	"idempotent\x12'\n" +
+	"\x0fquery_supported\x18\a \x01(\bR\x0equerySupported\x12-\n" +
+	"\x12annotations_digest\x18\b \x01(\tR\x11annotationsDigest\"\x92\a\n" +
 	"\n" +
 	"Descriptor\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12\x1a\n" +
@@ -3216,9 +3572,22 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\f\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1f\n" +
+	"\vserver_name\x18\r \x01(\tR\n" +
+	"serverName\x12%\n" +
+	"\x0eserver_version\x18\x0e \x01(\tR\rserverVersion\x12)\n" +
+	"\x10resources_digest\x18\x0f \x01(\tR\x0fresourcesDigest\x12%\n" +
+	"\x0eprompts_digest\x18\x10 \x01(\tR\rpromptsDigest\x12\x1d\n" +
 	"\n" +
-	"_review_id\"\xcb\x01\n" +
+	"data_class\x18\x11 \x01(\tR\tdataClass\x12#\n" +
+	"\rnetwork_scope\x18\x12 \x03(\tR\fnetworkScope\x12\x1a\n" +
+	"\blicenses\x18\x13 \x03(\tR\blicenses\x12+\n" +
+	"\x11revision_evidence\x18\x14 \x01(\tR\x10revisionEvidence\x12#\n" +
+	"\rdiscovered_by\x18\x15 \x01(\tR\fdiscoveredBy\x12\x1f\n" +
+	"\breviewer\x18\x16 \x01(\tH\x01R\breviewer\x88\x01\x01B\f\n" +
+	"\n" +
+	"_review_idB\v\n" +
+	"\t_reviewer\"\xcb\x01\n" +
 	"\x12ListCatalogRequest\x124\n" +
 	"\x05scope\x18\x01 \x01(\v2\x16.anvilkit.mcp.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12=\n" +
 	"\x05state\x18\x02 \x01(\x0e2\x1d.anvilkit.mcp.v1.CatalogStateB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05state\x12 \n" +
@@ -3236,7 +3605,7 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\x15GetDescriptorResponse\x12;\n" +
 	"\n" +
 	"descriptor\x18\x01 \x01(\v2\x1b.anvilkit.mcp.v1.DescriptorR\n" +
-	"descriptor\"\xf6\x03\n" +
+	"descriptor\"\xb4\x05\n" +
 	"\x15DiscoverServerRequest\x12B\n" +
 	"\acommand\x18\x01 \x01(\v2 .anvilkit.mcp.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x124\n" +
 	"\x05scope\x18\x02 \x01(\v2\x16.anvilkit.mcp.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x129\n" +
@@ -3247,9 +3616,16 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\n" +
 	"provenance\x18\x06 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x04R\n" +
-	"provenance\x12I\n" +
-	"\x11descriptor_digest\x18\a \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\x10descriptorDigest\x12>\n" +
-	"\x05tools\x18\b \x03(\v2\x1b.anvilkit.mcp.v1.ToolSchemaB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x04R\x05tools\"q\n" +
+	"provenance\x12L\n" +
+	"\x11descriptor_digest\x18\a \x01(\tB\x1f\xbaH\x1cr\x1a2\x18^(sha256:[0-9a-f]{64})?$R\x10descriptorDigest\x12>\n" +
+	"\x05tools\x18\b \x03(\v2\x1b.anvilkit.mcp.v1.ToolSchemaB\v\xbaH\b\x92\x01\x05\b\x01\x10\x80\x04R\x05tools\x12S\n" +
+	"\n" +
+	"data_class\x18\t \x01(\tB4\xbaH1\xd8\x01\x01r,R\x06publicR\binternalR\fconfidentialR\n" +
+	"restrictedR\tdataClass\x126\n" +
+	"\rnetwork_scope\x18\n" +
+	" \x03(\tB\x11\xbaH\x0e\x92\x01\v\x10 \"\ar\x05\x10\x01\x18\xfd\x01R\fnetworkScope\x12,\n" +
+	"\blicenses\x18\v \x03(\tB\x10\xbaH\r\x92\x01\n" +
+	"\x10 \"\x06r\x04\x10\x01\x18@R\blicenses\"q\n" +
 	"\x16DiscoverServerResponse\x12;\n" +
 	"\n" +
 	"descriptor\x18\x01 \x01(\v2\x1b.anvilkit.mcp.v1.DescriptorR\n" +
@@ -3285,7 +3661,7 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\n" +
 	"descriptor\x18\x01 \x01(\v2\x1b.anvilkit.mcp.v1.DescriptorR\n" +
 	"descriptor\x12\x1a\n" +
-	"\bexisting\x18\x02 \x01(\bR\bexisting\"\xc1\x05\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"\xe7\b\n" +
 	"\x05Grant\x12\x19\n" +
 	"\bgrant_id\x18\x01 \x01(\tR\agrantId\x12\x1a\n" +
 	"\brevision\x18\x02 \x01(\tR\brevision\x12\x1b\n" +
@@ -3307,9 +3683,22 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x15\n" +
+	"updated_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12-\n" +
+	"\x12canonical_resource\x18\x11 \x01(\tR\x11canonicalResource\x12\x1c\n" +
+	"\ttransport\x18\x12 \x01(\tR\ttransport\x12)\n" +
+	"\x10protocol_version\x18\x13 \x01(\tR\x0fprotocolVersion\x12\x16\n" +
+	"\x06issuer\x18\x14 \x01(\tR\x06issuer\x12\x1a\n" +
+	"\baudience\x18\x15 \x01(\tR\baudience\x12-\n" +
+	"\x12resource_selectors\x18\x16 \x03(\tR\x11resourceSelectors\x12)\n" +
+	"\x10prompt_selectors\x18\x17 \x03(\tR\x0fpromptSelectors\x12\x1d\n" +
+	"\n" +
+	"data_class\x18\x18 \x01(\tR\tdataClass\x12#\n" +
+	"\rpolicy_digest\x18\x19 \x01(\tR\fpolicyDigest\x12!\n" +
+	"\fpolicy_epoch\x18\x1a \x01(\tR\vpolicyEpoch\x12&\n" +
+	"\ffailure_code\x18\x1b \x01(\tH\x02R\vfailureCode\x88\x01\x01B\x15\n" +
 	"\x13_control_receipt_idB\r\n" +
-	"\v_expires_at\"\x9c\x05\n" +
+	"\v_expires_atB\x0f\n" +
+	"\r_failure_code\"\xdf\x06\n" +
 	"\x12CreateGrantRequest\x12B\n" +
 	"\acommand\x18\x01 \x01(\v2 .anvilkit.mcp.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x124\n" +
 	"\x05scope\x18\x02 \x01(\v2\x16.anvilkit.mcp.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12F\n" +
@@ -3327,7 +3716,12 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\bcost_cap\x18\n" +
 	" \x01(\v2\x16.anvilkit.mcp.v1.MoneyB\x06\xbaH\x03\xc8\x01\x01R\acostCap\x12>\n" +
 	"\n" +
-	"expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x00R\texpiresAt\x88\x01\x01B\r\n" +
+	"expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x00R\texpiresAt\x88\x01\x01\x127\n" +
+	"\x12resource_selectors\x18\f \x03(\tB\b\xbaH\x05\x92\x01\x02\x10@R\x11resourceSelectors\x123\n" +
+	"\x10prompt_selectors\x18\r \x03(\tB\b\xbaH\x05\x92\x01\x02\x10@R\x0fpromptSelectors\x12S\n" +
+	"\n" +
+	"data_class\x18\x0e \x01(\tB4\xbaH1\xd8\x01\x01r,R\x06publicR\binternalR\fconfidentialR\n" +
+	"restrictedR\tdataClassB\r\n" +
 	"\v_expires_at\"_\n" +
 	"\x13CreateGrantResponse\x12,\n" +
 	"\x05grant\x18\x01 \x01(\v2\x16.anvilkit.mcp.v1.GrantR\x05grant\x12\x1a\n" +
@@ -3362,13 +3756,16 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\x1cGetRevocationProgressRequest\x124\n" +
 	"\x05scope\x18\x01 \x01(\v2\x16.anvilkit.mcp.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12%\n" +
 	"\bgrant_id\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\agrantId\"\xfb\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\agrantId\"\xbf\x02\n" +
 	"\x1dGetRevocationProgressResponse\x12,\n" +
 	"\x05grant\x18\x01 \x01(\v2\x16.anvilkit.mcp.v1.GrantR\x05grant\x122\n" +
 	"\x15new_admission_blocked\x18\x02 \x01(\bR\x13newAdmissionBlocked\x12+\n" +
 	"\x11senders_converged\x18\x03 \x01(\bR\x10sendersConverged\x12&\n" +
 	"\x0fin_flight_calls\x18\x04 \x01(\tR\rinFlightCalls\x12#\n" +
-	"\runknown_calls\x18\x05 \x01(\tR\funknownCalls\"\xfd\x04\n" +
+	"\runknown_calls\x18\x05 \x01(\tR\funknownCalls\x12#\n" +
+	"\rcontrol_state\x18\x06 \x01(\tR\fcontrolState\x12\x1d\n" +
+	"\n" +
+	"open_calls\x18\a \x01(\tR\topenCalls\"\x9e\x06\n" +
 	"\bToolCall\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x19\n" +
@@ -3387,11 +3784,15 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x16\n" +
+	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x16\n" +
+	"\x06result\x18\x0f \x01(\fR\x06result\x12/\n" +
+	"\x13descriptor_revision\x18\x10 \x01(\tR\x12descriptorRevision\x12+\n" +
+	"\x11descriptor_digest\x18\x11 \x01(\tR\x10descriptorDigest\x12)\n" +
+	"\x10protocol_version\x18\x12 \x01(\tR\x0fprotocolVersionB\x16\n" +
 	"\x14_control_dispatch_idB\r\n" +
 	"\v_result_refB\x10\n" +
 	"\x0e_result_digestB\x0f\n" +
-	"\r_failure_code\"\xaa\x04\n" +
+	"\r_failure_code\"\xc7\x05\n" +
 	"\x11CreateCallRequest\x12B\n" +
 	"\acommand\x18\x01 \x01(\v2 .anvilkit.mcp.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x124\n" +
 	"\x05scope\x18\x02 \x01(\v2\x16.anvilkit.mcp.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12%\n" +
@@ -3407,7 +3808,11 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\n" +
 	"attempt_id\x18\t \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\tattemptId\x12>\n" +
 	"\bdeadline\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\"_\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x12)\n" +
+	"\vinstance_id\x18\v \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\n" +
+	"instanceId\x12G\n" +
+	"\x0fexecution_epoch\x18\f \x01(\tB\x1e\xbaH\x1br\x192\x17^(0|[1-9][0-9]{0,19})?$R\x0eexecutionEpoch\x12'\n" +
+	"\targuments\x18\r \x01(\fB\t\xbaH\x06z\x04\x18\x80\x80\x04R\targuments\"_\n" +
 	"\x12CreateCallResponse\x12-\n" +
 	"\x04call\x18\x01 \x01(\v2\x19.anvilkit.mcp.v1.ToolCallR\x04call\x12\x1a\n" +
 	"\bexisting\x18\x02 \x01(\bR\bexisting\"k\n" +

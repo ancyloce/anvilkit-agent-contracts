@@ -542,6 +542,8 @@ const (
 	MemoryService_DecideFact_FullMethodName  = "/anvilkit.knowledge.v1.MemoryService/DecideFact"
 	MemoryService_GetFact_FullMethodName     = "/anvilkit.knowledge.v1.MemoryService/GetFact"
 	MemoryService_ListFacts_FullMethodName   = "/anvilkit.knowledge.v1.MemoryService/ListFacts"
+	MemoryService_DeleteFact_FullMethodName  = "/anvilkit.knowledge.v1.MemoryService/DeleteFact"
+	MemoryService_RecallFacts_FullMethodName = "/anvilkit.knowledge.v1.MemoryService/RecallFacts"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -555,6 +557,15 @@ type MemoryServiceClient interface {
 	DecideFact(ctx context.Context, in *DecideFactRequest, opts ...grpc.CallOption) (*DecideFactResponse, error)
 	GetFact(ctx context.Context, in *GetFactRequest, opts ...grpc.CallOption) (*GetFactResponse, error)
 	ListFacts(ctx context.Context, in *ListFactsRequest, opts ...grpc.CallOption) (*ListFactsResponse, error)
+	// Ends readability in one transaction under expected revision (content
+	// erased, decision recorded); the Store and every vector generation are
+	// cleared asynchronously from that tombstone.
+	DeleteFact(ctx context.Context, in *DeleteFactRequest, opts ...grpc.CallOption) (*DeleteFactResponse, error)
+	// Semantic recall of confirmed, unexpired facts the caller may read now:
+	// both prefetch branches are filtered by the current allowed-fact set,
+	// content comes from the authoritative record after a recheck; no
+	// sufficient evidence returns no_answer=true.
+	RecallFacts(ctx context.Context, in *RecallFactsRequest, opts ...grpc.CallOption) (*RecallFactsResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -605,6 +616,26 @@ func (c *memoryServiceClient) ListFacts(ctx context.Context, in *ListFactsReques
 	return out, nil
 }
 
+func (c *memoryServiceClient) DeleteFact(ctx context.Context, in *DeleteFactRequest, opts ...grpc.CallOption) (*DeleteFactResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFactResponse)
+	err := c.cc.Invoke(ctx, MemoryService_DeleteFact_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) RecallFacts(ctx context.Context, in *RecallFactsRequest, opts ...grpc.CallOption) (*RecallFactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecallFactsResponse)
+	err := c.cc.Invoke(ctx, MemoryService_RecallFacts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MemoryServiceServer is the server API for MemoryService service.
 // All implementations must embed UnimplementedMemoryServiceServer
 // for forward compatibility.
@@ -616,6 +647,15 @@ type MemoryServiceServer interface {
 	DecideFact(context.Context, *DecideFactRequest) (*DecideFactResponse, error)
 	GetFact(context.Context, *GetFactRequest) (*GetFactResponse, error)
 	ListFacts(context.Context, *ListFactsRequest) (*ListFactsResponse, error)
+	// Ends readability in one transaction under expected revision (content
+	// erased, decision recorded); the Store and every vector generation are
+	// cleared asynchronously from that tombstone.
+	DeleteFact(context.Context, *DeleteFactRequest) (*DeleteFactResponse, error)
+	// Semantic recall of confirmed, unexpired facts the caller may read now:
+	// both prefetch branches are filtered by the current allowed-fact set,
+	// content comes from the authoritative record after a recheck; no
+	// sufficient evidence returns no_answer=true.
+	RecallFacts(context.Context, *RecallFactsRequest) (*RecallFactsResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -637,6 +677,12 @@ func (UnimplementedMemoryServiceServer) GetFact(context.Context, *GetFactRequest
 }
 func (UnimplementedMemoryServiceServer) ListFacts(context.Context, *ListFactsRequest) (*ListFactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListFacts not implemented")
+}
+func (UnimplementedMemoryServiceServer) DeleteFact(context.Context, *DeleteFactRequest) (*DeleteFactResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFact not implemented")
+}
+func (UnimplementedMemoryServiceServer) RecallFacts(context.Context, *RecallFactsRequest) (*RecallFactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecallFacts not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -731,6 +777,42 @@ func _MemoryService_ListFacts_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_DeleteFact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).DeleteFact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_DeleteFact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).DeleteFact(ctx, req.(*DeleteFactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_RecallFacts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecallFactsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).RecallFacts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_RecallFacts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).RecallFacts(ctx, req.(*RecallFactsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -753,6 +835,14 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFacts",
 			Handler:    _MemoryService_ListFacts_Handler,
+		},
+		{
+			MethodName: "DeleteFact",
+			Handler:    _MemoryService_DeleteFact_Handler,
+		},
+		{
+			MethodName: "RecallFacts",
+			Handler:    _MemoryService_RecallFacts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -976,8 +1066,9 @@ var BackgroundTaskService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	IngestService_AdvanceParse_FullMethodName = "/anvilkit.knowledge.v1.IngestService/AdvanceParse"
-	IngestService_AdvanceIndex_FullMethodName = "/anvilkit.knowledge.v1.IngestService/AdvanceIndex"
+	IngestService_AdvanceParse_FullMethodName      = "/anvilkit.knowledge.v1.IngestService/AdvanceParse"
+	IngestService_AdvanceIndex_FullMethodName      = "/anvilkit.knowledge.v1.IngestService/AdvanceIndex"
+	IngestService_AdvanceProjection_FullMethodName = "/anvilkit.knowledge.v1.IngestService/AdvanceProjection"
 )
 
 // IngestServiceClient is the client API for IngestService service.
@@ -992,6 +1083,15 @@ type IngestServiceClient interface {
 	// point is materialized. Same claimant rules and idempotence as
 	// AdvanceParse; no text, vector, key or collection name crosses.
 	AdvanceIndex(ctx context.Context, in *AdvanceIndexRequest, opts ...grpc.CallOption) (*AdvanceIndexResponse, error)
+	// The projection step of a claimed memory-project task (DD-07 §5):
+	// Knowledge applies the fact's current state (content when confirmed, a
+	// tombstone otherwise) to one projection target — the PostgresStore or one
+	// vector generation — checking the fact's current revision before and
+	// after the write, then verifies it. Same claimant rules as AdvanceIndex;
+	// no content, vector, key or collection name crosses. IndexState is reused:
+	// RUNNING (call again), MATERIALIZED (result_ref/result_digest to submit),
+	// FAILED (failure_code).
+	AdvanceProjection(ctx context.Context, in *AdvanceProjectionRequest, opts ...grpc.CallOption) (*AdvanceProjectionResponse, error)
 }
 
 type ingestServiceClient struct {
@@ -1022,6 +1122,16 @@ func (c *ingestServiceClient) AdvanceIndex(ctx context.Context, in *AdvanceIndex
 	return out, nil
 }
 
+func (c *ingestServiceClient) AdvanceProjection(ctx context.Context, in *AdvanceProjectionRequest, opts ...grpc.CallOption) (*AdvanceProjectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdvanceProjectionResponse)
+	err := c.cc.Invoke(ctx, IngestService_AdvanceProjection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IngestServiceServer is the server API for IngestService service.
 // All implementations must embed UnimplementedIngestServiceServer
 // for forward compatibility.
@@ -1034,6 +1144,15 @@ type IngestServiceServer interface {
 	// point is materialized. Same claimant rules and idempotence as
 	// AdvanceParse; no text, vector, key or collection name crosses.
 	AdvanceIndex(context.Context, *AdvanceIndexRequest) (*AdvanceIndexResponse, error)
+	// The projection step of a claimed memory-project task (DD-07 §5):
+	// Knowledge applies the fact's current state (content when confirmed, a
+	// tombstone otherwise) to one projection target — the PostgresStore or one
+	// vector generation — checking the fact's current revision before and
+	// after the write, then verifies it. Same claimant rules as AdvanceIndex;
+	// no content, vector, key or collection name crosses. IndexState is reused:
+	// RUNNING (call again), MATERIALIZED (result_ref/result_digest to submit),
+	// FAILED (failure_code).
+	AdvanceProjection(context.Context, *AdvanceProjectionRequest) (*AdvanceProjectionResponse, error)
 	mustEmbedUnimplementedIngestServiceServer()
 }
 
@@ -1049,6 +1168,9 @@ func (UnimplementedIngestServiceServer) AdvanceParse(context.Context, *AdvancePa
 }
 func (UnimplementedIngestServiceServer) AdvanceIndex(context.Context, *AdvanceIndexRequest) (*AdvanceIndexResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AdvanceIndex not implemented")
+}
+func (UnimplementedIngestServiceServer) AdvanceProjection(context.Context, *AdvanceProjectionRequest) (*AdvanceProjectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdvanceProjection not implemented")
 }
 func (UnimplementedIngestServiceServer) mustEmbedUnimplementedIngestServiceServer() {}
 func (UnimplementedIngestServiceServer) testEmbeddedByValue()                       {}
@@ -1107,6 +1229,24 @@ func _IngestService_AdvanceIndex_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IngestService_AdvanceProjection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdvanceProjectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IngestServiceServer).AdvanceProjection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IngestService_AdvanceProjection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IngestServiceServer).AdvanceProjection(ctx, req.(*AdvanceProjectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IngestService_ServiceDesc is the grpc.ServiceDesc for IngestService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1121,6 +1261,10 @@ var IngestService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AdvanceIndex",
 			Handler:    _IngestService_AdvanceIndex_Handler,
+		},
+		{
+			MethodName: "AdvanceProjection",
+			Handler:    _IngestService_AdvanceProjection_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

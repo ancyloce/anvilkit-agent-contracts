@@ -109,6 +109,35 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /operations/{operationId}/source:
+    get:
+      tags: [operations]
+      operationId: readSource
+      summary: The exact source archive a workbench edits (a generation's certified source or a preview build's edited source)
+      parameters:
+        - $ref: "#/components/parameters/operationId"
+      responses:
+        "200":
+          description: The source archive (a tar of regular files under relative paths); its SHA-256 is the digest header.
+          headers:
+            AnvilKit-Source-Lineage:
+              required: true
+              schema: { $ref: "#/components/schemas/Digest" }
+            AnvilKit-Source-Digest:
+              required: true
+              schema: { $ref: "#/components/schemas/Digest" }
+            AnvilKit-Source-Revision:
+              required: false
+              schema: { $ref: "#/components/schemas/Revision" }
+          content:
+            application/x-tar:
+              schema:
+                type: string
+                format: binary
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /operations/{operationId}/preview:
     get:
       tags: [operations]
@@ -149,6 +178,23 @@ paths:
               schema:
                 type: string
                 format: binary
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /operations/{operationId}/release:
+    get:
+      tags: [operations]
+      operationId: getRelease
+      summary: The committed release projection of a release operation (exact subject, approval, per-target receipts, activation)
+      parameters:
+        - $ref: "#/components/parameters/operationId"
+      responses:
+        "200":
+          description: Current committed release projection. Approval, publication and activation are the source authority's facts as the release recorded them; a pending or unknown target is never shown as delivered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Release" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -897,8 +943,16 @@ components:
         briefId: { $ref: "#/components/schemas/Id" }
         sourceRevision: { $ref: "#/components/schemas/Revision" }
         sourceHandle:
-          description: preview_build only - the finalized source artifact holding the edited source (its digest is subjectDigest); sourceRevision is the revision the edit was based on.
+          description: preview_build only - the finalized source artifact holding the edited source; subjectDigest names the component source lineage it edits and sourceRevision the revision the edit was based on.
           $ref: "#/components/schemas/Handle"
+        sourceOperationId:
+          description: release only - the preview_build or generation operation whose saved or registered source is released; subjectDigest and sourceRevision must be that operation's lineage and source revision. Control binds the source artifact itself.
+          $ref: "#/components/schemas/Id"
+        packageVersion:
+          description: release only - the exact package version released; the certified source must declare it.
+          type: string
+          maxLength: 64
+          pattern: "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
     OperationView:
       type: object
       additionalProperties: false
@@ -1604,6 +1658,140 @@ components:
         hostProfileId:
           type: string
           maxLength: 128
+        failureCode:
+          type: string
+          maxLength: 64
+        revision: { $ref: "#/components/schemas/Revision" }
+        updatedAt: { $ref: "#/components/schemas/Timestamp" }
+
+    ReleaseState:
+      type: string
+      enum: [certifying, awaiting_approval, publishing, published, activated, partially_published, reconciling, rejected, failed]
+    ApprovalState:
+      type: string
+      enum: [pending, approved, rejected, invalidated]
+    TargetState:
+      type: string
+      enum: [pending, succeeded, failed, unknown]
+    ReleaseArtifactDigest:
+      type: object
+      additionalProperties: false
+      required: [digest, sizeBytes]
+      properties:
+        digest: { $ref: "#/components/schemas/Digest" }
+        sizeBytes: { $ref: "#/components/schemas/Sequence" }
+    ReleaseSubject:
+      description: The exact subject a maintainer approves (components/component.schema.json#/$defs/releaseSubject); subjectDigest is the RFC 8785 digest of the other fields. Any changed field is a new subject that inherits no approval.
+      type: object
+      additionalProperties: false
+      required: [componentId, puckType, sourceRevision, sourceDigest, packageName, version, npm, browser, css, buildProfileId, buildProfileDigest, validatorProfileId, validatorProfileDigest, hostAbi, hostAbiDigest, destinations, certificationEvidenceDigest, subjectDigest]
+      properties:
+        componentId: { $ref: "#/components/schemas/Id" }
+        puckType:
+          type: string
+          pattern: "^[A-Z][A-Za-z0-9]{0,63}$"
+        sourceRevision: { $ref: "#/components/schemas/Revision" }
+        sourceDigest: { $ref: "#/components/schemas/Digest" }
+        packageName:
+          type: string
+          maxLength: 214
+        version:
+          type: string
+          maxLength: 64
+        npm: { $ref: "#/components/schemas/ReleaseArtifactDigest" }
+        browser: { $ref: "#/components/schemas/ReleaseArtifactDigest" }
+        css:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items: { $ref: "#/components/schemas/ReleaseArtifactDigest" }
+        buildProfileId: { $ref: "#/components/schemas/Id" }
+        buildProfileDigest: { $ref: "#/components/schemas/Digest" }
+        validatorProfileId: { $ref: "#/components/schemas/Id" }
+        validatorProfileDigest: { $ref: "#/components/schemas/Digest" }
+        hostAbi: { $ref: "#/components/schemas/Id" }
+        hostAbiDigest: { $ref: "#/components/schemas/Digest" }
+        destinations:
+          type: object
+          additionalProperties: false
+          required: [npmRegistry, browserOrigin]
+          properties:
+            npmRegistry:
+              type: string
+              maxLength: 512
+            browserOrigin:
+              type: string
+              maxLength: 512
+        certificationEvidenceDigest: { $ref: "#/components/schemas/Digest" }
+        subjectDigest: { $ref: "#/components/schemas/Digest" }
+    Approval:
+      type: object
+      additionalProperties: false
+      required: [state, subjectDigest]
+      properties:
+        state: { $ref: "#/components/schemas/ApprovalState" }
+        subjectDigest: { $ref: "#/components/schemas/Digest" }
+        approverId: { $ref: "#/components/schemas/Id" }
+        decidedAt: { $ref: "#/components/schemas/Timestamp" }
+        reasonCode:
+          type: string
+          maxLength: 64
+    ReleaseTarget:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { $ref: "#/components/schemas/TargetState" }
+        receiptId: { $ref: "#/components/schemas/Id" }
+        receiptDigest: { $ref: "#/components/schemas/Digest" }
+        destination:
+          type: string
+          maxLength: 512
+        manifestDigest: { $ref: "#/components/schemas/Digest" }
+        failureCode:
+          type: string
+          maxLength: 64
+    ReleaseLock:
+      description: The exact lock entry a saved page pins for an activated release (components/component.schema.json#/$defs/remoteComponentLock).
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, componentId, puckType, releaseId, packageName, packageVersion, browserManifestDigest, hostProfileId]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [1]
+        componentId: { $ref: "#/components/schemas/Id" }
+        puckType:
+          type: string
+          pattern: "^[A-Z][A-Za-z0-9]{0,63}$"
+        releaseId: { $ref: "#/components/schemas/Id" }
+        packageName:
+          type: string
+          maxLength: 214
+        packageVersion:
+          type: string
+          maxLength: 64
+        browserManifestDigest: { $ref: "#/components/schemas/Digest" }
+        hostProfileId: { $ref: "#/components/schemas/Id" }
+    Release:
+      description: A release operation's committed projection. Only an activated release names its lock; npm success alone, an unknown target or a pending approval is never a delivered release.
+      type: object
+      additionalProperties: false
+      required: [operationId, lineage, sourceRevision, state, npm, browser, activation, revision, updatedAt]
+      properties:
+        operationId: { $ref: "#/components/schemas/Id" }
+        lineage: { $ref: "#/components/schemas/Digest" }
+        sourceRevision: { $ref: "#/components/schemas/Revision" }
+        state: { $ref: "#/components/schemas/ReleaseState" }
+        subject: { $ref: "#/components/schemas/ReleaseSubject" }
+        releaseId: { $ref: "#/components/schemas/Id" }
+        approval: { $ref: "#/components/schemas/Approval" }
+        approvalDeadline: { $ref: "#/components/schemas/Timestamp" }
+        npm: { $ref: "#/components/schemas/ReleaseTarget" }
+        browser: { $ref: "#/components/schemas/ReleaseTarget" }
+        activation: { $ref: "#/components/schemas/ReleaseTarget" }
+        catalogRevision: { $ref: "#/components/schemas/Revision" }
+        lock: { $ref: "#/components/schemas/ReleaseLock" }
         failureCode:
           type: string
           maxLength: 64

@@ -203,6 +203,78 @@
         "transferId": "xfer_01J9ABCDEF", "handle": "hdl_01J9ABCDEF", "class": "prompt", "expectedDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "expectedSize": "4096",
         "state": "begun", "deadline": "2026-09-14T12:15:00Z", "uploadCapability": "https://artifacts.example.invalid/upload", "uploadMethod": "POST"
       }
+    },
+    {
+      "name": "preview_build create request binds the edited source and its base revision",
+      "schema": "CreateOperationRequest",
+      "valid": true,
+      "instance": {"commandId": "cmd_prev_1", "kind": "preview_build", "subject": {"profileId": "preview-build-v1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "sourceRevision": "3", "sourceHandle": "hdl_source_1"}}
+    },
+    {
+      "name": "a ready preview names its saved revision and exact artifacts",
+      "schema": "Preview",
+      "valid": true,
+      "instance": {"operationId": "op_1", "subjectDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "baseRevision": "3", "state": "ready", "sourceRevision": "4", "sourceDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "module": {"digest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "sizeBytes": "2048", "mediaType": "text/javascript"}, "styles": [{"digest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "sizeBytes": "512", "mediaType": "text/css"}], "buildProfileId": "build-support-dev-v1", "hostProfileId": "host-abi-dev-v1", "revision": "3", "updatedAt": "2026-09-30T00:00:00Z"}
+    },
+    {
+      "name": "a preview artifact of another media type is rejected",
+      "schema": "PreviewArtifact",
+      "valid": false,
+      "instance": {"digest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "sizeBytes": "1", "mediaType": "text/html"}
+    },
+    {
+      "name": "a tool call carries its inline arguments and execution binding",
+      "schema": "CreateToolCallRequest",
+      "valid": true,
+      "instance": {"commandId": "cmd_call_1", "grantId": "grt_1", "grantRevision": "1", "method": "search_issues", "arguments": {"query": "open"}, "operationId": "op_1", "attemptId": "att_1", "executionEpoch": "1"}
+    },
+    {
+      "name": "a tool call without its execution binding is rejected",
+      "schema": "CreateToolCallRequest",
+      "valid": false,
+      "instance": {"commandId": "cmd_call_1", "grantId": "grt_1", "grantRevision": "1", "method": "search_issues", "arguments": {}}
+    },
+    {
+      "name": "discovery of a streamable-http server with its declared tools",
+      "schema": "DiscoverServerRequest",
+      "valid": true,
+      "instance": {"commandId": "cmd_disc_1", "canonicalResource": "https://mcp.example.com/mcp", "transport": "streamable-http", "protocolVersion": "2025-11-25", "provenance": "registry:io.example/issues@1.4.0", "dataClass": "internal", "tools": [{"method": "search_issues", "sideEffecting": false, "unitPrice": {"currency": "USD", "amount": "1"}}]}
+    },
+    {
+      "name": "discovery of a stdio server is rejected",
+      "schema": "DiscoverServerRequest",
+      "valid": false,
+      "instance": {"commandId": "cmd_disc_1", "canonicalResource": "npx some-server", "transport": "stdio", "protocolVersion": "2025-11-25", "provenance": "x", "dataClass": "internal", "tools": [{"method": "m", "sideEffecting": false, "unitPrice": {"currency": "USD", "amount": "0"}}]}
+    },
+    {
+      "name": "release create request names the source operation and the exact version",
+      "schema": "CreateOperationRequest",
+      "valid": true,
+      "instance": {"commandId": "cmd_rel_1", "kind": "release", "subject": {"profileId": "release-v1", "subjectDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000", "sourceRevision": "3", "sourceOperationId": "op_prev_1", "packageVersion": "1.0.0"}}
+    },
+    {
+      "name": "a release request naming its own destination is rejected",
+      "schema": "CreateOperationRequest",
+      "valid": false,
+      "instance": {"commandId": "cmd_rel_1", "kind": "release", "subject": {"profileId": "release-v1", "subjectDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000", "sourceRevision": "3", "sourceOperationId": "op_prev_1", "packageVersion": "1.0.0", "npmRegistry": "https://attacker.example.invalid/"}}
+    },
+    {
+      "name": "an activated release names its subject, approval, both receipts and the lock",
+      "schema": "Release",
+      "valid": true,
+      "instance": {"operationId": "op_rel_1", "lineage": "sha256:0000000000000000000000000000000000000000000000000000000000000000", "sourceRevision": "3", "state": "activated", "subject": {"componentId": "cmp_hero", "puckType": "Hero", "sourceRevision": "3", "sourceDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "packageName": "@anvilkit/hero", "version": "1.0.0", "npm": {"digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480"}, "browser": {"digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192"}, "css": [{"digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512"}], "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "validatorProfileId": "validator-v1", "validatorProfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "hostAbi": "host-abi-v1", "hostAbiDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "destinations": {"npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid"}, "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999", "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b"}, "releaseId": "rel_01J9", "approval": {"state": "approved", "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b", "approverId": "maintainer_a", "decidedAt": "2026-09-30T12:00:00Z"}, "npm": {"state": "succeeded", "receiptId": "rcpt_npm_1", "receiptDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "destination": "https://registry.example.invalid/"}, "browser": {"state": "succeeded", "receiptId": "rcpt_browser_1", "receiptDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "destination": "https://components.example.invalid", "manifestDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}, "activation": {"state": "succeeded", "receiptId": "rcpt_act_1", "receiptDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "catalogRevision": "4", "lock": {"schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "1.0.0", "browserManifestDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "hostProfileId": "host-abi-v1"}, "revision": "6", "updatedAt": "2026-09-30T12:05:00Z"}
+    },
+    {
+      "name": "a partially published release names no lock",
+      "schema": "Release",
+      "valid": true,
+      "instance": {"operationId": "op_rel_1", "lineage": "sha256:0000000000000000000000000000000000000000000000000000000000000000", "sourceRevision": "3", "state": "partially_published", "subject": {"componentId": "cmp_hero", "puckType": "Hero", "sourceRevision": "3", "sourceDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "packageName": "@anvilkit/hero", "version": "1.0.0", "npm": {"digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480"}, "browser": {"digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192"}, "css": [{"digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512"}], "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "validatorProfileId": "validator-v1", "validatorProfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "hostAbi": "host-abi-v1", "hostAbiDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "destinations": {"npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid"}, "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999", "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b"}, "releaseId": "rel_01J9", "approval": {"state": "approved", "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b", "approverId": "maintainer_a", "decidedAt": "2026-09-30T12:00:00Z"}, "npm": {"state": "succeeded", "receiptId": "rcpt_npm_1", "receiptDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "destination": "https://registry.example.invalid/"}, "browser": {"state": "failed", "failureCode": "DESTINATION_MISMATCH"}, "activation": {"state": "pending"}, "revision": "6", "updatedAt": "2026-09-30T12:05:00Z"}
+    },
+    {
+      "name": "a release in an unknown state is rejected",
+      "schema": "Release",
+      "valid": false,
+      "instance": {"operationId": "op_rel_1", "lineage": "sha256:0000000000000000000000000000000000000000000000000000000000000000", "sourceRevision": "3", "state": "delivered", "subject": {"componentId": "cmp_hero", "puckType": "Hero", "sourceRevision": "3", "sourceDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "packageName": "@anvilkit/hero", "version": "1.0.0", "npm": {"digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480"}, "browser": {"digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192"}, "css": [{"digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512"}], "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "validatorProfileId": "validator-v1", "validatorProfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "hostAbi": "host-abi-v1", "hostAbiDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "destinations": {"npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid"}, "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999", "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b"}, "releaseId": "rel_01J9", "approval": {"state": "approved", "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b", "approverId": "maintainer_a", "decidedAt": "2026-09-30T12:00:00Z"}, "npm": {"state": "succeeded", "receiptId": "rcpt_npm_1", "receiptDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "destination": "https://registry.example.invalid/"}, "browser": {"state": "succeeded", "receiptId": "rcpt_browser_1", "receiptDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "destination": "https://components.example.invalid", "manifestDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}, "activation": {"state": "succeeded", "receiptId": "rcpt_act_1", "receiptDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "catalogRevision": "4", "lock": {"schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "1.0.0", "browserManifestDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "hostProfileId": "host-abi-v1"}, "revision": "6", "updatedAt": "2026-09-30T12:05:00Z"}
     }
   ]
 }

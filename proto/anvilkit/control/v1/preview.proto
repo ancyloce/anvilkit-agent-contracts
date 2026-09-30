@@ -1,0 +1,106 @@
+// Preview builds (DD-04 §5, DD-05 §1/§4, delivery.md P20): a preview_build
+// operation first saves the edited source under the expected source
+// revision through the source authority (a conflict keeps the caller's
+// edits and names the current revision), then builds exactly the saved
+// revision in an isolated Job under the build and host profiles. Control
+// keeps the committed projection the Workflow records and the API reads;
+// it never decides the next step. A result superseded by a newer saved
+// revision is stale: it stays readable as a diagnostic but never replaces
+// the current preview.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum PreviewState {
+  PREVIEW_STATE_UNSPECIFIED = 0;
+  // The conditional source save is in progress.
+  PREVIEW_STATE_SAVING = 1;
+  // The source authority refused the save: current_revision is newer.
+  PREVIEW_STATE_CONFLICT = 2;
+  // The saved revision is being built.
+  PREVIEW_STATE_BUILDING = 3;
+  // The build of source_revision is available.
+  PREVIEW_STATE_READY = 4;
+  // The build finished after a newer revision was saved.
+  PREVIEW_STATE_STALE = 5;
+  // Save or build failed (failure_code).
+  PREVIEW_STATE_FAILED = 6;
+}
+
+message Preview {
+  string operation_id = 1;
+  string tenant_id = 2;
+  // The component source's subject (the operation's subject digest).
+  string subject_digest = 3;
+  // The revision the edit was based on (the operation's source revision).
+  string base_revision = 4;
+  PreviewState state = 5;
+  // The revision the save created (ready, stale, building).
+  optional string source_revision = 6;
+  // The source authority's current revision on a conflict or when stale.
+  optional string current_revision = 7;
+  // The exact saved source bytes.
+  string source_digest = 8;
+  // The built browser module and its stylesheets (ready, stale).
+  optional ArtifactReference module = 9;
+  repeated ArtifactReference styles = 10;
+  string build_profile_id = 11;
+  string host_profile_id = 12;
+  optional string failure_code = 13;
+  // Monotonic per operation; every recorded transition increments it.
+  string revision = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+service PreviewService {
+  // The Workflow records a transition under the expected projection
+  // revision; the same transition repeated answers the recorded one.
+  rpc RecordPreview(RecordPreviewRequest) returns (RecordPreviewResponse);
+  // The committed projection of a preview_build operation of the tenant.
+  rpc GetPreview(GetPreviewRequest) returns (GetPreviewResponse);
+}
+
+message RecordPreviewRequest {
+  string operation_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // "0" for the first record.
+  string expected_revision = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  PreviewState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional string source_revision = 4 [(buf.validate.field).string = {max_len: 128}];
+  optional string current_revision = 5 [(buf.validate.field).string = {max_len: 128}];
+  string source_digest = 6 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  optional ArtifactReference module = 7;
+  repeated ArtifactReference styles = 8 [(buf.validate.field).repeated.max_items = 16];
+  string build_profile_id = 9 [(buf.validate.field).string = {max_len: 128}];
+  string host_profile_id = 10 [(buf.validate.field).string = {max_len: 128}];
+  optional string failure_code = 11 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message RecordPreviewResponse {
+  Preview preview = 1;
+  bool existing = 2;
+}
+
+message GetPreviewRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetPreviewResponse {
+  Preview preview = 1;
+}

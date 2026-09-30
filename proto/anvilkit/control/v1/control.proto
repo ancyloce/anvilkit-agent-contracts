@@ -172,6 +172,10 @@ message OperationSubject {
   string subject_digest = 2 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
   optional string brief_id = 3 [(buf.validate.field).string = {max_len: 128}];
   optional string source_revision = 4 [(buf.validate.field).string = {max_len: 128}];
+  // preview_build: the finalized source artifact holding the edited source
+  // (its digest is the subject digest); source_revision is the revision the
+  // edit was based on, saved conditionally before the build.
+  optional string source_handle = 5 [(buf.validate.field).string = {max_len: 256}];
 }
 
 // OperationView is the single committed projection the API exposes.

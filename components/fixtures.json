@@ -74,10 +74,10 @@
         "browser": { "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192" },
         "css": [{ "digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512" }],
         "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
-        "validatorProfileId": "validator-v1", "hostAbi": "host-abi-v1",
+        "validatorProfileId": "validator-v1", "validatorProfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "hostAbi": "host-abi-v1", "hostAbiDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "destinations": { "npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid" },
         "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
-        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b"
       }
     },
     {
@@ -92,10 +92,10 @@
         "browser": { "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192" },
         "css": [],
         "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
-        "validatorProfileId": "validator-v1", "hostAbi": "host-abi-v1",
+        "validatorProfileId": "validator-v1", "validatorProfileDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "hostAbi": "host-abi-v1", "hostAbiDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "destinations": { "npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid" },
         "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
-        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b"
       }
     },
     {
@@ -115,6 +115,96 @@
         "schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero",
         "packageVersion": "latest", "browserManifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "hostProfileId": "host-abi-v1"
       }
+    },
+    {
+      "name": "a page lock with one exact remote entry",
+      "ref": "#/$defs/pageComponentLock",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "entries": [{"schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "1.0.0", "browserManifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "hostProfileId": "host-abi-v1"}]}
+    },
+    {
+      "name": "a page lock entry naming catalog latest is rejected",
+      "ref": "#/$defs/pageComponentLock",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "entries": [{"schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "latest", "browserManifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "hostProfileId": "host-abi-v1"}]}
+    },
+    {
+      "name": "the preview bootstrap of anvilkit-preview-v1",
+      "ref": "#/$defs/previewBootstrap",
+      "valid": true,
+      "instance": {"type": "anvilkit.preview.bootstrap", "protocol": "anvilkit-preview-v1", "session": "sess_0123456789abcdef", "nonce": "0123456789abcdef0123456789abcdef", "parentOrigin": "http://localhost:3000"}
+    },
+    {
+      "name": "a bootstrap of another protocol is rejected",
+      "ref": "#/$defs/previewBootstrap",
+      "valid": false,
+      "instance": {"type": "anvilkit.preview.bootstrap", "protocol": "anvilkit-preview-v0", "session": "sess_0123456789abcdef", "nonce": "0123456789abcdef0123456789abcdef", "parentOrigin": "http://localhost:3000"}
+    },
+    {
+      "name": "a render message with the exact module and one stylesheet",
+      "ref": "#/$defs/previewMessage",
+      "valid": true,
+      "instance": {"type": "render", "session": "sess_0123456789abcdef", "seq": 1, "previewRevision": "4", "puckType": "Hero", "module": {"digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "text": "export default {};"}, "styles": [{"digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "text": ".hero{}"}], "props": {"title": "x"}}
+    },
+    {
+      "name": "a ready message out of sequence is rejected",
+      "ref": "#/$defs/previewMessage",
+      "valid": false,
+      "instance": {"type": "ready", "session": "sess_0123456789abcdef", "seq": 2, "nonce": "0123456789abcdef0123456789abcdef", "hostProfileId": "host-abi-dev-v1"}
+    },
+    {
+      "name": "an error with an unknown code is rejected",
+      "ref": "#/$defs/previewMessage",
+      "valid": false,
+      "instance": {"type": "error", "session": "sess_0123456789abcdef", "seq": 1, "code": "MAYBE"}
+    },
+    {
+      "name": "a browser manifest with its entry and one stylesheet",
+      "ref": "#/$defs/browserManifest",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "hostProfileId": "host-abi-v1", "identity": {"componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "1.0.0"}, "entry": {"path": "index.js", "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192"}, "styles": [{"path": "styles/hero.css", "digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512"}]}
+    },
+    {
+      "name": "a browser manifest without stylesheets is rejected",
+      "ref": "#/$defs/browserManifest",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "hostProfileId": "host-abi-v1", "identity": {"componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "1.0.0"}, "entry": {"path": "index.js", "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192"}, "styles": []}
+    },
+    {
+      "name": "an npm publication receipt",
+      "ref": "#/$defs/publicationReceipt",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "target": "npm", "receiptId": "rcpt_npm_1", "effectId": "eff_pub_1", "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "version": "1.0.0", "destination": "https://registry.example.invalid/", "files": [{"path": "hero-1.0.0.tgz", "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480"}]}
+    },
+    {
+      "name": "a browser/CSS publication receipt naming its manifest",
+      "ref": "#/$defs/publicationReceipt",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "target": "browser", "receiptId": "rcpt_browser_1", "effectId": "eff_pub_2", "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "version": "1.0.0", "destination": "https://components.example.invalid", "files": [{"path": "index.js", "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192"}, {"path": "styles/hero.css", "digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512"}], "manifestDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+    },
+    {
+      "name": "a receipt of an unknown target is rejected",
+      "ref": "#/$defs/publicationReceipt",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "target": "cdn", "receiptId": "rcpt_npm_1", "effectId": "eff_pub_1", "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "version": "1.0.0", "destination": "https://registry.example.invalid/", "files": [{"path": "hero-1.0.0.tgz", "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480"}]}
+    },
+    {
+      "name": "an activation receipt with the exact lock entry",
+      "ref": "#/$defs/activationReceipt",
+      "valid": true,
+      "instance": {"schemaVersion": 1, "receiptId": "rcpt_act_1", "effectId": "eff_act_1", "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "catalogRevision": "4", "lock": {"schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "1.0.0", "browserManifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "hostProfileId": "host-abi-v1"}}
+    },
+    {
+      "name": "an activation receipt pinning latest is rejected",
+      "ref": "#/$defs/activationReceipt",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "receiptId": "rcpt_act_1", "effectId": "eff_act_1", "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "catalogRevision": "4", "lock": {"schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "releaseId": "rel_01J9", "packageName": "@anvilkit/hero", "packageVersion": "latest", "browserManifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "hostProfileId": "host-abi-v1"}}
+    },
+    {
+      "name": "a release subject without its validator and host profile digests is rejected",
+      "ref": "#/$defs/releaseSubject",
+      "valid": false,
+      "instance": {"schemaVersion": 1, "componentId": "cmp_hero", "puckType": "Hero", "sourceRevision": "3", "sourceDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "packageName": "@anvilkit/hero", "version": "1.0.0", "npm": {"digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "sizeBytes": "20480"}, "browser": {"digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "sizeBytes": "8192"}, "css": [{"digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888", "sizeBytes": "512"}], "buildProfileId": "build-support-v1", "buildProfileDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "validatorProfileId": "validator-v1", "hostAbi": "host-abi-v1", "destinations": {"npmRegistry": "https://registry.example.invalid/", "browserOrigin": "https://components.example.invalid"}, "certificationEvidenceDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999", "subjectDigest": "sha256:ba0108acc45e339e7a8041e35a67fd50191f044216e4f6b8a46796554d5be75b"}
     }
   ]
 }

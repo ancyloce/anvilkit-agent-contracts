@@ -96,7 +96,8 @@
     "releaseSubject": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schemaVersion", "componentId", "puckType", "sourceRevision", "sourceDigest", "packageName", "version", "npm", "browser", "css", "buildProfileId", "buildProfileDigest", "validatorProfileId", "hostAbi", "destinations", "certificationEvidenceDigest", "subjectDigest"],
+      "description": "The exact subject a maintainer approves (DD-04 §4, P21). sourceRevision is the source authority's revision of the certified bytes (sourceDigest is their manifest digest); npm, browser and css are the certified artifacts; the build, validator and host profiles are bound by id and digest; destinations come from the reviewed release profile, never from the caller. Any changed field is a new subject: a new digest, a new review and no inherited approval.",
+      "required": ["schemaVersion", "componentId", "puckType", "sourceRevision", "sourceDigest", "packageName", "version", "npm", "browser", "css", "buildProfileId", "buildProfileDigest", "validatorProfileId", "validatorProfileDigest", "hostAbi", "hostAbiDigest", "destinations", "certificationEvidenceDigest", "subjectDigest"],
       "properties": {
         "schemaVersion": { "const": 1 },
         "componentId": { "$ref": "#/$defs/id" },
@@ -111,7 +112,9 @@
         "buildProfileId": { "$ref": "#/$defs/id" },
         "buildProfileDigest": { "$ref": "#/$defs/digest" },
         "validatorProfileId": { "$ref": "#/$defs/id" },
+        "validatorProfileDigest": { "$ref": "#/$defs/digest" },
         "hostAbi": { "$ref": "#/$defs/id" },
+        "hostAbiDigest": { "$ref": "#/$defs/digest" },
         "destinations": {
           "type": "object",
           "additionalProperties": false,
@@ -122,7 +125,7 @@
           }
         },
         "certificationEvidenceDigest": { "$ref": "#/$defs/digest" },
-        "subjectDigest": { "$ref": "#/$defs/digest", "description": "Digest over every other field; any change creates a new subject requiring new approval." }
+        "subjectDigest": { "$ref": "#/$defs/digest", "description": "sha256 of the RFC 8785 (JCS) canonical JSON of the subject without subjectDigest (members sorted by code point, no whitespace, minimal string escaping), as lowercase hex; any change creates a new subject requiring new approval." }
       }
     },
     "remoteComponentLock": {
@@ -139,6 +142,330 @@
         "browserManifestDigest": { "$ref": "#/$defs/digest" },
         "hostProfileId": { "$ref": "#/$defs/id" }
       }
+    },
+    "pageComponentLock": {
+      "description": "A saved page's remote component lock (DD-05 §2): one exact remoteComponentLock per remote puckType, sorted by puckType, unique, at most 200 entries. Save and reopen never substitute catalog latest; an unreadable stored lock is carried byte-exact, never rewritten.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "entries"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/remoteComponentLock"
+          }
+        }
+      }
+    },
+    "fileReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest", "sizeBytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "sizeBytes": { "$ref": "#/$defs/sequence" }
+      }
+    },
+    "browserManifest": {
+      "description": "The browser manifest of one published release (P21; the P20 loader's shape): exact identity, the host profile the module was certified for, the entry module and its stylesheets with digests and sizes. Its digest is the lock's browserManifestDigest; the loader verifies every byte against it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "hostProfileId", "identity", "entry", "styles"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "hostProfileId": { "$ref": "#/$defs/id" },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["componentId", "puckType", "releaseId", "packageName", "packageVersion"],
+          "properties": {
+            "componentId": { "$ref": "#/$defs/id" },
+            "puckType": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]{0,63}$" },
+            "releaseId": { "$ref": "#/$defs/id" },
+            "packageName": { "$ref": "#/$defs/packageName" },
+            "packageVersion": { "$ref": "#/$defs/semver" }
+          }
+        },
+        "entry": { "$ref": "#/$defs/fileReceipt" },
+        "styles": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "$ref": "#/$defs/fileReceipt" } }
+      }
+    },
+    "publicationReceipt": {
+      "description": "One target's publication receipt as the PublicationPort answers it (DD-06 §4, P21). It binds the subject digest, the release, the effect identity it was sent under and the destination; the Workflow accepts it only when every field matches the subject and the destination serves exactly the named bytes. npm names the tarball; browser names the manifest, the module and every stylesheet.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "target", "receiptId", "effectId", "subjectDigest", "releaseId", "packageName", "version", "destination", "files"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "target": { "enum": ["npm", "browser"] },
+        "receiptId": { "$ref": "#/$defs/id" },
+        "effectId": { "$ref": "#/$defs/id" },
+        "subjectDigest": { "$ref": "#/$defs/digest" },
+        "releaseId": { "$ref": "#/$defs/id" },
+        "packageName": { "$ref": "#/$defs/packageName" },
+        "version": { "$ref": "#/$defs/semver" },
+        "destination": { "type": "string", "format": "uri", "maxLength": 512 },
+        "manifestDigest": { "$ref": "#/$defs/digest" },
+        "files": { "type": "array", "minItems": 1, "maxItems": 66, "items": { "$ref": "#/$defs/fileReceipt" } }
+      }
+    },
+    "activationReceipt": {
+      "description": "The ActivationPort's receipt (DD-06 §4, P21): the exact release now current for its component in the catalog, under the catalog revision the conditional activation expected, with the exact lock entry a saved page pins.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "receiptId", "effectId", "subjectDigest", "catalogRevision", "lock"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "receiptId": { "$ref": "#/$defs/id" },
+        "effectId": { "$ref": "#/$defs/id" },
+        "subjectDigest": { "$ref": "#/$defs/digest" },
+        "catalogRevision": { "$ref": "#/$defs/sequence" },
+        "lock": { "$ref": "#/$defs/remoteComponentLock" }
+      }
+    },
+    "previewBootstrap": {
+      "description": "The single window.postMessage from the Studio parent to the separate-origin sandboxed preview frame (allow-scripts, never allow-same-origin), transferring one MessagePort. The frame accepts it once, only from window.parent and only from parentOrigin; a repeated bootstrap closes the session.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "protocol",
+        "session",
+        "nonce",
+        "parentOrigin"
+      ],
+      "properties": {
+        "type": {
+          "const": "anvilkit.preview.bootstrap"
+        },
+        "protocol": {
+          "const": "anvilkit-preview-v1"
+        },
+        "session": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{16,64}$"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32,64}$"
+        },
+        "parentOrigin": {
+          "type": "string",
+          "maxLength": 256
+        }
+      }
+    },
+    "previewMessage": {
+      "description": "Every message on the bound MessageChannel of anvilkit-preview-v1: typed, bounded (the preview profile's maximum bytes), per-direction seq starting at 1 and increasing by exactly 1, answered within the profile's deadline. Disorder, an unknown type, oversize, a wrong session, a timeout, a navigation or a frame replacement closes the session; a new session needs a new frame.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "session",
+            "seq",
+            "nonce",
+            "hostProfileId"
+          ],
+          "properties": {
+            "type": {
+              "const": "ready"
+            },
+            "session": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
+            },
+            "seq": {
+              "const": 1
+            },
+            "nonce": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32,64}$"
+            },
+            "hostProfileId": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "session",
+            "seq",
+            "previewRevision",
+            "puckType",
+            "module",
+            "styles",
+            "props"
+          ],
+          "properties": {
+            "type": {
+              "const": "render"
+            },
+            "session": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "previewRevision": {
+              "$ref": "#/$defs/sequence"
+            },
+            "puckType": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Za-z0-9]{0,63}$"
+            },
+            "module": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "digest",
+                "text"
+              ],
+              "properties": {
+                "digest": {
+                  "$ref": "#/$defs/digest"
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 2097152
+                }
+              }
+            },
+            "styles": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "digest",
+                  "text"
+                ],
+                "properties": {
+                  "digest": {
+                    "$ref": "#/$defs/digest"
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 1048576
+                  }
+                }
+              }
+            },
+            "props": {
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "session",
+            "seq",
+            "renderSeq",
+            "previewRevision"
+          ],
+          "properties": {
+            "type": {
+              "const": "rendered"
+            },
+            "session": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "renderSeq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "previewRevision": {
+              "$ref": "#/$defs/sequence"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "session",
+            "seq",
+            "code"
+          ],
+          "properties": {
+            "type": {
+              "const": "error"
+            },
+            "session": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "renderSeq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "code": {
+              "enum": [
+                "MODULE_REJECTED",
+                "STYLE_REJECTED",
+                "RENDER_FAILED",
+                "PROTOCOL_VIOLATION"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "session",
+            "seq"
+          ],
+          "properties": {
+            "type": {
+              "const": "dispose"
+            },
+            "session": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            }
+          }
+        }
+      ]
     }
   }
 }

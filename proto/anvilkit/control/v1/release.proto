@@ -1,0 +1,225 @@
+// Releases (DD-04 §4, DD-06 §4, delivery.md P21): a release operation
+// certifies the exact saved source it names, registers the exact
+// ReleaseSubject for review, waits for the maintainer's decision on that
+// subject, publishes the npm and the browser/CSS target under their own
+// effect identities, verifies both receipts and only then activates.
+// Control keeps the committed projection the Workflow records and the API
+// reads, and checks every binding it records: the subject digest over its
+// fields, the certification it names (an accepted certified stage of the
+// operation), an approval of exactly that digest, receipts naming that
+// digest, its version and its destinations, and a target outcome that
+// never changes once definite. It never decides the next step.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum ReleaseState {
+  RELEASE_STATE_UNSPECIFIED = 0;
+  // The exact source is being certified by the independent validator.
+  RELEASE_STATE_CERTIFYING = 1;
+  // The subject is registered for review; no target is published.
+  RELEASE_STATE_AWAITING_APPROVAL = 2;
+  // The approved subject's targets are being published.
+  RELEASE_STATE_PUBLISHING = 3;
+  // Both targets published with verified receipts; not yet current.
+  RELEASE_STATE_PUBLISHED = 4;
+  // The exact release is current in the catalog.
+  RELEASE_STATE_ACTIVATED = 5;
+  // One target published, the other definitely failed: never activated,
+  // the published one is never republished automatically.
+  RELEASE_STATE_PARTIALLY_PUBLISHED = 6;
+  // A target or the activation is unknown: its original identity is being
+  // queried; nothing is resent and nothing is activated meanwhile.
+  RELEASE_STATE_RECONCILING = 7;
+  // The maintainer rejected or invalidated the subject, or approved
+  // another subject; a changed subject needs a new release.
+  RELEASE_STATE_REJECTED = 8;
+  RELEASE_STATE_FAILED = 9;
+}
+
+enum ApprovalState {
+  APPROVAL_STATE_UNSPECIFIED = 0;
+  APPROVAL_STATE_PENDING = 1;
+  APPROVAL_STATE_APPROVED = 2;
+  APPROVAL_STATE_REJECTED = 3;
+  // The source authority withdrew the decision (the subject changed or the
+  // reviewer's scope ended); it never authorizes a target.
+  APPROVAL_STATE_INVALIDATED = 4;
+}
+
+enum TargetState {
+  TARGET_STATE_UNSPECIFIED = 0;
+  TARGET_STATE_PENDING = 1;
+  TARGET_STATE_SUCCEEDED = 2;
+  TARGET_STATE_FAILED = 3;
+  TARGET_STATE_UNKNOWN = 4;
+}
+
+message ArtifactDigest {
+  string digest = 1 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string size_bytes = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+// ReleaseSubject is components/component.schema.json#/$defs/releaseSubject;
+// subject_digest is the RFC 8785 digest of the other fields in that shape.
+message ReleaseSubject {
+  string component_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string puck_type = 2 [(buf.validate.field).string.pattern = "^[A-Z][A-Za-z0-9]{0,63}$"];
+  string source_revision = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string source_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string package_name = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 214
+  }];
+  string version = 6 [(buf.validate.field).string = {
+    min_len: 5
+    max_len: 64
+  }];
+  ArtifactDigest npm = 7 [(buf.validate.field).required = true];
+  ArtifactDigest browser = 8 [(buf.validate.field).required = true];
+  repeated ArtifactDigest css = 9 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 64
+  }];
+  string build_profile_id = 10 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string build_profile_digest = 11 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string validator_profile_id = 12 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string validator_profile_digest = 13 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string host_abi = 14 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string host_abi_digest = 15 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string npm_registry = 16 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  string browser_origin = 17 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  string certification_evidence_digest = 18 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string subject_digest = 19 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+// Approval is the maintainer's decision as the review port answered it:
+// always bound to the digest it was made for.
+message Approval {
+  ApprovalState state = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string subject_digest = 2 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  optional string approver_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  optional google.protobuf.Timestamp decided_at = 4;
+  optional string reason_code = 5 [(buf.validate.field).string = {max_len: 64}];
+}
+
+// ReleaseTarget is one guarded mutation of the release (npm publication,
+// browser/CSS publication, activation) under its own effect identity, and
+// the verified receipt of a definite outcome.
+message ReleaseTarget {
+  TargetState state = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional string effect_id = 2 [(buf.validate.field).string = {max_len: 128}];
+  optional string receipt_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  // The digest of the receipt bytes the port answered.
+  optional string receipt_digest = 4 [(buf.validate.field).string = {max_len: 71}];
+  // What the receipt names: subject, destination, version and (browser)
+  // the browser manifest digest; checked against the subject.
+  optional string subject_digest = 5 [(buf.validate.field).string = {max_len: 71}];
+  optional string destination = 6 [(buf.validate.field).string = {max_len: 512}];
+  optional string version = 7 [(buf.validate.field).string = {max_len: 64}];
+  optional string manifest_digest = 8 [(buf.validate.field).string = {max_len: 71}];
+  optional string failure_code = 9 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message Release {
+  string operation_id = 1;
+  string tenant_id = 2;
+  // The component source lineage (the operation's subject digest).
+  string lineage = 3;
+  // The exact revision released (the operation's source revision).
+  string source_revision = 4;
+  ReleaseState state = 5;
+  optional ReleaseSubject subject = 6;
+  // The review/release identity the review port assigned.
+  optional string release_id = 7;
+  optional string review_effect_id = 8;
+  optional Approval approval = 9;
+  // The absolute end of the approval wait; set once, never extended.
+  optional google.protobuf.Timestamp approval_deadline = 10;
+  ReleaseTarget npm = 11;
+  ReleaseTarget browser = 12;
+  ReleaseTarget activation = 13;
+  optional string catalog_revision = 14;
+  optional string failure_code = 15;
+  // Monotonic per operation; every recorded transition increments it.
+  string revision = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+service ReleaseService {
+  // The Workflow records a transition under the expected projection
+  // revision; the same transition repeated answers the recorded one.
+  rpc RecordRelease(RecordReleaseRequest) returns (RecordReleaseResponse);
+  // The committed projection of a release operation of the tenant.
+  rpc GetRelease(GetReleaseRequest) returns (GetReleaseResponse);
+}
+
+message RecordReleaseRequest {
+  string operation_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // "0" for the first record.
+  string expected_revision = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  ReleaseState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional ReleaseSubject subject = 4;
+  optional string release_id = 5 [(buf.validate.field).string = {max_len: 128}];
+  optional string review_effect_id = 6 [(buf.validate.field).string = {max_len: 128}];
+  optional Approval approval = 7;
+  optional google.protobuf.Timestamp approval_deadline = 8;
+  ReleaseTarget npm = 9 [(buf.validate.field).required = true];
+  ReleaseTarget browser = 10 [(buf.validate.field).required = true];
+  ReleaseTarget activation = 11 [(buf.validate.field).required = true];
+  optional string catalog_revision = 12 [(buf.validate.field).string = {max_len: 20}];
+  optional string failure_code = 13 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message RecordReleaseResponse {
+  Release release = 1;
+  bool existing = 2;
+}
+
+message GetReleaseRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetReleaseResponse {
+  Release release = 1;
+}

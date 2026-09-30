@@ -172,10 +172,19 @@ message OperationSubject {
   string subject_digest = 2 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
   optional string brief_id = 3 [(buf.validate.field).string = {max_len: 128}];
   optional string source_revision = 4 [(buf.validate.field).string = {max_len: 128}];
-  // preview_build: the finalized source artifact holding the edited source
-  // (its digest is the subject digest); source_revision is the revision the
-  // edit was based on, saved conditionally before the build.
+  // preview_build: the finalized source artifact holding the edited source;
+  // subject_digest names the component source lineage it edits (the subject
+  // its candidate was registered under) and source_revision the revision
+  // the edit was based on, saved conditionally before the build.
   optional string source_handle = 5 [(buf.validate.field).string = {max_len: 256}];
+  // release: the preview_build or generation operation whose saved or
+  // registered source is released. subject_digest and source_revision must
+  // be that operation's lineage and the revision its source authority named
+  // for the bytes; Control binds the source artifact (source_handle) itself.
+  optional string source_operation_id = 6 [(buf.validate.field).string = {max_len: 128}];
+  // release: the package version the requester releases; the certified
+  // source must declare exactly this version.
+  optional string package_version = 7 [(buf.validate.field).string = {max_len: 64}];
 }
 
 // OperationView is the single committed projection the API exposes.

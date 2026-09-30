@@ -34,7 +34,7 @@ enum PreviewState {
 message Preview {
   string operation_id = 1;
   string tenant_id = 2;
-  // The component source's subject (the operation's subject digest).
+  // The component source lineage (the operation's subject digest).
   string subject_digest = 3;
   // The revision the edit was based on (the operation's source revision).
   string base_revision = 4;
@@ -62,6 +62,10 @@ service PreviewService {
   rpc RecordPreview(RecordPreviewRequest) returns (RecordPreviewResponse);
   // The committed projection of a preview_build operation of the tenant.
   rpc GetPreview(GetPreviewRequest) returns (GetPreviewResponse);
+  // The source the workbench edits: a generation's certified source (with
+  // the revision its candidate registration answered) or a preview build's
+  // edited source (with the revision its save created, else its base).
+  rpc GetSource(GetSourceRequest) returns (GetSourceResponse);
 }
 
 message RecordPreviewRequest {
@@ -103,4 +107,25 @@ message GetPreviewRequest {
 
 message GetPreviewResponse {
   Preview preview = 1;
+}
+
+message GetSourceRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string operation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetSourceResponse {
+  // The source archive (class source).
+  ArtifactReference source = 1;
+  // The component source lineage (the operation's subject digest).
+  string lineage = 2;
+  // The source revision these bytes are, when the source authority named
+  // one (a registered candidate, a saved preview); absent otherwise.
+  optional string revision = 3;
 }

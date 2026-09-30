@@ -298,6 +298,17 @@ enum FactState {
   FACT_STATE_EXPIRED = 5;
 }
 
+// Who a proposal speaks for. Models and workers only propose; a decision is
+// taken by an authorized user (or, inside Knowledge, a reviewed rule such as
+// expiry) and never by an identity that proposed on behalf of a model or a
+// worker.
+enum FactOrigin {
+  FACT_ORIGIN_UNSPECIFIED = 0;
+  FACT_ORIGIN_USER = 1;
+  FACT_ORIGIN_MODEL = 2;
+  FACT_ORIGIN_WORKER = 3;
+}
+
 enum FactDecision {
   FACT_DECISION_UNSPECIFIED = 0;
   FACT_DECISION_CONFIRM = 1;
@@ -321,6 +332,10 @@ message MemoryFact {
   optional google.protobuf.Timestamp expires_at = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
+  FactOrigin origin = 16;
+  // Set by DeleteFact in the response that deleted it: content is erased
+  // and the fact is unreadable afterwards (reads answer NOT_FOUND).
+  bool deleted = 17;
 }
 
 service MemoryService {
@@ -331,6 +346,15 @@ service MemoryService {
   rpc DecideFact(DecideFactRequest) returns (DecideFactResponse);
   rpc GetFact(GetFactRequest) returns (GetFactResponse);
   rpc ListFacts(ListFactsRequest) returns (ListFactsResponse);
+  // Ends readability in one transaction under expected revision (content
+  // erased, decision recorded); the Store and every vector generation are
+  // cleared asynchronously from that tombstone.
+  rpc DeleteFact(DeleteFactRequest) returns (DeleteFactResponse);
+  // Semantic recall of confirmed, unexpired facts the caller may read now:
+  // both prefetch branches are filtered by the current allowed-fact set,
+  // content comes from the authoritative record after a recheck; no
+  // sufficient evidence returns no_answer=true.
+  rpc RecallFacts(RecallFactsRequest) returns (RecallFactsResponse);
 }
 
 message ProposeFactRequest {
@@ -348,8 +372,18 @@ message ProposeFactRequest {
     min_len: 1
     max_len: 4096
   }];
-  repeated string source_refs = 6 [(buf.validate.field).repeated.max_items = 32];
+  // Exact provenance: <source_id>@<revision> of sources the caller can read.
+  repeated string source_refs = 6 [(buf.validate.field).repeated = {
+    max_items: 32
+    items: {
+      string: {pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}@[1-9][0-9]{0,18}$"}
+    }
+  }];
   optional google.protobuf.Timestamp expires_at = 7;
+  FactOrigin origin = 8 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
 }
 
 message ProposeFactResponse {
@@ -370,6 +404,8 @@ message DecideFactRequest {
     not_in: [0]
   }];
   optional string reason_code = 6 [(buf.validate.field).string = {max_len: 64}];
+  // CONFIRM only: the confirmed fact's expiry (must lie in the future).
+  optional google.protobuf.Timestamp expires_at = 7;
 }
 
 message DecideFactResponse {
@@ -401,6 +437,44 @@ message ListFactsRequest {
 message ListFactsResponse {
   repeated MemoryFact facts = 1;
   string next_cursor = 2;
+}
+
+message DeleteFactRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string fact_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+}
+
+message DeleteFactResponse {
+  MemoryFact fact = 1;
+  bool existing = 2;
+}
+
+message RecallFactsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string query = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+  uint32 max_facts = 3 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 32
+  }];
+  string retrieval_profile_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  google.protobuf.Timestamp deadline = 5 [(buf.validate.field).required = true];
+}
+
+message RecallFactsResponse {
+  repeated MemoryFact facts = 1;
+  bool no_answer = 2;
+  string index_generation = 3;
 }
 
 // ---------------------------------------------------------------------------
@@ -546,6 +620,15 @@ service IngestService {
   // point is materialized. Same claimant rules and idempotence as
   // AdvanceParse; no text, vector, key or collection name crosses.
   rpc AdvanceIndex(AdvanceIndexRequest) returns (AdvanceIndexResponse);
+  // The projection step of a claimed memory-project task (DD-07 §5):
+  // Knowledge applies the fact's current state (content when confirmed, a
+  // tombstone otherwise) to one projection target — the PostgresStore or one
+  // vector generation — checking the fact's current revision before and
+  // after the write, then verifies it. Same claimant rules as AdvanceIndex;
+  // no content, vector, key or collection name crosses. IndexState is reused:
+  // RUNNING (call again), MATERIALIZED (result_ref/result_digest to submit),
+  // FAILED (failure_code).
+  rpc AdvanceProjection(AdvanceProjectionRequest) returns (AdvanceProjectionResponse);
 }
 
 message AdvanceParseRequest {
@@ -597,6 +680,28 @@ message AdvanceIndexRequest {
 }
 
 message AdvanceIndexResponse {
+  IndexState state = 1;
+  string result_ref = 2;
+  string result_digest = 3;
+  optional string failure_code = 4;
+  // Suggested wait before the next call while RUNNING.
+  uint32 retry_after_ms = 5;
+}
+
+message AdvanceProjectionRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string input_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message AdvanceProjectionResponse {
   IndexState state = 1;
   string result_ref = 2;
   string result_digest = 3;

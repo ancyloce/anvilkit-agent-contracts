@@ -65,12 +65,21 @@ enum ReviewDecision {
   REVIEW_DECISION_REJECT = 2;
 }
 
+// One method of a descriptor revision. Schemas and annotations are read
+// from the live server; side effects, price, idempotency and query support
+// are the listing's declarations that the reviewer approves with the exact
+// descriptor digest.
 message ToolSchema {
   string method = 1;
   string input_schema_digest = 2;
   string output_schema_digest = 3;
   bool side_effecting = 4;
   Money unit_price = 5;
+  // Repeating the same call cannot cause a second effect.
+  bool idempotent = 6;
+  // The server answers a query for an original call by its identity.
+  bool query_supported = 7;
+  string annotations_digest = 8;
 }
 
 // Descriptor is one reviewed revision of a server; a changed descriptor is a
@@ -88,6 +97,23 @@ message Descriptor {
   optional string review_id = 10;
   google.protobuf.Timestamp created_at = 11;
   google.protobuf.Timestamp updated_at = 12;
+  // What the live server reported at discovery (initialize / tools, resources
+  // and prompts listings through the connection layer).
+  string server_name = 13;
+  string server_version = 14;
+  string resources_digest = 15;
+  string prompts_digest = 16;
+  // The declared data class, network scope (hosts the server may reach) and
+  // licenses the review covers.
+  string data_class = 17;
+  repeated string network_scope = 18;
+  repeated string licenses = 19;
+  // Explicit remote revision evidence: the retrieval that produced this
+  // revision (hosted servers expose no binary hash; nothing here claims
+  // pinned upstream bytes).
+  string revision_evidence = 20;
+  string discovered_by = 21;
+  optional string reviewer = 22;
 }
 
 service CatalogService {
@@ -149,10 +175,46 @@ message DiscoverServerRequest {
     min_len: 1
     max_len: 512
   }];
-  string descriptor_digest = 7 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  // The descriptor digest the caller expects (for example from a registry
+  // listing); empty accepts whatever the live retrieval yields. A mismatch
+  // records nothing.
+  string descriptor_digest = 7 [(buf.validate.field).string.pattern = "^(sha256:[0-9a-f]{64})?$"];
+  // The listing's declarations per method (side effects, price, idempotency,
+  // query support); every live method must be declared and every declared
+  // method must exist live. Schema digests, when given, must equal the live
+  // ones.
   repeated ToolSchema tools = 8 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 512
+  }];
+  string data_class = 9 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).string = {
+      in: [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    }
+  ];
+  repeated string network_scope = 10 [(buf.validate.field).repeated = {
+    max_items: 32
+    items: {
+      string: {
+        min_len: 1
+        max_len: 253
+      }
+    }
+  }];
+  repeated string licenses = 11 [(buf.validate.field).repeated = {
+    max_items: 32
+    items: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
   }];
 }
 
@@ -229,6 +291,21 @@ message Grant {
   optional google.protobuf.Timestamp expires_at = 14;
   google.protobuf.Timestamp created_at = 15;
   google.protobuf.Timestamp updated_at = 16;
+  // The security dimensions the grant revision binds (DD-08 §2); the policy
+  // digest registered with Control covers all of them.
+  string canonical_resource = 17;
+  string transport = 18;
+  string protocol_version = 19;
+  string issuer = 20;
+  string audience = 21;
+  repeated string resource_selectors = 22;
+  repeated string prompt_selectors = 23;
+  string data_class = 24;
+  string policy_digest = 25;
+  string policy_epoch = 26;
+  // The last management outcome that kept the grant non-executable (a
+  // failed or unanswered registration, a disabled descriptor).
+  optional string failure_code = 27;
 }
 
 service GrantService {
@@ -274,6 +351,22 @@ message CreateGrantRequest {
   }];
   Money cost_cap = 10 [(buf.validate.field).required = true];
   optional google.protobuf.Timestamp expires_at = 11;
+  // Resource and prompt selectors the grant allows (exact names of the
+  // descriptor's resources and prompts); none when the grant covers tools only.
+  repeated string resource_selectors = 12 [(buf.validate.field).repeated.max_items = 64];
+  repeated string prompt_selectors = 13 [(buf.validate.field).repeated.max_items = 64];
+  // The data class of the purpose; it may not exceed the descriptor's.
+  string data_class = 14 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).string = {
+      in: [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    }
+  ];
 }
 
 message CreateGrantResponse {
@@ -336,6 +429,10 @@ message GetRevocationProgressResponse {
   bool senders_converged = 3;
   string in_flight_calls = 4;
   string unknown_calls = 5;
+  // Control's barrier state (fenced, converging, converged) as last read, and
+  // MCP's own tool requests of the grant that are not yet terminal.
+  string control_state = 6;
+  string open_calls = 7;
 }
 
 // ---------------------------------------------------------------------------
@@ -369,6 +466,15 @@ message ToolCall {
   optional string failure_code = 12;
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
+  // The bounded, normalized typed result (JSON: content blocks, structured
+  // content, isError) of a SUCCEEDED or FAILED call; result_digest is its
+  // SHA-256. Returned content, links and prompts are untrusted data.
+  bytes result = 15;
+  // The descriptor revision, digest and protocol version the call was bound
+  // to at acceptance (the grant revision's).
+  string descriptor_revision = 16;
+  string descriptor_digest = 17;
+  string protocol_version = 18;
 }
 
 service CallService {
@@ -399,6 +505,14 @@ message CreateCallRequest {
   string operation_id = 8 [(buf.validate.field).string = {max_len: 128}];
   string attempt_id = 9 [(buf.validate.field).string = {max_len: 128}];
   google.protobuf.Timestamp deadline = 10 [(buf.validate.field).required = true];
+  // The rest of the execution binding Control admits the dispatch under
+  // (with operation_id and attempt_id).
+  string instance_id = 11 [(buf.validate.field).string = {max_len: 128}];
+  string execution_epoch = 12 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+  // The argument bytes (a JSON object, bounded): argument_digest is their
+  // SHA-256 and argument_ref the caller's reference of them. MCP verifies
+  // the digest and validates them against the grant revision's input schema.
+  bytes arguments = 13 [(buf.validate.field).bytes = {max_len: 65536}];
 }
 
 message CreateCallResponse {

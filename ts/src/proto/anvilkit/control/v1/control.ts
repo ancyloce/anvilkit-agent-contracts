@@ -816,7 +816,32 @@ export interface OperationSubject {
   profileId: string;
   subjectDigest: string;
   briefId?: string | undefined;
-  sourceRevision?: string | undefined;
+  sourceRevision?:
+    | string
+    | undefined;
+  /**
+   * preview_build: the finalized source artifact holding the edited source;
+   * subject_digest names the component source lineage it edits (the subject
+   * its candidate was registered under) and source_revision the revision
+   * the edit was based on, saved conditionally before the build.
+   */
+  sourceHandle?:
+    | string
+    | undefined;
+  /**
+   * release: the preview_build or generation operation whose saved or
+   * registered source is released. subject_digest and source_revision must
+   * be that operation's lineage and the revision its source authority named
+   * for the bytes; Control binds the source artifact (source_handle) itself.
+   */
+  sourceOperationId?:
+    | string
+    | undefined;
+  /**
+   * release: the package version the requester releases; the certified
+   * source must declare exactly this version.
+   */
+  packageVersion?: string | undefined;
 }
 
 /** OperationView is the single committed projection the API exposes. */
@@ -2160,6 +2185,9 @@ function createBaseOperationSubject(): OperationSubject {
     subjectDigest: "",
     briefId: undefined,
     sourceRevision: undefined,
+    sourceHandle: undefined,
+    sourceOperationId: undefined,
+    packageVersion: undefined,
   };
 }
 
@@ -2178,6 +2206,15 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
     }
     if (message.sourceRevision !== undefined) {
       writer.uint32(34).string(message.sourceRevision);
+    }
+    if (message.sourceHandle !== undefined) {
+      writer.uint32(42).string(message.sourceHandle);
+    }
+    if (message.sourceOperationId !== undefined) {
+      writer.uint32(50).string(message.sourceOperationId);
+    }
+    if (message.packageVersion !== undefined) {
+      writer.uint32(58).string(message.packageVersion);
     }
     return writer;
   },
@@ -2227,6 +2264,30 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
             message.sourceRevision = reader.string();
             continue;
           }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.sourceHandle = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.sourceOperationId = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.packageVersion = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2262,6 +2323,21 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
         : isSet(object.source_revision)
         ? globalThis.String(object.source_revision)
         : undefined,
+      sourceHandle: isSet(object.sourceHandle)
+        ? globalThis.String(object.sourceHandle)
+        : isSet(object.source_handle)
+        ? globalThis.String(object.source_handle)
+        : undefined,
+      sourceOperationId: isSet(object.sourceOperationId)
+        ? globalThis.String(object.sourceOperationId)
+        : isSet(object.source_operation_id)
+        ? globalThis.String(object.source_operation_id)
+        : undefined,
+      packageVersion: isSet(object.packageVersion)
+        ? globalThis.String(object.packageVersion)
+        : isSet(object.package_version)
+        ? globalThis.String(object.package_version)
+        : undefined,
     };
   },
 
@@ -2279,6 +2355,15 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
     if (message.sourceRevision !== undefined) {
       obj.sourceRevision = message.sourceRevision;
     }
+    if (message.sourceHandle !== undefined) {
+      obj.sourceHandle = message.sourceHandle;
+    }
+    if (message.sourceOperationId !== undefined) {
+      obj.sourceOperationId = message.sourceOperationId;
+    }
+    if (message.packageVersion !== undefined) {
+      obj.packageVersion = message.packageVersion;
+    }
     return obj;
   },
 
@@ -2291,6 +2376,9 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
     message.subjectDigest = object.subjectDigest ?? "";
     message.briefId = object.briefId ?? undefined;
     message.sourceRevision = object.sourceRevision ?? undefined;
+    message.sourceHandle = object.sourceHandle ?? undefined;
+    message.sourceOperationId = object.sourceOperationId ?? undefined;
+    message.packageVersion = object.packageVersion ?? undefined;
     return message;
   },
 };

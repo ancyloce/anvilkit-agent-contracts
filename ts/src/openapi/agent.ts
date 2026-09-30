@@ -72,6 +72,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/operations/{operationId}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The exact source archive a workbench edits (a generation's certified source or a preview build's edited source) */
+        get: operations["readSource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/{operationId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The committed preview of a preview_build operation (saved revision, state, exact artifacts) */
+        get: operations["getPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/{operationId}/preview/artifacts/{digest}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The verified bytes of the preview's module or one of its stylesheets */
+        get: operations["readPreviewArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/{operationId}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The committed release projection of a release operation (exact subject, approval, per-target receipts, activation) */
+        get: operations["getRelease"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/operations/{operationId}/events": {
         parameters: {
             query?: never;
@@ -137,7 +205,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** API-07 the sources the caller may read, with ACL revision and ingest state */
+        get: operations["listSources"];
         put?: never;
         /** API-07 register an approved source reference for ingestion */
         post: operations["registerSource"];
@@ -206,7 +275,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** API-09 memory facts the caller may see, by subject and state */
+        get: operations["listMemories"];
         put?: never;
         /** API-09 propose a memory fact; models never confirm */
         post: operations["proposeMemory"];
@@ -250,6 +320,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mcp/catalog/discoveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** API-15 record the live descriptor of a server as a revision awaiting review */
+        post: operations["discoverServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mcp/catalog/{serverId}/reviews": {
         parameters: {
             query?: never;
@@ -274,7 +361,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** API-16 grants the caller may see */
+        get: operations["listGrants"];
         put?: never;
         /** API-10 create a grant bound to a descriptor revision and method scope */
         post: operations["createGrant"];
@@ -293,6 +381,23 @@ export interface paths {
         };
         /** Read a grant and its revocation progress */
         get: operations["getGrant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mcp/grants/{grantId}/revocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** API-16 blocked new admission versus converged senders of a grant's revocation */
+        get: operations["getRevocationProgress"];
         put?: never;
         post?: never;
         delete?: never;
@@ -444,6 +549,12 @@ export interface components {
             subjectDigest: components["schemas"]["Digest"];
             briefId?: components["schemas"]["Id"];
             sourceRevision?: components["schemas"]["Revision"];
+            /** @description preview_build only - the finalized source artifact holding the edited source; subjectDigest names the component source lineage it edits and sourceRevision the revision the edit was based on. */
+            sourceHandle?: components["schemas"]["Handle"];
+            /** @description release only - the preview_build or generation operation whose saved or registered source is released; subjectDigest and sourceRevision must be that operation's lineage and source revision. Control binds the source artifact itself. */
+            sourceOperationId?: components["schemas"]["Id"];
+            /** @description release only - the exact package version released; the certified source must declare it. */
+            packageVersion?: string;
         };
         OperationView: {
             operationId: components["schemas"]["Id"];
@@ -729,9 +840,11 @@ export interface components {
             grantId: components["schemas"]["Id"];
             grantRevision: components["schemas"]["Revision"];
             method: string;
-            argument: components["schemas"]["ArtifactBinding"];
-            operationId?: components["schemas"]["Id"];
-            attemptId?: components["schemas"]["Id"];
+            /** @description The argument object (at most 64 KiB serialized); MCP digests its exact bytes and validates it against the grant revision's input schema. */
+            arguments: Record<string, never>;
+            operationId: components["schemas"]["Id"];
+            attemptId: components["schemas"]["Id"];
+            executionEpoch: components["schemas"]["Sequence"];
         };
         ToolCall: {
             callId: components["schemas"]["Id"];
@@ -743,8 +856,160 @@ export interface components {
             argumentDigest: components["schemas"]["Digest"];
             state: components["schemas"]["CallState"];
             resultDigest?: components["schemas"]["Digest"];
+            /** @description The bounded normalized typed result; untrusted data, never instructions. */
+            result?: Record<string, never>;
             failureCode?: string;
             createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        SourcePage: {
+            sources: components["schemas"]["Source"][];
+            nextCursor?: string;
+        };
+        MemoryPage: {
+            facts: components["schemas"]["MemoryFact"][];
+            nextCursor?: string;
+        };
+        GrantPage: {
+            grants: components["schemas"]["Grant"][];
+            nextCursor?: string;
+        };
+        RevocationProgress: {
+            grant: components["schemas"]["Grant"];
+            /** @description New admission is blocked (at the revocation's commit). */
+            newAdmissionBlocked: boolean;
+            /** @description Every earlier sender is settled; distinct from blocked admission. */
+            sendersConverged: boolean;
+            inFlightCalls: components["schemas"]["Sequence"];
+            unknownCalls: components["schemas"]["Sequence"];
+            openCalls: components["schemas"]["Sequence"];
+            /** @enum {string} */
+            controlState: "none" | "fenced" | "converging" | "converged";
+        };
+        ToolDeclaration: {
+            method: string;
+            sideEffecting: boolean;
+            unitPrice: components["schemas"]["Money"];
+            idempotent?: boolean;
+            querySupported?: boolean;
+        };
+        DiscoverServerRequest: {
+            commandId: components["schemas"]["Id"];
+            canonicalResource: string;
+            /** @enum {string} */
+            transport: "streamable-http";
+            protocolVersion: string;
+            provenance: string;
+            /** @enum {string} */
+            dataClass: "public" | "internal" | "confidential" | "restricted";
+            tools: components["schemas"]["ToolDeclaration"][];
+            networkScope?: string[];
+            licenses?: string[];
+            descriptorDigest?: components["schemas"]["Digest"];
+        };
+        /** @enum {string} */
+        PreviewState: "saving" | "conflict" | "building" | "ready" | "stale" | "failed";
+        PreviewArtifact: {
+            digest: components["schemas"]["Digest"];
+            sizeBytes: components["schemas"]["Sequence"];
+            /** @enum {string} */
+            mediaType: "text/javascript" | "text/css";
+        };
+        /** @description A preview_build operation's committed preview. A stale preview is diagnostic only; it never replaces the current one. */
+        Preview: {
+            operationId: components["schemas"]["Id"];
+            subjectDigest: components["schemas"]["Digest"];
+            baseRevision: components["schemas"]["Revision"];
+            state: components["schemas"]["PreviewState"];
+            sourceRevision?: components["schemas"]["Revision"];
+            currentRevision?: components["schemas"]["Revision"];
+            sourceDigest: components["schemas"]["Digest"];
+            module?: components["schemas"]["PreviewArtifact"];
+            styles: components["schemas"]["PreviewArtifact"][];
+            buildProfileId: string;
+            hostProfileId: string;
+            failureCode?: string;
+            revision: components["schemas"]["Revision"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        /** @enum {string} */
+        ReleaseState: "certifying" | "awaiting_approval" | "publishing" | "published" | "activated" | "partially_published" | "reconciling" | "rejected" | "failed";
+        /** @enum {string} */
+        ApprovalState: "pending" | "approved" | "rejected" | "invalidated";
+        /** @enum {string} */
+        TargetState: "pending" | "succeeded" | "failed" | "unknown";
+        ReleaseArtifactDigest: {
+            digest: components["schemas"]["Digest"];
+            sizeBytes: components["schemas"]["Sequence"];
+        };
+        /** @description The exact subject a maintainer approves (components/component.schema.json#/$defs/releaseSubject); subjectDigest is the RFC 8785 digest of the other fields. Any changed field is a new subject that inherits no approval. */
+        ReleaseSubject: {
+            componentId: components["schemas"]["Id"];
+            puckType: string;
+            sourceRevision: components["schemas"]["Revision"];
+            sourceDigest: components["schemas"]["Digest"];
+            packageName: string;
+            version: string;
+            npm: components["schemas"]["ReleaseArtifactDigest"];
+            browser: components["schemas"]["ReleaseArtifactDigest"];
+            css: components["schemas"]["ReleaseArtifactDigest"][];
+            buildProfileId: components["schemas"]["Id"];
+            buildProfileDigest: components["schemas"]["Digest"];
+            validatorProfileId: components["schemas"]["Id"];
+            validatorProfileDigest: components["schemas"]["Digest"];
+            hostAbi: components["schemas"]["Id"];
+            hostAbiDigest: components["schemas"]["Digest"];
+            destinations: {
+                npmRegistry: string;
+                browserOrigin: string;
+            };
+            certificationEvidenceDigest: components["schemas"]["Digest"];
+            subjectDigest: components["schemas"]["Digest"];
+        };
+        Approval: {
+            state: components["schemas"]["ApprovalState"];
+            subjectDigest: components["schemas"]["Digest"];
+            approverId?: components["schemas"]["Id"];
+            decidedAt?: components["schemas"]["Timestamp"];
+            reasonCode?: string;
+        };
+        ReleaseTarget: {
+            state: components["schemas"]["TargetState"];
+            receiptId?: components["schemas"]["Id"];
+            receiptDigest?: components["schemas"]["Digest"];
+            destination?: string;
+            manifestDigest?: components["schemas"]["Digest"];
+            failureCode?: string;
+        };
+        /** @description The exact lock entry a saved page pins for an activated release (components/component.schema.json#/$defs/remoteComponentLock). */
+        ReleaseLock: {
+            /** @enum {integer} */
+            schemaVersion: 1;
+            componentId: components["schemas"]["Id"];
+            puckType: string;
+            releaseId: components["schemas"]["Id"];
+            packageName: string;
+            packageVersion: string;
+            browserManifestDigest: components["schemas"]["Digest"];
+            hostProfileId: components["schemas"]["Id"];
+        };
+        /** @description A release operation's committed projection. Only an activated release names its lock; npm success alone, an unknown target or a pending approval is never a delivered release. */
+        Release: {
+            operationId: components["schemas"]["Id"];
+            lineage: components["schemas"]["Digest"];
+            sourceRevision: components["schemas"]["Revision"];
+            state: components["schemas"]["ReleaseState"];
+            subject?: components["schemas"]["ReleaseSubject"];
+            releaseId?: components["schemas"]["Id"];
+            approval?: components["schemas"]["Approval"];
+            approvalDeadline?: components["schemas"]["Timestamp"];
+            npm: components["schemas"]["ReleaseTarget"];
+            browser: components["schemas"]["ReleaseTarget"];
+            activation: components["schemas"]["ReleaseTarget"];
+            catalogRevision?: components["schemas"]["Revision"];
+            lock?: components["schemas"]["ReleaseLock"];
+            failureCode?: string;
+            revision: components["schemas"]["Revision"];
             updatedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
@@ -986,6 +1251,115 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    readSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: components["parameters"]["operationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The source archive (a tar of regular files under relative paths); its SHA-256 is the digest header. */
+            200: {
+                headers: {
+                    "AnvilKit-Source-Lineage": components["schemas"]["Digest"];
+                    "AnvilKit-Source-Digest": components["schemas"]["Digest"];
+                    "AnvilKit-Source-Revision"?: components["schemas"]["Revision"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-tar": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: components["parameters"]["operationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current committed preview projection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    readPreviewArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: components["parameters"]["operationId"];
+                digest: components["schemas"]["Digest"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The exact bytes (their SHA-256 is the path digest). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/javascript": string;
+                    "text/css": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: components["parameters"]["operationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current committed release projection. Approval, publication and activation are the source authority's facts as the release recorded them; a pending or unknown target is never shown as delivered. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     streamOperationEvents: {
         parameters: {
             query?: {
@@ -1072,6 +1446,33 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listSources: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["cursor"];
+                limit?: components["parameters"]["limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Source page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePage"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             503: components["responses"]["Unavailable"];
         };
     };
@@ -1223,6 +1624,36 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    listMemories: {
+        parameters: {
+            query?: {
+                subjectType?: string;
+                subjectId?: components["schemas"]["Id"];
+                state?: components["schemas"]["FactState"];
+                cursor?: components["parameters"]["cursor"];
+                limit?: components["parameters"]["limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Memory page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryPage"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     proposeMemory: {
         parameters: {
             query?: never;
@@ -1312,6 +1743,35 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    discoverServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscoverServerRequest"];
+            };
+        };
+        responses: {
+            /** @description The discovered (or identical existing) revision. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Descriptor"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     reviewDescriptor: {
         parameters: {
             query?: never;
@@ -1341,6 +1801,34 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listGrants: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["GrantState"];
+                cursor?: components["parameters"]["cursor"];
+                limit?: components["parameters"]["limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grant page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantPage"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             503: components["responses"]["Unavailable"];
         };
     };
@@ -1391,6 +1879,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Grant"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRevocationProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grantId: components["parameters"]["grantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revocation progress. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevocationProgress"];
                 };
             };
             401: components["responses"]["Unauthenticated"];

@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -39,6 +40,30 @@ func (e AccessEntryPrincipalType) Valid() bool {
 	case AccessEntryPrincipalTypeRole:
 		return true
 	case AccessEntryPrincipalTypeTenant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApprovalState.
+const (
+	ApprovalStateApproved    ApprovalState = "approved"
+	ApprovalStateInvalidated ApprovalState = "invalidated"
+	ApprovalStatePending     ApprovalState = "pending"
+	ApprovalStateRejected    ApprovalState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ApprovalState enum.
+func (e ApprovalState) Valid() bool {
+	switch e {
+	case ApprovalStateApproved:
+		return true
+	case ApprovalStateInvalidated:
+		return true
+	case ApprovalStatePending:
+		return true
+	case ApprovalStateRejected:
 		return true
 	default:
 		return false
@@ -227,25 +252,25 @@ func (e CommandOutcome) Valid() bool {
 
 // Defines values for ControlState.
 const (
-	CancelApplied ControlState = "cancel_applied"
-	CancelPending ControlState = "cancel_pending"
-	HoldApplied   ControlState = "hold_applied"
-	HoldPending   ControlState = "hold_pending"
-	None          ControlState = "none"
+	ControlStateCancelApplied ControlState = "cancel_applied"
+	ControlStateCancelPending ControlState = "cancel_pending"
+	ControlStateHoldApplied   ControlState = "hold_applied"
+	ControlStateHoldPending   ControlState = "hold_pending"
+	ControlStateNone          ControlState = "none"
 )
 
 // Valid indicates whether the value is a known member of the ControlState enum.
 func (e ControlState) Valid() bool {
 	switch e {
-	case CancelApplied:
+	case ControlStateCancelApplied:
 		return true
-	case CancelPending:
+	case ControlStateCancelPending:
 		return true
-	case HoldApplied:
+	case ControlStateHoldApplied:
 		return true
-	case HoldPending:
+	case ControlStateHoldPending:
 		return true
-	case None:
+	case ControlStateNone:
 		return true
 	default:
 		return false
@@ -305,16 +330,55 @@ func (e CreateOperationRequestKind) Valid() bool {
 
 // Defines values for DescriptorTransport.
 const (
-	Stdio          DescriptorTransport = "stdio"
-	StreamableHttp DescriptorTransport = "streamable-http"
+	DescriptorTransportStdio          DescriptorTransport = "stdio"
+	DescriptorTransportStreamableHttp DescriptorTransport = "streamable-http"
 )
 
 // Valid indicates whether the value is a known member of the DescriptorTransport enum.
 func (e DescriptorTransport) Valid() bool {
 	switch e {
-	case Stdio:
+	case DescriptorTransportStdio:
 		return true
-	case StreamableHttp:
+	case DescriptorTransportStreamableHttp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DiscoverServerRequestDataClass.
+const (
+	Confidential DiscoverServerRequestDataClass = "confidential"
+	Internal     DiscoverServerRequestDataClass = "internal"
+	Public       DiscoverServerRequestDataClass = "public"
+	Restricted   DiscoverServerRequestDataClass = "restricted"
+)
+
+// Valid indicates whether the value is a known member of the DiscoverServerRequestDataClass enum.
+func (e DiscoverServerRequestDataClass) Valid() bool {
+	switch e {
+	case Confidential:
+		return true
+	case Internal:
+		return true
+	case Public:
+		return true
+	case Restricted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DiscoverServerRequestTransport.
+const (
+	DiscoverServerRequestTransportStreamableHttp DiscoverServerRequestTransport = "streamable-http"
+)
+
+// Valid indicates whether the value is a known member of the DiscoverServerRequestTransport enum.
+func (e DiscoverServerRequestTransport) Valid() bool {
+	switch e {
+	case DiscoverServerRequestTransportStreamableHttp:
 		return true
 	default:
 		return false
@@ -609,6 +673,108 @@ func (e OperationKind) Valid() bool {
 	}
 }
 
+// Defines values for PreviewArtifactMediaType.
+const (
+	Textcss        PreviewArtifactMediaType = "text/css"
+	Textjavascript PreviewArtifactMediaType = "text/javascript"
+)
+
+// Valid indicates whether the value is a known member of the PreviewArtifactMediaType enum.
+func (e PreviewArtifactMediaType) Valid() bool {
+	switch e {
+	case Textcss:
+		return true
+	case Textjavascript:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreviewState.
+const (
+	PreviewStateBuilding PreviewState = "building"
+	PreviewStateConflict PreviewState = "conflict"
+	PreviewStateFailed   PreviewState = "failed"
+	PreviewStateReady    PreviewState = "ready"
+	PreviewStateSaving   PreviewState = "saving"
+	PreviewStateStale    PreviewState = "stale"
+)
+
+// Valid indicates whether the value is a known member of the PreviewState enum.
+func (e PreviewState) Valid() bool {
+	switch e {
+	case PreviewStateBuilding:
+		return true
+	case PreviewStateConflict:
+		return true
+	case PreviewStateFailed:
+		return true
+	case PreviewStateReady:
+		return true
+	case PreviewStateSaving:
+		return true
+	case PreviewStateStale:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReleaseLockSchemaVersion.
+const (
+	N1 ReleaseLockSchemaVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the ReleaseLockSchemaVersion enum.
+func (e ReleaseLockSchemaVersion) Valid() bool {
+	switch e {
+	case N1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReleaseState.
+const (
+	ReleaseStateActivated          ReleaseState = "activated"
+	ReleaseStateAwaitingApproval   ReleaseState = "awaiting_approval"
+	ReleaseStateCertifying         ReleaseState = "certifying"
+	ReleaseStateFailed             ReleaseState = "failed"
+	ReleaseStatePartiallyPublished ReleaseState = "partially_published"
+	ReleaseStatePublished          ReleaseState = "published"
+	ReleaseStatePublishing         ReleaseState = "publishing"
+	ReleaseStateReconciling        ReleaseState = "reconciling"
+	ReleaseStateRejected           ReleaseState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ReleaseState enum.
+func (e ReleaseState) Valid() bool {
+	switch e {
+	case ReleaseStateActivated:
+		return true
+	case ReleaseStateAwaitingApproval:
+		return true
+	case ReleaseStateCertifying:
+		return true
+	case ReleaseStateFailed:
+		return true
+	case ReleaseStatePartiallyPublished:
+		return true
+	case ReleaseStatePublished:
+		return true
+	case ReleaseStatePublishing:
+		return true
+	case ReleaseStateReconciling:
+		return true
+	case ReleaseStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReviewDescriptorRequestDecision.
 const (
 	ReviewDescriptorRequestDecisionApprove ReviewDescriptorRequestDecision = "approve"
@@ -624,6 +790,30 @@ func (e ReviewDescriptorRequestDecision) Valid() bool {
 	case ReviewDescriptorRequestDecisionDisable:
 		return true
 	case ReviewDescriptorRequestDecisionReject:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RevocationProgressControlState.
+const (
+	RevocationProgressControlStateConverged  RevocationProgressControlState = "converged"
+	RevocationProgressControlStateConverging RevocationProgressControlState = "converging"
+	RevocationProgressControlStateFenced     RevocationProgressControlState = "fenced"
+	RevocationProgressControlStateNone       RevocationProgressControlState = "none"
+)
+
+// Valid indicates whether the value is a known member of the RevocationProgressControlState enum.
+func (e RevocationProgressControlState) Valid() bool {
+	switch e {
+	case RevocationProgressControlStateConverged:
+		return true
+	case RevocationProgressControlStateConverging:
+		return true
+	case RevocationProgressControlStateFenced:
+		return true
+	case RevocationProgressControlStateNone:
 		return true
 	default:
 		return false
@@ -648,6 +838,30 @@ func (e SourceKind) Valid() bool {
 	case Repository:
 		return true
 	case Url:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TargetState.
+const (
+	TargetStateFailed    TargetState = "failed"
+	TargetStatePending   TargetState = "pending"
+	TargetStateSucceeded TargetState = "succeeded"
+	TargetStateUnknown   TargetState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the TargetState enum.
+func (e TargetState) Valid() bool {
+	switch e {
+	case TargetStateFailed:
+		return true
+	case TargetStatePending:
+		return true
+	case TargetStateSucceeded:
+		return true
+	case TargetStateUnknown:
 		return true
 	default:
 		return false
@@ -713,6 +927,18 @@ type AnswerReceipt struct {
 	QuestionSetRevision Revision `json:"questionSetRevision"`
 	UpdateId            Id       `json:"updateId"`
 }
+
+// Approval defines model for Approval.
+type Approval struct {
+	ApproverId    *Id           `json:"approverId,omitempty"`
+	DecidedAt     *Timestamp    `json:"decidedAt,omitempty"`
+	ReasonCode    *string       `json:"reasonCode,omitempty"`
+	State         ApprovalState `json:"state"`
+	SubjectDigest Digest        `json:"subjectDigest"`
+}
+
+// ApprovalState defines model for ApprovalState.
+type ApprovalState string
 
 // ArtifactBinding A finalized transfer and the digest the caller expects it to hold.
 type ArtifactBinding struct {
@@ -849,16 +1075,19 @@ type CreatePreparationRequest struct {
 
 // CreateToolCallRequest defines model for CreateToolCallRequest.
 type CreateToolCallRequest struct {
-	// Argument A finalized transfer and the digest the caller expects it to hold.
-	Argument  ArtifactBinding `json:"argument"`
-	AttemptId *Id             `json:"attemptId,omitempty"`
-	CommandId Id              `json:"commandId"`
-	GrantId   Id              `json:"grantId"`
+	// Arguments The argument object (at most 64 KiB serialized); MCP digests its exact bytes and validates it against the grant revision's input schema.
+	Arguments map[string]interface{} `json:"arguments"`
+	AttemptId Id                     `json:"attemptId"`
+	CommandId Id                     `json:"commandId"`
+
+	// ExecutionEpoch Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	ExecutionEpoch Sequence `json:"executionEpoch"`
+	GrantId        Id       `json:"grantId"`
 
 	// GrantRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
 	GrantRevision Revision `json:"grantRevision"`
 	Method        string   `json:"method"`
-	OperationId   *Id      `json:"operationId,omitempty"`
+	OperationId   Id       `json:"operationId"`
 }
 
 // DeleteSourceRequest defines model for DeleteSourceRequest.
@@ -890,6 +1119,26 @@ type DescriptorTransport string
 
 // Digest defines model for Digest.
 type Digest = string
+
+// DiscoverServerRequest defines model for DiscoverServerRequest.
+type DiscoverServerRequest struct {
+	CanonicalResource string                         `json:"canonicalResource"`
+	CommandId         Id                             `json:"commandId"`
+	DataClass         DiscoverServerRequestDataClass `json:"dataClass"`
+	DescriptorDigest  *Digest                        `json:"descriptorDigest,omitempty"`
+	Licenses          *[]string                      `json:"licenses,omitempty"`
+	NetworkScope      *[]string                      `json:"networkScope,omitempty"`
+	ProtocolVersion   string                         `json:"protocolVersion"`
+	Provenance        string                         `json:"provenance"`
+	Tools             []ToolDeclaration              `json:"tools"`
+	Transport         DiscoverServerRequestTransport `json:"transport"`
+}
+
+// DiscoverServerRequestDataClass defines model for DiscoverServerRequest.DataClass.
+type DiscoverServerRequestDataClass string
+
+// DiscoverServerRequestTransport defines model for DiscoverServerRequest.Transport.
+type DiscoverServerRequestTransport string
 
 // ErrorCode defines model for ErrorCode.
 type ErrorCode string
@@ -957,6 +1206,12 @@ type Grant struct {
 // GrantSubjectType defines model for Grant.SubjectType.
 type GrantSubjectType string
 
+// GrantPage defines model for GrantPage.
+type GrantPage struct {
+	Grants     []Grant `json:"grants"`
+	NextCursor *string `json:"nextCursor,omitempty"`
+}
+
 // GrantState defines model for GrantState.
 type GrantState string
 
@@ -1005,6 +1260,12 @@ type MemoryFact struct {
 	UpdatedAt   Timestamp `json:"updatedAt"`
 }
 
+// MemoryPage defines model for MemoryPage.
+type MemoryPage struct {
+	Facts      []MemoryFact `json:"facts"`
+	NextCursor *string      `json:"nextCursor,omitempty"`
+}
+
 // Money defines model for Money.
 type Money struct {
 	// Amount Integer quantity at scale 6 as a decimal string; never a float.
@@ -1041,8 +1302,13 @@ type OperationKind string
 
 // OperationSubject defines model for OperationSubject.
 type OperationSubject struct {
-	BriefId   *Id `json:"briefId,omitempty"`
-	ProfileId Id  `json:"profileId"`
+	BriefId *Id `json:"briefId,omitempty"`
+
+	// PackageVersion release only - the exact package version released; the certified source must declare it.
+	PackageVersion    *string `json:"packageVersion,omitempty"`
+	ProfileId         Id      `json:"profileId"`
+	SourceHandle      *Handle `json:"sourceHandle,omitempty"`
+	SourceOperationId *Id     `json:"sourceOperationId,omitempty"`
 
 	// SourceRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
 	SourceRevision *Revision `json:"sourceRevision,omitempty"`
@@ -1081,6 +1347,46 @@ type OperationView struct {
 	UpdatedAt Timestamp        `json:"updatedAt"`
 }
 
+// Preview A preview_build operation's committed preview. A stale preview is diagnostic only; it never replaces the current one.
+type Preview struct {
+	// BaseRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	BaseRevision   Revision `json:"baseRevision"`
+	BuildProfileId string   `json:"buildProfileId"`
+
+	// CurrentRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	CurrentRevision *Revision        `json:"currentRevision,omitempty"`
+	FailureCode     *string          `json:"failureCode,omitempty"`
+	HostProfileId   string           `json:"hostProfileId"`
+	Module          *PreviewArtifact `json:"module,omitempty"`
+	OperationId     Id               `json:"operationId"`
+
+	// Revision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	Revision     Revision `json:"revision"`
+	SourceDigest Digest   `json:"sourceDigest"`
+
+	// SourceRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	SourceRevision *Revision         `json:"sourceRevision,omitempty"`
+	State          PreviewState      `json:"state"`
+	Styles         []PreviewArtifact `json:"styles"`
+	SubjectDigest  Digest            `json:"subjectDigest"`
+	UpdatedAt      Timestamp         `json:"updatedAt"`
+}
+
+// PreviewArtifact defines model for PreviewArtifact.
+type PreviewArtifact struct {
+	Digest    Digest                   `json:"digest"`
+	MediaType PreviewArtifactMediaType `json:"mediaType"`
+
+	// SizeBytes Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	SizeBytes Sequence `json:"sizeBytes"`
+}
+
+// PreviewArtifactMediaType defines model for PreviewArtifact.MediaType.
+type PreviewArtifactMediaType string
+
+// PreviewState defines model for PreviewState.
+type PreviewState string
+
 // ProposeMemoryRequest defines model for ProposeMemoryRequest.
 type ProposeMemoryRequest struct {
 	CommandId   Id         `json:"commandId"`
@@ -1108,6 +1414,99 @@ type RegisterSourceRequest struct {
 
 	// SizeBytes Canonical unsigned decimal string, no leading zeros, bounded by uint64.
 	SizeBytes Sequence `json:"sizeBytes"`
+}
+
+// Release A release operation's committed projection. Only an activated release names its lock; npm success alone, an unknown target or a pending approval is never a delivered release.
+type Release struct {
+	Activation       ReleaseTarget `json:"activation"`
+	Approval         *Approval     `json:"approval,omitempty"`
+	ApprovalDeadline *Timestamp    `json:"approvalDeadline,omitempty"`
+	Browser          ReleaseTarget `json:"browser"`
+
+	// CatalogRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	CatalogRevision *Revision `json:"catalogRevision,omitempty"`
+	FailureCode     *string   `json:"failureCode,omitempty"`
+	Lineage         Digest    `json:"lineage"`
+
+	// Lock The exact lock entry a saved page pins for an activated release (components/component.schema.json#/$defs/remoteComponentLock).
+	Lock        *ReleaseLock  `json:"lock,omitempty"`
+	Npm         ReleaseTarget `json:"npm"`
+	OperationId Id            `json:"operationId"`
+	ReleaseId   *Id           `json:"releaseId,omitempty"`
+
+	// Revision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	Revision Revision `json:"revision"`
+
+	// SourceRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	SourceRevision Revision     `json:"sourceRevision"`
+	State          ReleaseState `json:"state"`
+
+	// Subject The exact subject a maintainer approves (components/component.schema.json#/$defs/releaseSubject); subjectDigest is the RFC 8785 digest of the other fields. Any changed field is a new subject that inherits no approval.
+	Subject   *ReleaseSubject `json:"subject,omitempty"`
+	UpdatedAt Timestamp       `json:"updatedAt"`
+}
+
+// ReleaseArtifactDigest defines model for ReleaseArtifactDigest.
+type ReleaseArtifactDigest struct {
+	Digest Digest `json:"digest"`
+
+	// SizeBytes Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	SizeBytes Sequence `json:"sizeBytes"`
+}
+
+// ReleaseLock The exact lock entry a saved page pins for an activated release (components/component.schema.json#/$defs/remoteComponentLock).
+type ReleaseLock struct {
+	BrowserManifestDigest Digest                   `json:"browserManifestDigest"`
+	ComponentId           Id                       `json:"componentId"`
+	HostProfileId         Id                       `json:"hostProfileId"`
+	PackageName           string                   `json:"packageName"`
+	PackageVersion        string                   `json:"packageVersion"`
+	PuckType              string                   `json:"puckType"`
+	ReleaseId             Id                       `json:"releaseId"`
+	SchemaVersion         ReleaseLockSchemaVersion `json:"schemaVersion"`
+}
+
+// ReleaseLockSchemaVersion defines model for ReleaseLock.SchemaVersion.
+type ReleaseLockSchemaVersion int
+
+// ReleaseState defines model for ReleaseState.
+type ReleaseState string
+
+// ReleaseSubject The exact subject a maintainer approves (components/component.schema.json#/$defs/releaseSubject); subjectDigest is the RFC 8785 digest of the other fields. Any changed field is a new subject that inherits no approval.
+type ReleaseSubject struct {
+	Browser                     ReleaseArtifactDigest   `json:"browser"`
+	BuildProfileDigest          Digest                  `json:"buildProfileDigest"`
+	BuildProfileId              Id                      `json:"buildProfileId"`
+	CertificationEvidenceDigest Digest                  `json:"certificationEvidenceDigest"`
+	ComponentId                 Id                      `json:"componentId"`
+	Css                         []ReleaseArtifactDigest `json:"css"`
+	Destinations                struct {
+		BrowserOrigin string `json:"browserOrigin"`
+		NpmRegistry   string `json:"npmRegistry"`
+	} `json:"destinations"`
+	HostAbi       Id                    `json:"hostAbi"`
+	HostAbiDigest Digest                `json:"hostAbiDigest"`
+	Npm           ReleaseArtifactDigest `json:"npm"`
+	PackageName   string                `json:"packageName"`
+	PuckType      string                `json:"puckType"`
+	SourceDigest  Digest                `json:"sourceDigest"`
+
+	// SourceRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	SourceRevision         Revision `json:"sourceRevision"`
+	SubjectDigest          Digest   `json:"subjectDigest"`
+	ValidatorProfileDigest Digest   `json:"validatorProfileDigest"`
+	ValidatorProfileId     Id       `json:"validatorProfileId"`
+	Version                string   `json:"version"`
+}
+
+// ReleaseTarget defines model for ReleaseTarget.
+type ReleaseTarget struct {
+	Destination    *string     `json:"destination,omitempty"`
+	FailureCode    *string     `json:"failureCode,omitempty"`
+	ManifestDigest *Digest     `json:"manifestDigest,omitempty"`
+	ReceiptDigest  *Digest     `json:"receiptDigest,omitempty"`
+	ReceiptId      *Id         `json:"receiptId,omitempty"`
+	State          TargetState `json:"state"`
 }
 
 // ReplaceSourceAccessRequest defines model for ReplaceSourceAccessRequest.
@@ -1142,6 +1541,30 @@ type ReviewDescriptorRequestDecision string
 
 // Revision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
 type Revision = Sequence
+
+// RevocationProgress defines model for RevocationProgress.
+type RevocationProgress struct {
+	ControlState RevocationProgressControlState `json:"controlState"`
+	Grant        Grant                          `json:"grant"`
+
+	// InFlightCalls Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	InFlightCalls Sequence `json:"inFlightCalls"`
+
+	// NewAdmissionBlocked New admission is blocked (at the revocation's commit).
+	NewAdmissionBlocked bool `json:"newAdmissionBlocked"`
+
+	// OpenCalls Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	OpenCalls Sequence `json:"openCalls"`
+
+	// SendersConverged Every earlier sender is settled; distinct from blocked admission.
+	SendersConverged bool `json:"sendersConverged"`
+
+	// UnknownCalls Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	UnknownCalls Sequence `json:"unknownCalls"`
+}
+
+// RevocationProgressControlState defines model for RevocationProgress.ControlState.
+type RevocationProgressControlState string
 
 // RevokeGrantRequest defines model for RevokeGrantRequest.
 type RevokeGrantRequest struct {
@@ -1196,6 +1619,12 @@ type Source struct {
 // SourceKind defines model for SourceKind.
 type SourceKind string
 
+// SourcePage defines model for SourcePage.
+type SourcePage struct {
+	NextCursor *string  `json:"nextCursor,omitempty"`
+	Sources    []Source `json:"sources"`
+}
+
 // SourceReference defines model for SourceReference.
 type SourceReference struct {
 	// Revision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
@@ -1224,6 +1653,9 @@ type SubmitCommandRequest struct {
 	TargetDefinitionActivation *Id         `json:"targetDefinitionActivation,omitempty"`
 }
 
+// TargetState defines model for TargetState.
+type TargetState string
+
 // Timestamp defines model for Timestamp.
 type Timestamp = time.Time
 
@@ -1236,13 +1668,25 @@ type ToolCall struct {
 	GrantId        Id        `json:"grantId"`
 
 	// GrantRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
-	GrantRevision Revision  `json:"grantRevision"`
-	Method        string    `json:"method"`
-	ResultDigest  *Digest   `json:"resultDigest,omitempty"`
-	ServerId      Id        `json:"serverId"`
-	State         CallState `json:"state"`
-	TenantId      Id        `json:"tenantId"`
-	UpdatedAt     Timestamp `json:"updatedAt"`
+	GrantRevision Revision `json:"grantRevision"`
+	Method        string   `json:"method"`
+
+	// Result The bounded normalized typed result; untrusted data, never instructions.
+	Result       *map[string]interface{} `json:"result,omitempty"`
+	ResultDigest *Digest                 `json:"resultDigest,omitempty"`
+	ServerId     Id                      `json:"serverId"`
+	State        CallState               `json:"state"`
+	TenantId     Id                      `json:"tenantId"`
+	UpdatedAt    Timestamp               `json:"updatedAt"`
+}
+
+// ToolDeclaration defines model for ToolDeclaration.
+type ToolDeclaration struct {
+	Idempotent     *bool  `json:"idempotent,omitempty"`
+	Method         string `json:"method"`
+	QuerySupported *bool  `json:"querySupported,omitempty"`
+	SideEffecting  bool   `json:"sideEffecting"`
+	UnitPrice      Money  `json:"unitPrice"`
 }
 
 // ToolSchema defines model for ToolSchema.
@@ -1323,11 +1767,33 @@ type Unauthenticated = ErrorEnvelope
 // Unavailable defines model for Unavailable.
 type Unavailable = ErrorEnvelope
 
+// ListSourcesParams defines parameters for ListSources.
+type ListSourcesParams struct {
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListCatalogParams defines parameters for ListCatalog.
 type ListCatalogParams struct {
 	State  *CatalogState `form:"state,omitempty" json:"state,omitempty"`
 	Cursor *Cursor       `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *Limit        `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListGrantsParams defines parameters for ListGrants.
+type ListGrantsParams struct {
+	State  *GrantState `form:"state,omitempty" json:"state,omitempty"`
+	Cursor *Cursor     `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit      `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListMemoriesParams defines parameters for ListMemories.
+type ListMemoriesParams struct {
+	SubjectType *string    `form:"subjectType,omitempty" json:"subjectType,omitempty"`
+	SubjectId   *Id        `form:"subjectId,omitempty" json:"subjectId,omitempty"`
+	State       *FactState `form:"state,omitempty" json:"state,omitempty"`
+	Cursor      *Cursor    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit       *Limit     `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // BeginTransferJSONRequestBody defines body for BeginTransfer for application/json ContentType.
@@ -1350,6 +1816,9 @@ type ReplaceSourceAccessJSONRequestBody = ReplaceSourceAccessRequest
 
 // CreateToolCallJSONRequestBody defines body for CreateToolCall for application/json ContentType.
 type CreateToolCallJSONRequestBody = CreateToolCallRequest
+
+// DiscoverServerJSONRequestBody defines body for DiscoverServer for application/json ContentType.
+type DiscoverServerJSONRequestBody = DiscoverServerRequest
 
 // ReviewDescriptorJSONRequestBody defines body for ReviewDescriptor for application/json ContentType.
 type ReviewDescriptorJSONRequestBody = ReviewDescriptorRequest
@@ -1389,6 +1858,9 @@ type ServerInterface interface {
 	// Search API-08 cited context under current authorization
 	// (POST /knowledge/searches)
 	Search(c *gin.Context)
+	// ListSources API-07 the sources the caller may read, with ACL revision and ingest state
+	// (GET /knowledge/sources)
+	ListSources(c *gin.Context, params ListSourcesParams)
 	// RegisterSource API-07 register an approved source reference for ingestion
 	// (POST /knowledge/sources)
 	RegisterSource(c *gin.Context)
@@ -1410,18 +1882,30 @@ type ServerInterface interface {
 	// ListCatalog API-10 visible reviewed catalog; visibility is not a grant
 	// (GET /mcp/catalog)
 	ListCatalog(c *gin.Context, params ListCatalogParams)
+	// DiscoverServer API-15 record the live descriptor of a server as a revision awaiting review
+	// (POST /mcp/catalog/discoveries)
+	DiscoverServer(c *gin.Context)
 	// ReviewDescriptor API-15 authorized review decision bound to the exact descriptor digest
 	// (POST /mcp/catalog/{serverId}/reviews)
 	ReviewDescriptor(c *gin.Context, serverId Id)
+	// ListGrants API-16 grants the caller may see
+	// (GET /mcp/grants)
+	ListGrants(c *gin.Context, params ListGrantsParams)
 	// CreateGrant API-10 create a grant bound to a descriptor revision and method scope
 	// (POST /mcp/grants)
 	CreateGrant(c *gin.Context)
 	// GetGrant Read a grant and its revocation progress
 	// (GET /mcp/grants/{grantId})
 	GetGrant(c *gin.Context, grantId GrantId)
+	// GetRevocationProgress API-16 blocked new admission versus converged senders of a grant's revocation
+	// (GET /mcp/grants/{grantId}/revocation)
+	GetRevocationProgress(c *gin.Context, grantId GrantId)
 	// RevokeGrant API-16 revoke; new admission is blocked immediately, convergence is tracked
 	// (POST /mcp/grants/{grantId}/revocations)
 	RevokeGrant(c *gin.Context, grantId GrantId)
+	// ListMemories API-09 memory facts the caller may see, by subject and state
+	// (GET /memories)
+	ListMemories(c *gin.Context, params ListMemoriesParams)
 	// ProposeMemory API-09 propose a memory fact; models never confirm
 	// (POST /memories)
 	ProposeMemory(c *gin.Context)
@@ -1440,6 +1924,18 @@ type ServerInterface interface {
 	// GetCommand Query the original tracked command
 	// (GET /operations/{operationId}/commands/{commandId})
 	GetCommand(c *gin.Context, operationId OperationId, commandId Id)
+	// GetPreview The committed preview of a preview_build operation (saved revision, state, exact artifacts)
+	// (GET /operations/{operationId}/preview)
+	GetPreview(c *gin.Context, operationId OperationId)
+	// ReadPreviewArtifact The verified bytes of the preview's module or one of its stylesheets
+	// (GET /operations/{operationId}/preview/artifacts/{digest})
+	ReadPreviewArtifact(c *gin.Context, operationId OperationId, digest Digest)
+	// GetRelease The committed release projection of a release operation (exact subject, approval, per-target receipts, activation)
+	// (GET /operations/{operationId}/release)
+	GetRelease(c *gin.Context, operationId OperationId)
+	// ReadSource The exact source archive a workbench edits (a generation's certified source or a preview build's edited source)
+	// (GET /operations/{operationId}/source)
+	ReadSource(c *gin.Context, operationId OperationId)
 	// CreatePreparation API-01 accept a prompt into a Preparation operation
 	// (POST /preparations)
 	CreatePreparation(c *gin.Context)
@@ -1506,6 +2002,41 @@ func (siw *ServerInterfaceWrapper) Search(c *gin.Context) {
 	}
 
 	siw.Handler.Search(c)
+}
+
+// ListSources operation middleware
+func (siw *ServerInterfaceWrapper) ListSources(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSourcesParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", c.Request.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter cursor: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSources(c, params)
 }
 
 // RegisterSource operation middleware
@@ -1677,6 +2208,19 @@ func (siw *ServerInterfaceWrapper) ListCatalog(c *gin.Context) {
 	siw.Handler.ListCatalog(c, params)
 }
 
+// DiscoverServer operation middleware
+func (siw *ServerInterfaceWrapper) DiscoverServer(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DiscoverServer(c)
+}
+
 // ReviewDescriptor operation middleware
 func (siw *ServerInterfaceWrapper) ReviewDescriptor(c *gin.Context) {
 
@@ -1700,6 +2244,49 @@ func (siw *ServerInterfaceWrapper) ReviewDescriptor(c *gin.Context) {
 	}
 
 	siw.Handler.ReviewDescriptor(c, serverId)
+}
+
+// ListGrants operation middleware
+func (siw *ServerInterfaceWrapper) ListGrants(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGrantsParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", c.Request.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter state: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", c.Request.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter cursor: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListGrants(c, params)
 }
 
 // CreateGrant operation middleware
@@ -1740,6 +2327,31 @@ func (siw *ServerInterfaceWrapper) GetGrant(c *gin.Context) {
 	siw.Handler.GetGrant(c, grantId)
 }
 
+// GetRevocationProgress operation middleware
+func (siw *ServerInterfaceWrapper) GetRevocationProgress(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "grantId" -------------
+	var grantId GrantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "grantId", c.Param("grantId"), &grantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter grantId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetRevocationProgress(c, grantId)
+}
+
 // RevokeGrant operation middleware
 func (siw *ServerInterfaceWrapper) RevokeGrant(c *gin.Context) {
 
@@ -1763,6 +2375,65 @@ func (siw *ServerInterfaceWrapper) RevokeGrant(c *gin.Context) {
 	}
 
 	siw.Handler.RevokeGrant(c, grantId)
+}
+
+// ListMemories operation middleware
+func (siw *ServerInterfaceWrapper) ListMemories(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMemoriesParams
+
+	// ------------- Optional query parameter "subjectType" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "subjectType", c.Request.URL.Query(), &params.SubjectType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter subjectType: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "subjectId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "subjectId", c.Request.URL.Query(), &params.SubjectId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter subjectId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", c.Request.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter state: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", c.Request.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter cursor: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMemories(c, params)
 }
 
 // ProposeMemory operation middleware
@@ -1900,6 +2571,115 @@ func (siw *ServerInterfaceWrapper) GetCommand(c *gin.Context) {
 	siw.Handler.GetCommand(c, operationId, commandId)
 }
 
+// GetPreview operation middleware
+func (siw *ServerInterfaceWrapper) GetPreview(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "operationId" -------------
+	var operationId OperationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "operationId", c.Param("operationId"), &operationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter operationId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPreview(c, operationId)
+}
+
+// ReadPreviewArtifact operation middleware
+func (siw *ServerInterfaceWrapper) ReadPreviewArtifact(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "operationId" -------------
+	var operationId OperationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "operationId", c.Param("operationId"), &operationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter operationId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "digest" -------------
+	var digest Digest
+
+	err = runtime.BindStyledParameterWithOptions("simple", "digest", c.Param("digest"), &digest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter digest: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ReadPreviewArtifact(c, operationId, digest)
+}
+
+// GetRelease operation middleware
+func (siw *ServerInterfaceWrapper) GetRelease(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "operationId" -------------
+	var operationId OperationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "operationId", c.Param("operationId"), &operationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter operationId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetRelease(c, operationId)
+}
+
+// ReadSource operation middleware
+func (siw *ServerInterfaceWrapper) ReadSource(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "operationId" -------------
+	var operationId OperationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "operationId", c.Param("operationId"), &operationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter operationId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ReadSource(c, operationId)
+}
+
 // CreatePreparation operation middleware
 func (siw *ServerInterfaceWrapper) CreatePreparation(c *gin.Context) {
 
@@ -1969,19 +2749,28 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/preparations/:operationId/answers", wrapper.SubmitAnswer)
 	router.POST(options.BaseURL+"/operations", wrapper.CreateOperation)
 	router.GET(options.BaseURL+"/operations/:operationId", wrapper.GetOperation)
+	router.GET(options.BaseURL+"/operations/:operationId/source", wrapper.ReadSource)
+	router.GET(options.BaseURL+"/operations/:operationId/preview", wrapper.GetPreview)
+	router.GET(options.BaseURL+"/operations/:operationId/preview/artifacts/:digest", wrapper.ReadPreviewArtifact)
+	router.GET(options.BaseURL+"/operations/:operationId/release", wrapper.GetRelease)
 	router.POST(options.BaseURL+"/operations/:operationId/commands", wrapper.SubmitCommand)
 	router.GET(options.BaseURL+"/operations/:operationId/commands/:commandId", wrapper.GetCommand)
+	router.GET(options.BaseURL+"/knowledge/sources", wrapper.ListSources)
 	router.POST(options.BaseURL+"/knowledge/sources", wrapper.RegisterSource)
 	router.DELETE(options.BaseURL+"/knowledge/sources/:sourceId", wrapper.DeleteSource)
 	router.GET(options.BaseURL+"/knowledge/sources/:sourceId", wrapper.GetSource)
 	router.PUT(options.BaseURL+"/knowledge/sources/:sourceId/access", wrapper.ReplaceSourceAccess)
 	router.POST(options.BaseURL+"/knowledge/searches", wrapper.Search)
+	router.GET(options.BaseURL+"/memories", wrapper.ListMemories)
 	router.POST(options.BaseURL+"/memories", wrapper.ProposeMemory)
 	router.POST(options.BaseURL+"/memories/:factId/decisions", wrapper.DecideMemory)
 	router.GET(options.BaseURL+"/mcp/catalog", wrapper.ListCatalog)
+	router.POST(options.BaseURL+"/mcp/catalog/discoveries", wrapper.DiscoverServer)
 	router.POST(options.BaseURL+"/mcp/catalog/:serverId/reviews", wrapper.ReviewDescriptor)
+	router.GET(options.BaseURL+"/mcp/grants", wrapper.ListGrants)
 	router.POST(options.BaseURL+"/mcp/grants", wrapper.CreateGrant)
 	router.GET(options.BaseURL+"/mcp/grants/:grantId", wrapper.GetGrant)
+	router.GET(options.BaseURL+"/mcp/grants/:grantId/revocation", wrapper.GetRevocationProgress)
 	router.POST(options.BaseURL+"/mcp/grants/:grantId/revocations", wrapper.RevokeGrant)
 	router.POST(options.BaseURL+"/mcp/calls", wrapper.CreateToolCall)
 	router.GET(options.BaseURL+"/mcp/calls/:callId", wrapper.GetToolCall)
@@ -2283,6 +3072,84 @@ func (response Search404JSONResponse) VisitSearchResponse(w http.ResponseWriter)
 type Search503JSONResponse struct{ UnavailableJSONResponse }
 
 func (response Search503JSONResponse) VisitSearchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSourcesRequestObject struct {
+	Params ListSourcesParams
+}
+
+type ListSourcesResponseObject interface {
+	VisitListSourcesResponse(w http.ResponseWriter) error
+}
+
+type ListSources200JSONResponse SourcePage
+
+func (response ListSources200JSONResponse) VisitListSourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSources400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response ListSources400JSONResponse) VisitListSourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSources401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListSources401JSONResponse) VisitListSourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSources403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListSources403JSONResponse) VisitListSourcesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSources503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ListSources503JSONResponse) VisitListSourcesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2940,6 +3807,98 @@ func (response ListCatalog503JSONResponse) VisitListCatalogResponse(w http.Respo
 	return err
 }
 
+type DiscoverServerRequestObject struct {
+	Body *DiscoverServerJSONRequestBody
+}
+
+type DiscoverServerResponseObject interface {
+	VisitDiscoverServerResponse(w http.ResponseWriter) error
+}
+
+type DiscoverServer201JSONResponse Descriptor
+
+func (response DiscoverServer201JSONResponse) VisitDiscoverServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscoverServer400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response DiscoverServer400JSONResponse) VisitDiscoverServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscoverServer401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response DiscoverServer401JSONResponse) VisitDiscoverServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscoverServer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DiscoverServer403JSONResponse) VisitDiscoverServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscoverServer409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DiscoverServer409JSONResponse) VisitDiscoverServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscoverServer503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response DiscoverServer503JSONResponse) VisitDiscoverServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ReviewDescriptorRequestObject struct {
 	ServerId Id `json:"serverId"`
 	Body     *ReviewDescriptorJSONRequestBody
@@ -3036,6 +3995,84 @@ func (response ReviewDescriptor409JSONResponse) VisitReviewDescriptorResponse(w 
 type ReviewDescriptor503JSONResponse struct{ UnavailableJSONResponse }
 
 func (response ReviewDescriptor503JSONResponse) VisitReviewDescriptorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrantsRequestObject struct {
+	Params ListGrantsParams
+}
+
+type ListGrantsResponseObject interface {
+	VisitListGrantsResponse(w http.ResponseWriter) error
+}
+
+type ListGrants200JSONResponse GrantPage
+
+func (response ListGrants200JSONResponse) VisitListGrantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrants400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response ListGrants400JSONResponse) VisitListGrantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrants401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListGrants401JSONResponse) VisitListGrantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrants403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListGrants403JSONResponse) VisitListGrantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrants503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ListGrants503JSONResponse) VisitListGrantsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3217,6 +4254,84 @@ func (response GetGrant503JSONResponse) VisitGetGrantResponse(w http.ResponseWri
 	return err
 }
 
+type GetRevocationProgressRequestObject struct {
+	GrantId GrantId `json:"grantId"`
+}
+
+type GetRevocationProgressResponseObject interface {
+	VisitGetRevocationProgressResponse(w http.ResponseWriter) error
+}
+
+type GetRevocationProgress200JSONResponse RevocationProgress
+
+func (response GetRevocationProgress200JSONResponse) VisitGetRevocationProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRevocationProgress401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetRevocationProgress401JSONResponse) VisitGetRevocationProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRevocationProgress403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetRevocationProgress403JSONResponse) VisitGetRevocationProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRevocationProgress404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRevocationProgress404JSONResponse) VisitGetRevocationProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRevocationProgress503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetRevocationProgress503JSONResponse) VisitGetRevocationProgressResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RevokeGrantRequestObject struct {
 	GrantId GrantId `json:"grantId"`
 	Body    *RevokeGrantJSONRequestBody
@@ -3313,6 +4428,84 @@ func (response RevokeGrant409JSONResponse) VisitRevokeGrantResponse(w http.Respo
 type RevokeGrant503JSONResponse struct{ UnavailableJSONResponse }
 
 func (response RevokeGrant503JSONResponse) VisitRevokeGrantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMemoriesRequestObject struct {
+	Params ListMemoriesParams
+}
+
+type ListMemoriesResponseObject interface {
+	VisitListMemoriesResponse(w http.ResponseWriter) error
+}
+
+type ListMemories200JSONResponse MemoryPage
+
+func (response ListMemories200JSONResponse) VisitListMemoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMemories400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response ListMemories400JSONResponse) VisitListMemoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMemories401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListMemories401JSONResponse) VisitListMemoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMemories403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListMemories403JSONResponse) VisitListMemoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMemories503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ListMemories503JSONResponse) VisitListMemoriesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3893,6 +5086,363 @@ func (response GetCommand503JSONResponse) VisitGetCommandResponse(w http.Respons
 	return err
 }
 
+type GetPreviewRequestObject struct {
+	OperationId OperationId `json:"operationId"`
+}
+
+type GetPreviewResponseObject interface {
+	VisitGetPreviewResponse(w http.ResponseWriter) error
+}
+
+type GetPreview200JSONResponse Preview
+
+func (response GetPreview200JSONResponse) VisitGetPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPreview401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetPreview401JSONResponse) VisitGetPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPreview403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetPreview403JSONResponse) VisitGetPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPreview404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPreview404JSONResponse) VisitGetPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPreview503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetPreview503JSONResponse) VisitGetPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadPreviewArtifactRequestObject struct {
+	OperationId OperationId `json:"operationId"`
+	Digest      Digest      `json:"digest"`
+}
+
+type ReadPreviewArtifactResponseObject interface {
+	VisitReadPreviewArtifactResponse(w http.ResponseWriter) error
+}
+
+type ReadPreviewArtifact200TextcssResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response ReadPreviewArtifact200TextcssResponse) VisitReadPreviewArtifactResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/css")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ReadPreviewArtifact200TextjavascriptResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response ReadPreviewArtifact200TextjavascriptResponse) VisitReadPreviewArtifactResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/javascript")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ReadPreviewArtifact401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ReadPreviewArtifact401JSONResponse) VisitReadPreviewArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadPreviewArtifact403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ReadPreviewArtifact403JSONResponse) VisitReadPreviewArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadPreviewArtifact404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ReadPreviewArtifact404JSONResponse) VisitReadPreviewArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadPreviewArtifact503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ReadPreviewArtifact503JSONResponse) VisitReadPreviewArtifactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReleaseRequestObject struct {
+	OperationId OperationId `json:"operationId"`
+}
+
+type GetReleaseResponseObject interface {
+	VisitGetReleaseResponse(w http.ResponseWriter) error
+}
+
+type GetRelease200JSONResponse Release
+
+func (response GetRelease200JSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelease401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetRelease401JSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelease403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetRelease403JSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelease404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRelease404JSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelease503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetRelease503JSONResponse) VisitGetReleaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadSourceRequestObject struct {
+	OperationId OperationId `json:"operationId"`
+}
+
+type ReadSourceResponseObject interface {
+	VisitReadSourceResponse(w http.ResponseWriter) error
+}
+
+type ReadSource200ResponseHeaders struct {
+	AnvilKitSourceDigest   Digest
+	AnvilKitSourceLineage  Digest
+	AnvilKitSourceRevision *Revision
+}
+
+type ReadSource200ApplicationxTarResponse struct {
+	Body          io.Reader
+	Headers       ReadSource200ResponseHeaders
+	ContentLength int64
+}
+
+func (response ReadSource200ApplicationxTarResponse) VisitReadSourceResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/x-tar")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("AnvilKit-Source-Digest", fmt.Sprint(response.Headers.AnvilKitSourceDigest))
+	w.Header().Set("AnvilKit-Source-Lineage", fmt.Sprint(response.Headers.AnvilKitSourceLineage))
+	if response.Headers.AnvilKitSourceRevision != nil {
+		w.Header().Set("AnvilKit-Source-Revision", fmt.Sprint(*response.Headers.AnvilKitSourceRevision))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ReadSource401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ReadSource401JSONResponse) VisitReadSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadSource403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ReadSource403JSONResponse) VisitReadSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadSource404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ReadSource404JSONResponse) VisitReadSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReadSource503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ReadSource503JSONResponse) VisitReadSourceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreatePreparationRequestObject struct {
 	Body *CreatePreparationJSONRequestBody
 }
@@ -4117,6 +5667,9 @@ type StrictServerInterface interface {
 	// Search API-08 cited context under current authorization
 	// (POST /knowledge/searches)
 	Search(ctx context.Context, request SearchRequestObject) (SearchResponseObject, error)
+	// ListSources API-07 the sources the caller may read, with ACL revision and ingest state
+	// (GET /knowledge/sources)
+	ListSources(ctx context.Context, request ListSourcesRequestObject) (ListSourcesResponseObject, error)
 	// RegisterSource API-07 register an approved source reference for ingestion
 	// (POST /knowledge/sources)
 	RegisterSource(ctx context.Context, request RegisterSourceRequestObject) (RegisterSourceResponseObject, error)
@@ -4138,18 +5691,30 @@ type StrictServerInterface interface {
 	// ListCatalog API-10 visible reviewed catalog; visibility is not a grant
 	// (GET /mcp/catalog)
 	ListCatalog(ctx context.Context, request ListCatalogRequestObject) (ListCatalogResponseObject, error)
+	// DiscoverServer API-15 record the live descriptor of a server as a revision awaiting review
+	// (POST /mcp/catalog/discoveries)
+	DiscoverServer(ctx context.Context, request DiscoverServerRequestObject) (DiscoverServerResponseObject, error)
 	// ReviewDescriptor API-15 authorized review decision bound to the exact descriptor digest
 	// (POST /mcp/catalog/{serverId}/reviews)
 	ReviewDescriptor(ctx context.Context, request ReviewDescriptorRequestObject) (ReviewDescriptorResponseObject, error)
+	// ListGrants API-16 grants the caller may see
+	// (GET /mcp/grants)
+	ListGrants(ctx context.Context, request ListGrantsRequestObject) (ListGrantsResponseObject, error)
 	// CreateGrant API-10 create a grant bound to a descriptor revision and method scope
 	// (POST /mcp/grants)
 	CreateGrant(ctx context.Context, request CreateGrantRequestObject) (CreateGrantResponseObject, error)
 	// GetGrant Read a grant and its revocation progress
 	// (GET /mcp/grants/{grantId})
 	GetGrant(ctx context.Context, request GetGrantRequestObject) (GetGrantResponseObject, error)
+	// GetRevocationProgress API-16 blocked new admission versus converged senders of a grant's revocation
+	// (GET /mcp/grants/{grantId}/revocation)
+	GetRevocationProgress(ctx context.Context, request GetRevocationProgressRequestObject) (GetRevocationProgressResponseObject, error)
 	// RevokeGrant API-16 revoke; new admission is blocked immediately, convergence is tracked
 	// (POST /mcp/grants/{grantId}/revocations)
 	RevokeGrant(ctx context.Context, request RevokeGrantRequestObject) (RevokeGrantResponseObject, error)
+	// ListMemories API-09 memory facts the caller may see, by subject and state
+	// (GET /memories)
+	ListMemories(ctx context.Context, request ListMemoriesRequestObject) (ListMemoriesResponseObject, error)
 	// ProposeMemory API-09 propose a memory fact; models never confirm
 	// (POST /memories)
 	ProposeMemory(ctx context.Context, request ProposeMemoryRequestObject) (ProposeMemoryResponseObject, error)
@@ -4168,6 +5733,18 @@ type StrictServerInterface interface {
 	// GetCommand Query the original tracked command
 	// (GET /operations/{operationId}/commands/{commandId})
 	GetCommand(ctx context.Context, request GetCommandRequestObject) (GetCommandResponseObject, error)
+	// GetPreview The committed preview of a preview_build operation (saved revision, state, exact artifacts)
+	// (GET /operations/{operationId}/preview)
+	GetPreview(ctx context.Context, request GetPreviewRequestObject) (GetPreviewResponseObject, error)
+	// ReadPreviewArtifact The verified bytes of the preview's module or one of its stylesheets
+	// (GET /operations/{operationId}/preview/artifacts/{digest})
+	ReadPreviewArtifact(ctx context.Context, request ReadPreviewArtifactRequestObject) (ReadPreviewArtifactResponseObject, error)
+	// GetRelease The committed release projection of a release operation (exact subject, approval, per-target receipts, activation)
+	// (GET /operations/{operationId}/release)
+	GetRelease(ctx context.Context, request GetReleaseRequestObject) (GetReleaseResponseObject, error)
+	// ReadSource The exact source archive a workbench edits (a generation's certified source or a preview build's edited source)
+	// (GET /operations/{operationId}/source)
+	ReadSource(ctx context.Context, request ReadSourceRequestObject) (ReadSourceResponseObject, error)
 	// CreatePreparation API-01 accept a prompt into a Preparation operation
 	// (POST /preparations)
 	CreatePreparation(ctx context.Context, request CreatePreparationRequestObject) (CreatePreparationResponseObject, error)
@@ -4321,6 +5898,32 @@ func (sh *strictHandler) Search(ctx *gin.Context) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(SearchResponseObject); ok {
 		if err := validResponse.VisitSearchResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListSources operation middleware
+func (sh *strictHandler) ListSources(ctx *gin.Context, params ListSourcesParams) {
+	var request ListSourcesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSources(ctx, request.(ListSourcesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSources")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListSourcesResponseObject); ok {
+		if err := validResponse.VisitListSourcesResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
@@ -4534,6 +6137,37 @@ func (sh *strictHandler) ListCatalog(ctx *gin.Context, params ListCatalogParams)
 	}
 }
 
+// DiscoverServer operation middleware
+func (sh *strictHandler) DiscoverServer(ctx *gin.Context) {
+	var request DiscoverServerRequestObject
+
+	var body DiscoverServerJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DiscoverServer(ctx, request.(DiscoverServerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DiscoverServer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(DiscoverServerResponseObject); ok {
+		if err := validResponse.VisitDiscoverServerResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ReviewDescriptor operation middleware
 func (sh *strictHandler) ReviewDescriptor(ctx *gin.Context, serverId Id) {
 	var request ReviewDescriptorRequestObject
@@ -4560,6 +6194,32 @@ func (sh *strictHandler) ReviewDescriptor(ctx *gin.Context, serverId Id) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(ReviewDescriptorResponseObject); ok {
 		if err := validResponse.VisitReviewDescriptorResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListGrants operation middleware
+func (sh *strictHandler) ListGrants(ctx *gin.Context, params ListGrantsParams) {
+	var request ListGrantsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListGrants(ctx, request.(ListGrantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListGrants")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListGrantsResponseObject); ok {
+		if err := validResponse.VisitListGrantsResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
@@ -4624,6 +6284,32 @@ func (sh *strictHandler) GetGrant(ctx *gin.Context, grantId GrantId) {
 	}
 }
 
+// GetRevocationProgress operation middleware
+func (sh *strictHandler) GetRevocationProgress(ctx *gin.Context, grantId GrantId) {
+	var request GetRevocationProgressRequestObject
+
+	request.GrantId = grantId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRevocationProgress(ctx, request.(GetRevocationProgressRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRevocationProgress")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetRevocationProgressResponseObject); ok {
+		if err := validResponse.VisitGetRevocationProgressResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // RevokeGrant operation middleware
 func (sh *strictHandler) RevokeGrant(ctx *gin.Context, grantId GrantId) {
 	var request RevokeGrantRequestObject
@@ -4650,6 +6336,32 @@ func (sh *strictHandler) RevokeGrant(ctx *gin.Context, grantId GrantId) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(RevokeGrantResponseObject); ok {
 		if err := validResponse.VisitRevokeGrantResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMemories operation middleware
+func (sh *strictHandler) ListMemories(ctx *gin.Context, params ListMemoriesParams) {
+	var request ListMemoriesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMemories(ctx, request.(ListMemoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMemories")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListMemoriesResponseObject); ok {
+		if err := validResponse.VisitListMemoriesResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
@@ -4838,6 +6550,111 @@ func (sh *strictHandler) GetCommand(ctx *gin.Context, operationId OperationId, c
 	}
 }
 
+// GetPreview operation middleware
+func (sh *strictHandler) GetPreview(ctx *gin.Context, operationId OperationId) {
+	var request GetPreviewRequestObject
+
+	request.OperationId = operationId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPreview(ctx, request.(GetPreviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPreview")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetPreviewResponseObject); ok {
+		if err := validResponse.VisitGetPreviewResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReadPreviewArtifact operation middleware
+func (sh *strictHandler) ReadPreviewArtifact(ctx *gin.Context, operationId OperationId, digest Digest) {
+	var request ReadPreviewArtifactRequestObject
+
+	request.OperationId = operationId
+	request.Digest = digest
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReadPreviewArtifact(ctx, request.(ReadPreviewArtifactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReadPreviewArtifact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ReadPreviewArtifactResponseObject); ok {
+		if err := validResponse.VisitReadPreviewArtifactResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRelease operation middleware
+func (sh *strictHandler) GetRelease(ctx *gin.Context, operationId OperationId) {
+	var request GetReleaseRequestObject
+
+	request.OperationId = operationId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRelease(ctx, request.(GetReleaseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRelease")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetReleaseResponseObject); ok {
+		if err := validResponse.VisitGetReleaseResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReadSource operation middleware
+func (sh *strictHandler) ReadSource(ctx *gin.Context, operationId OperationId) {
+	var request ReadSourceRequestObject
+
+	request.OperationId = operationId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReadSource(ctx, request.(ReadSourceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReadSource")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ReadSourceResponseObject); ok {
+		if err := validResponse.VisitReadSourceResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreatePreparation operation middleware
 func (sh *strictHandler) CreatePreparation(ctx *gin.Context) {
 	var request CreatePreparationRequestObject
@@ -4907,113 +6724,152 @@ func (sh *strictHandler) SubmitAnswer(ctx *gin.Context, operationId OperationId)
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"z9P/GwA=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

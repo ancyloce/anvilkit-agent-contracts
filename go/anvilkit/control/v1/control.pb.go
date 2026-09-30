@@ -1236,6 +1236,19 @@ type OperationSubject struct {
 	SubjectDigest  string                 `protobuf:"bytes,2,opt,name=subject_digest,json=subjectDigest,proto3" json:"subject_digest,omitempty"`
 	BriefId        *string                `protobuf:"bytes,3,opt,name=brief_id,json=briefId,proto3,oneof" json:"brief_id,omitempty"`
 	SourceRevision *string                `protobuf:"bytes,4,opt,name=source_revision,json=sourceRevision,proto3,oneof" json:"source_revision,omitempty"`
+	// preview_build: the finalized source artifact holding the edited source;
+	// subject_digest names the component source lineage it edits (the subject
+	// its candidate was registered under) and source_revision the revision
+	// the edit was based on, saved conditionally before the build.
+	SourceHandle *string `protobuf:"bytes,5,opt,name=source_handle,json=sourceHandle,proto3,oneof" json:"source_handle,omitempty"`
+	// release: the preview_build or generation operation whose saved or
+	// registered source is released. subject_digest and source_revision must
+	// be that operation's lineage and the revision its source authority named
+	// for the bytes; Control binds the source artifact (source_handle) itself.
+	SourceOperationId *string `protobuf:"bytes,6,opt,name=source_operation_id,json=sourceOperationId,proto3,oneof" json:"source_operation_id,omitempty"`
+	// release: the package version the requester releases; the certified
+	// source must declare exactly this version.
+	PackageVersion *string `protobuf:"bytes,7,opt,name=package_version,json=packageVersion,proto3,oneof" json:"package_version,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1294,6 +1307,27 @@ func (x *OperationSubject) GetBriefId() string {
 func (x *OperationSubject) GetSourceRevision() string {
 	if x != nil && x.SourceRevision != nil {
 		return *x.SourceRevision
+	}
+	return ""
+}
+
+func (x *OperationSubject) GetSourceHandle() string {
+	if x != nil && x.SourceHandle != nil {
+		return *x.SourceHandle
+	}
+	return ""
+}
+
+func (x *OperationSubject) GetSourceOperationId() string {
+	if x != nil && x.SourceOperationId != nil {
+		return *x.SourceOperationId
+	}
+	return ""
+}
+
+func (x *OperationSubject) GetPackageVersion() string {
+	if x != nil && x.PackageVersion != nil {
+		return *x.PackageVersion
 	}
 	return ""
 }
@@ -4299,16 +4333,22 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\basked_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aaskedAt\x129\n" +
 	"\n" +
 	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12;\n" +
-	"\tquestions\x18\x06 \x03(\v2\x1d.anvilkit.control.v1.QuestionR\tquestions\"\x85\x02\n" +
+	"\tquestions\x18\x06 \x03(\v2\x1d.anvilkit.control.v1.QuestionR\tquestions\"\xed\x03\n" +
 	"\x10OperationSubject\x12)\n" +
 	"\n" +
 	"profile_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\tprofileId\x12C\n" +
 	"\x0esubject_digest\x18\x02 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\rsubjectDigest\x12(\n" +
 	"\bbrief_id\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01H\x00R\abriefId\x88\x01\x01\x126\n" +
-	"\x0fsource_revision\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01H\x01R\x0esourceRevision\x88\x01\x01B\v\n" +
+	"\x0fsource_revision\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01H\x01R\x0esourceRevision\x88\x01\x01\x122\n" +
+	"\rsource_handle\x18\x05 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02H\x02R\fsourceHandle\x88\x01\x01\x12=\n" +
+	"\x13source_operation_id\x18\x06 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01H\x03R\x11sourceOperationId\x88\x01\x01\x125\n" +
+	"\x0fpackage_version\x18\a \x01(\tB\a\xbaH\x04r\x02\x18@H\x04R\x0epackageVersion\x88\x01\x01B\v\n" +
 	"\t_brief_idB\x12\n" +
-	"\x10_source_revision\"\xa4\b\n" +
+	"\x10_source_revisionB\x10\n" +
+	"\x0e_source_handleB\x16\n" +
+	"\x14_source_operation_idB\x12\n" +
+	"\x10_package_version\"\xa4\b\n" +
 	"\rOperationView\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +

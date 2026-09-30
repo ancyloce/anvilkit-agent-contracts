@@ -116,7 +116,7 @@
         "kind": { "type": "string", "enum": ["memory.fact-confirmed", "memory.fact-revoked"] },
         "factId": { "$ref": "#/$defs/id" },
         "revision": { "$ref": "#/$defs/sequence" },
-        "state": { "type": "string", "enum": ["confirmed", "revoked"] }
+        "state": { "type": "string", "enum": ["confirmed", "revoked", "expired", "deleted"], "description": "memory.fact-confirmed carries confirmed; memory.fact-revoked carries the state that removed the fact from recall: revoked, expired (the reviewed expiry rule) or deleted (content erased)." }
       }
     },
     "mcpCatalogReviewed": {

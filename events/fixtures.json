@@ -82,6 +82,30 @@
       }
     },
     {
+      "name": "memory.fact-revoked after the reviewed expiry rule",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b01", "eventType": "memory.fact-revoked", "schemaVersion": 1,
+        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.memory.fact-revoked", "tenantId": "tenant_a",
+        "aggregateType": "memory_fact", "aggregateId": "mem-0123", "aggregateRevision": "3", "occurredAt": "2026-09-29T12:00:00Z",
+        "correlationId": "memory-expiry-v1",
+        "payload": { "kind": "memory.fact-revoked", "factId": "mem-0123", "revision": "3", "state": "expired" }
+      }
+    },
+    {
+      "name": "memory.fact-revoked with an unknown removal state is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b02", "eventType": "memory.fact-revoked", "schemaVersion": 1,
+        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.memory.fact-revoked", "tenantId": "tenant_a",
+        "aggregateType": "memory_fact", "aggregateId": "mem-0123", "aggregateRevision": "3", "occurredAt": "2026-09-29T12:00:00Z",
+        "correlationId": "cmd_1",
+        "payload": { "kind": "memory.fact-revoked", "factId": "mem-0123", "revision": "3", "state": "forgotten" }
+      }
+    },
+    {
       "name": "background.requested with a stable queue kind",
       "ref": "#/$defs/envelope",
       "valid": true,

@@ -360,13 +360,26 @@ export interface Money {
   amount: string;
 }
 
+/**
+ * One method of a descriptor revision. Schemas and annotations are read
+ * from the live server; side effects, price, idempotency and query support
+ * are the listing's declarations that the reviewer approves with the exact
+ * descriptor digest.
+ */
 export interface ToolSchema {
   $type: "anvilkit.mcp.v1.ToolSchema";
   method: string;
   inputSchemaDigest: string;
   outputSchemaDigest: string;
   sideEffecting: boolean;
-  unitPrice: Money | undefined;
+  unitPrice:
+    | Money
+    | undefined;
+  /** Repeating the same call cannot cause a second effect. */
+  idempotent: boolean;
+  /** The server answers a query for an original call by its identity. */
+  querySupported: boolean;
+  annotationsDigest: string;
 }
 
 /**
@@ -386,7 +399,32 @@ export interface Descriptor {
   state: CatalogState;
   reviewId?: string | undefined;
   createdAt: Date | undefined;
-  updatedAt: Date | undefined;
+  updatedAt:
+    | Date
+    | undefined;
+  /**
+   * What the live server reported at discovery (initialize / tools, resources
+   * and prompts listings through the connection layer).
+   */
+  serverName: string;
+  serverVersion: string;
+  resourcesDigest: string;
+  promptsDigest: string;
+  /**
+   * The declared data class, network scope (hosts the server may reach) and
+   * licenses the review covers.
+   */
+  dataClass: string;
+  networkScope: string[];
+  licenses: string[];
+  /**
+   * Explicit remote revision evidence: the retrieval that produced this
+   * revision (hosted servers expose no binary hash; nothing here claims
+   * pinned upstream bytes).
+   */
+  revisionEvidence: string;
+  discoveredBy: string;
+  reviewer?: string | undefined;
 }
 
 export interface ListCatalogRequest {
@@ -423,8 +461,22 @@ export interface DiscoverServerRequest {
   transport: string;
   protocolVersion: string;
   provenance: string;
+  /**
+   * The descriptor digest the caller expects (for example from a registry
+   * listing); empty accepts whatever the live retrieval yields. A mismatch
+   * records nothing.
+   */
   descriptorDigest: string;
+  /**
+   * The listing's declarations per method (side effects, price, idempotency,
+   * query support); every live method must be declared and every declared
+   * method must exist live. Schema digests, when given, must equal the live
+   * ones.
+   */
   tools: ToolSchema[];
+  dataClass: string;
+  networkScope: string[];
+  licenses: string[];
 }
 
 export interface DiscoverServerResponse {
@@ -482,7 +534,28 @@ export interface Grant {
   controlReceiptId?: string | undefined;
   expiresAt?: Date | undefined;
   createdAt: Date | undefined;
-  updatedAt: Date | undefined;
+  updatedAt:
+    | Date
+    | undefined;
+  /**
+   * The security dimensions the grant revision binds (DD-08 §2); the policy
+   * digest registered with Control covers all of them.
+   */
+  canonicalResource: string;
+  transport: string;
+  protocolVersion: string;
+  issuer: string;
+  audience: string;
+  resourceSelectors: string[];
+  promptSelectors: string[];
+  dataClass: string;
+  policyDigest: string;
+  policyEpoch: string;
+  /**
+   * The last management outcome that kept the grant non-executable (a
+   * failed or unanswered registration, a disabled descriptor).
+   */
+  failureCode?: string | undefined;
 }
 
 export interface CreateGrantRequest {
@@ -497,7 +570,17 @@ export interface CreateGrantRequest {
   methods: string[];
   purpose: string;
   costCap: Money | undefined;
-  expiresAt?: Date | undefined;
+  expiresAt?:
+    | Date
+    | undefined;
+  /**
+   * Resource and prompt selectors the grant allows (exact names of the
+   * descriptor's resources and prompts); none when the grant covers tools only.
+   */
+  resourceSelectors: string[];
+  promptSelectors: string[];
+  /** The data class of the purpose; it may not exceed the descriptor's. */
+  dataClass: string;
 }
 
 export interface CreateGrantResponse {
@@ -562,6 +645,12 @@ export interface GetRevocationProgressResponse {
   sendersConverged: boolean;
   inFlightCalls: string;
   unknownCalls: string;
+  /**
+   * Control's barrier state (fenced, converging, converged) as last read, and
+   * MCP's own tool requests of the grant that are not yet terminal.
+   */
+  controlState: string;
+  openCalls: string;
 }
 
 export interface ToolCall {
@@ -579,7 +668,22 @@ export interface ToolCall {
   resultDigest?: string | undefined;
   failureCode?: string | undefined;
   createdAt: Date | undefined;
-  updatedAt: Date | undefined;
+  updatedAt:
+    | Date
+    | undefined;
+  /**
+   * The bounded, normalized typed result (JSON: content blocks, structured
+   * content, isError) of a SUCCEEDED or FAILED call; result_digest is its
+   * SHA-256. Returned content, links and prompts are untrusted data.
+   */
+  result: Buffer;
+  /**
+   * The descriptor revision, digest and protocol version the call was bound
+   * to at acceptance (the grant revision's).
+   */
+  descriptorRevision: string;
+  descriptorDigest: string;
+  protocolVersion: string;
 }
 
 export interface CreateCallRequest {
@@ -593,7 +697,21 @@ export interface CreateCallRequest {
   argumentDigest: string;
   operationId: string;
   attemptId: string;
-  deadline: Date | undefined;
+  deadline:
+    | Date
+    | undefined;
+  /**
+   * The rest of the execution binding Control admits the dispatch under
+   * (with operation_id and attempt_id).
+   */
+  instanceId: string;
+  executionEpoch: string;
+  /**
+   * The argument bytes (a JSON object, bounded): argument_digest is their
+   * SHA-256 and argument_ref the caller's reference of them. MCP verifies
+   * the digest and validates them against the grant revision's input schema.
+   */
+  arguments: Buffer;
 }
 
 export interface CreateCallResponse {
@@ -1034,6 +1152,9 @@ function createBaseToolSchema(): ToolSchema {
     outputSchemaDigest: "",
     sideEffecting: false,
     unitPrice: undefined,
+    idempotent: false,
+    querySupported: false,
+    annotationsDigest: "",
   };
 }
 
@@ -1055,6 +1176,15 @@ export const ToolSchema: MessageFns<ToolSchema, "anvilkit.mcp.v1.ToolSchema"> = 
     }
     if (message.unitPrice !== undefined) {
       Money.encode(message.unitPrice, writer.uint32(42).fork()).join();
+    }
+    if (message.idempotent !== false) {
+      writer.uint32(48).bool(message.idempotent);
+    }
+    if (message.querySupported !== false) {
+      writer.uint32(56).bool(message.querySupported);
+    }
+    if (message.annotationsDigest !== "") {
+      writer.uint32(66).string(message.annotationsDigest);
     }
     return writer;
   },
@@ -1112,6 +1242,30 @@ export const ToolSchema: MessageFns<ToolSchema, "anvilkit.mcp.v1.ToolSchema"> = 
             message.unitPrice = Money.decode(reader, reader.uint32());
             continue;
           }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.idempotent = reader.bool();
+            continue;
+          }
+          case 7: {
+            if (tag !== 56) {
+              break;
+            }
+
+            message.querySupported = reader.bool();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.annotationsDigest = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1148,6 +1302,17 @@ export const ToolSchema: MessageFns<ToolSchema, "anvilkit.mcp.v1.ToolSchema"> = 
         : isSet(object.unit_price)
         ? Money.fromJSON(object.unit_price)
         : undefined,
+      idempotent: isSet(object.idempotent) ? globalThis.Boolean(object.idempotent) : false,
+      querySupported: isSet(object.querySupported)
+        ? globalThis.Boolean(object.querySupported)
+        : isSet(object.query_supported)
+        ? globalThis.Boolean(object.query_supported)
+        : false,
+      annotationsDigest: isSet(object.annotationsDigest)
+        ? globalThis.String(object.annotationsDigest)
+        : isSet(object.annotations_digest)
+        ? globalThis.String(object.annotations_digest)
+        : "",
     };
   },
 
@@ -1168,6 +1333,15 @@ export const ToolSchema: MessageFns<ToolSchema, "anvilkit.mcp.v1.ToolSchema"> = 
     if (message.unitPrice !== undefined) {
       obj.unitPrice = Money.toJSON(message.unitPrice);
     }
+    if (message.idempotent !== false) {
+      obj.idempotent = message.idempotent;
+    }
+    if (message.querySupported !== false) {
+      obj.querySupported = message.querySupported;
+    }
+    if (message.annotationsDigest !== "") {
+      obj.annotationsDigest = message.annotationsDigest;
+    }
     return obj;
   },
 
@@ -1183,6 +1357,9 @@ export const ToolSchema: MessageFns<ToolSchema, "anvilkit.mcp.v1.ToolSchema"> = 
     message.unitPrice = (object.unitPrice !== undefined && object.unitPrice !== null)
       ? Money.fromPartial(object.unitPrice)
       : undefined;
+    message.idempotent = object.idempotent ?? false;
+    message.querySupported = object.querySupported ?? false;
+    message.annotationsDigest = object.annotationsDigest ?? "";
     return message;
   },
 };
@@ -1204,6 +1381,16 @@ function createBaseDescriptor(): Descriptor {
     reviewId: undefined,
     createdAt: undefined,
     updatedAt: undefined,
+    serverName: "",
+    serverVersion: "",
+    resourcesDigest: "",
+    promptsDigest: "",
+    dataClass: "",
+    networkScope: [],
+    licenses: [],
+    revisionEvidence: "",
+    discoveredBy: "",
+    reviewer: undefined,
   };
 }
 
@@ -1246,6 +1433,36 @@ export const Descriptor: MessageFns<Descriptor, "anvilkit.mcp.v1.Descriptor"> = 
     }
     if (message.updatedAt !== undefined) {
       Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(98).fork()).join();
+    }
+    if (message.serverName !== "") {
+      writer.uint32(106).string(message.serverName);
+    }
+    if (message.serverVersion !== "") {
+      writer.uint32(114).string(message.serverVersion);
+    }
+    if (message.resourcesDigest !== "") {
+      writer.uint32(122).string(message.resourcesDigest);
+    }
+    if (message.promptsDigest !== "") {
+      writer.uint32(130).string(message.promptsDigest);
+    }
+    if (message.dataClass !== "") {
+      writer.uint32(138).string(message.dataClass);
+    }
+    for (const v of message.networkScope) {
+      writer.uint32(146).string(v!);
+    }
+    for (const v of message.licenses) {
+      writer.uint32(154).string(v!);
+    }
+    if (message.revisionEvidence !== "") {
+      writer.uint32(162).string(message.revisionEvidence);
+    }
+    if (message.discoveredBy !== "") {
+      writer.uint32(170).string(message.discoveredBy);
+    }
+    if (message.reviewer !== undefined) {
+      writer.uint32(178).string(message.reviewer);
     }
     return writer;
   },
@@ -1359,6 +1576,86 @@ export const Descriptor: MessageFns<Descriptor, "anvilkit.mcp.v1.Descriptor"> = 
             message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.serverName = reader.string();
+            continue;
+          }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.serverVersion = reader.string();
+            continue;
+          }
+          case 15: {
+            if (tag !== 122) {
+              break;
+            }
+
+            message.resourcesDigest = reader.string();
+            continue;
+          }
+          case 16: {
+            if (tag !== 130) {
+              break;
+            }
+
+            message.promptsDigest = reader.string();
+            continue;
+          }
+          case 17: {
+            if (tag !== 138) {
+              break;
+            }
+
+            message.dataClass = reader.string();
+            continue;
+          }
+          case 18: {
+            if (tag !== 146) {
+              break;
+            }
+
+            message.networkScope.push(reader.string());
+            continue;
+          }
+          case 19: {
+            if (tag !== 154) {
+              break;
+            }
+
+            message.licenses.push(reader.string());
+            continue;
+          }
+          case 20: {
+            if (tag !== 162) {
+              break;
+            }
+
+            message.revisionEvidence = reader.string();
+            continue;
+          }
+          case 21: {
+            if (tag !== 170) {
+              break;
+            }
+
+            message.discoveredBy = reader.string();
+            continue;
+          }
+          case 22: {
+            if (tag !== 178) {
+              break;
+            }
+
+            message.reviewer = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1416,6 +1713,50 @@ export const Descriptor: MessageFns<Descriptor, "anvilkit.mcp.v1.Descriptor"> = 
         : isSet(object.updated_at)
         ? fromJsonTimestamp(object.updated_at)
         : undefined,
+      serverName: isSet(object.serverName)
+        ? globalThis.String(object.serverName)
+        : isSet(object.server_name)
+        ? globalThis.String(object.server_name)
+        : "",
+      serverVersion: isSet(object.serverVersion)
+        ? globalThis.String(object.serverVersion)
+        : isSet(object.server_version)
+        ? globalThis.String(object.server_version)
+        : "",
+      resourcesDigest: isSet(object.resourcesDigest)
+        ? globalThis.String(object.resourcesDigest)
+        : isSet(object.resources_digest)
+        ? globalThis.String(object.resources_digest)
+        : "",
+      promptsDigest: isSet(object.promptsDigest)
+        ? globalThis.String(object.promptsDigest)
+        : isSet(object.prompts_digest)
+        ? globalThis.String(object.prompts_digest)
+        : "",
+      dataClass: isSet(object.dataClass)
+        ? globalThis.String(object.dataClass)
+        : isSet(object.data_class)
+        ? globalThis.String(object.data_class)
+        : "",
+      networkScope: globalThis.Array.isArray(object?.networkScope)
+        ? object.networkScope.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.network_scope)
+        ? object.network_scope.map((e: any) => globalThis.String(e))
+        : [],
+      licenses: globalThis.Array.isArray(object?.licenses)
+        ? object.licenses.map((e: any) => globalThis.String(e))
+        : [],
+      revisionEvidence: isSet(object.revisionEvidence)
+        ? globalThis.String(object.revisionEvidence)
+        : isSet(object.revision_evidence)
+        ? globalThis.String(object.revision_evidence)
+        : "",
+      discoveredBy: isSet(object.discoveredBy)
+        ? globalThis.String(object.discoveredBy)
+        : isSet(object.discovered_by)
+        ? globalThis.String(object.discovered_by)
+        : "",
+      reviewer: isSet(object.reviewer) ? globalThis.String(object.reviewer) : undefined,
     };
   },
 
@@ -1457,6 +1798,36 @@ export const Descriptor: MessageFns<Descriptor, "anvilkit.mcp.v1.Descriptor"> = 
     if (message.updatedAt !== undefined) {
       obj.updatedAt = message.updatedAt.toISOString();
     }
+    if (message.serverName !== "") {
+      obj.serverName = message.serverName;
+    }
+    if (message.serverVersion !== "") {
+      obj.serverVersion = message.serverVersion;
+    }
+    if (message.resourcesDigest !== "") {
+      obj.resourcesDigest = message.resourcesDigest;
+    }
+    if (message.promptsDigest !== "") {
+      obj.promptsDigest = message.promptsDigest;
+    }
+    if (message.dataClass !== "") {
+      obj.dataClass = message.dataClass;
+    }
+    if (message.networkScope?.length) {
+      obj.networkScope = message.networkScope;
+    }
+    if (message.licenses?.length) {
+      obj.licenses = message.licenses;
+    }
+    if (message.revisionEvidence !== "") {
+      obj.revisionEvidence = message.revisionEvidence;
+    }
+    if (message.discoveredBy !== "") {
+      obj.discoveredBy = message.discoveredBy;
+    }
+    if (message.reviewer !== undefined) {
+      obj.reviewer = message.reviewer;
+    }
     return obj;
   },
 
@@ -1477,6 +1848,16 @@ export const Descriptor: MessageFns<Descriptor, "anvilkit.mcp.v1.Descriptor"> = 
     message.reviewId = object.reviewId ?? undefined;
     message.createdAt = object.createdAt ?? undefined;
     message.updatedAt = object.updatedAt ?? undefined;
+    message.serverName = object.serverName ?? "";
+    message.serverVersion = object.serverVersion ?? "";
+    message.resourcesDigest = object.resourcesDigest ?? "";
+    message.promptsDigest = object.promptsDigest ?? "";
+    message.dataClass = object.dataClass ?? "";
+    message.networkScope = object.networkScope?.map((e) => e) || [];
+    message.licenses = object.licenses?.map((e) => e) || [];
+    message.revisionEvidence = object.revisionEvidence ?? "";
+    message.discoveredBy = object.discoveredBy ?? "";
+    message.reviewer = object.reviewer ?? undefined;
     return message;
   },
 };
@@ -1898,6 +2279,9 @@ function createBaseDiscoverServerRequest(): DiscoverServerRequest {
     provenance: "",
     descriptorDigest: "",
     tools: [],
+    dataClass: "",
+    networkScope: [],
+    licenses: [],
   };
 }
 
@@ -1928,6 +2312,15 @@ export const DiscoverServerRequest: MessageFns<DiscoverServerRequest, "anvilkit.
     }
     for (const v of message.tools) {
       ToolSchema.encode(v!, writer.uint32(66).fork()).join();
+    }
+    if (message.dataClass !== "") {
+      writer.uint32(74).string(message.dataClass);
+    }
+    for (const v of message.networkScope) {
+      writer.uint32(82).string(v!);
+    }
+    for (const v of message.licenses) {
+      writer.uint32(90).string(v!);
     }
     return writer;
   },
@@ -2009,6 +2402,30 @@ export const DiscoverServerRequest: MessageFns<DiscoverServerRequest, "anvilkit.
             message.tools.push(ToolSchema.decode(reader, reader.uint32()));
             continue;
           }
+          case 9: {
+            if (tag !== 74) {
+              break;
+            }
+
+            message.dataClass = reader.string();
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.networkScope.push(reader.string());
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.licenses.push(reader.string());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2044,6 +2461,17 @@ export const DiscoverServerRequest: MessageFns<DiscoverServerRequest, "anvilkit.
         ? globalThis.String(object.descriptor_digest)
         : "",
       tools: globalThis.Array.isArray(object?.tools) ? object.tools.map((e: any) => ToolSchema.fromJSON(e)) : [],
+      dataClass: isSet(object.dataClass)
+        ? globalThis.String(object.dataClass)
+        : isSet(object.data_class)
+        ? globalThis.String(object.data_class)
+        : "",
+      networkScope: globalThis.Array.isArray(object?.networkScope)
+        ? object.networkScope.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.network_scope)
+        ? object.network_scope.map((e: any) => globalThis.String(e))
+        : [],
+      licenses: globalThis.Array.isArray(object?.licenses) ? object.licenses.map((e: any) => globalThis.String(e)) : [],
     };
   },
 
@@ -2073,6 +2501,15 @@ export const DiscoverServerRequest: MessageFns<DiscoverServerRequest, "anvilkit.
     if (message.tools?.length) {
       obj.tools = message.tools.map((e) => ToolSchema.toJSON(e));
     }
+    if (message.dataClass !== "") {
+      obj.dataClass = message.dataClass;
+    }
+    if (message.networkScope?.length) {
+      obj.networkScope = message.networkScope;
+    }
+    if (message.licenses?.length) {
+      obj.licenses = message.licenses;
+    }
     return obj;
   },
 
@@ -2091,6 +2528,9 @@ export const DiscoverServerRequest: MessageFns<DiscoverServerRequest, "anvilkit.
     message.provenance = object.provenance ?? "";
     message.descriptorDigest = object.descriptorDigest ?? "";
     message.tools = object.tools?.map((e) => ToolSchema.fromPartial(e)) || [];
+    message.dataClass = object.dataClass ?? "";
+    message.networkScope = object.networkScope?.map((e) => e) || [];
+    message.licenses = object.licenses?.map((e) => e) || [];
     return message;
   },
 };
@@ -2749,6 +3189,17 @@ function createBaseGrant(): Grant {
     expiresAt: undefined,
     createdAt: undefined,
     updatedAt: undefined,
+    canonicalResource: "",
+    transport: "",
+    protocolVersion: "",
+    issuer: "",
+    audience: "",
+    resourceSelectors: [],
+    promptSelectors: [],
+    dataClass: "",
+    policyDigest: "",
+    policyEpoch: "",
+    failureCode: undefined,
   };
 }
 
@@ -2803,6 +3254,39 @@ export const Grant: MessageFns<Grant, "anvilkit.mcp.v1.Grant"> = {
     }
     if (message.updatedAt !== undefined) {
       Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(130).fork()).join();
+    }
+    if (message.canonicalResource !== "") {
+      writer.uint32(138).string(message.canonicalResource);
+    }
+    if (message.transport !== "") {
+      writer.uint32(146).string(message.transport);
+    }
+    if (message.protocolVersion !== "") {
+      writer.uint32(154).string(message.protocolVersion);
+    }
+    if (message.issuer !== "") {
+      writer.uint32(162).string(message.issuer);
+    }
+    if (message.audience !== "") {
+      writer.uint32(170).string(message.audience);
+    }
+    for (const v of message.resourceSelectors) {
+      writer.uint32(178).string(v!);
+    }
+    for (const v of message.promptSelectors) {
+      writer.uint32(186).string(v!);
+    }
+    if (message.dataClass !== "") {
+      writer.uint32(194).string(message.dataClass);
+    }
+    if (message.policyDigest !== "") {
+      writer.uint32(202).string(message.policyDigest);
+    }
+    if (message.policyEpoch !== "") {
+      writer.uint32(210).string(message.policyEpoch);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(218).string(message.failureCode);
     }
     return writer;
   },
@@ -2948,6 +3432,94 @@ export const Grant: MessageFns<Grant, "anvilkit.mcp.v1.Grant"> = {
             message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 17: {
+            if (tag !== 138) {
+              break;
+            }
+
+            message.canonicalResource = reader.string();
+            continue;
+          }
+          case 18: {
+            if (tag !== 146) {
+              break;
+            }
+
+            message.transport = reader.string();
+            continue;
+          }
+          case 19: {
+            if (tag !== 154) {
+              break;
+            }
+
+            message.protocolVersion = reader.string();
+            continue;
+          }
+          case 20: {
+            if (tag !== 162) {
+              break;
+            }
+
+            message.issuer = reader.string();
+            continue;
+          }
+          case 21: {
+            if (tag !== 170) {
+              break;
+            }
+
+            message.audience = reader.string();
+            continue;
+          }
+          case 22: {
+            if (tag !== 178) {
+              break;
+            }
+
+            message.resourceSelectors.push(reader.string());
+            continue;
+          }
+          case 23: {
+            if (tag !== 186) {
+              break;
+            }
+
+            message.promptSelectors.push(reader.string());
+            continue;
+          }
+          case 24: {
+            if (tag !== 194) {
+              break;
+            }
+
+            message.dataClass = reader.string();
+            continue;
+          }
+          case 25: {
+            if (tag !== 202) {
+              break;
+            }
+
+            message.policyDigest = reader.string();
+            continue;
+          }
+          case 26: {
+            if (tag !== 210) {
+              break;
+            }
+
+            message.policyEpoch = reader.string();
+            continue;
+          }
+          case 27: {
+            if (tag !== 218) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -3029,6 +3601,49 @@ export const Grant: MessageFns<Grant, "anvilkit.mcp.v1.Grant"> = {
         : isSet(object.updated_at)
         ? fromJsonTimestamp(object.updated_at)
         : undefined,
+      canonicalResource: isSet(object.canonicalResource)
+        ? globalThis.String(object.canonicalResource)
+        : isSet(object.canonical_resource)
+        ? globalThis.String(object.canonical_resource)
+        : "",
+      transport: isSet(object.transport) ? globalThis.String(object.transport) : "",
+      protocolVersion: isSet(object.protocolVersion)
+        ? globalThis.String(object.protocolVersion)
+        : isSet(object.protocol_version)
+        ? globalThis.String(object.protocol_version)
+        : "",
+      issuer: isSet(object.issuer) ? globalThis.String(object.issuer) : "",
+      audience: isSet(object.audience) ? globalThis.String(object.audience) : "",
+      resourceSelectors: globalThis.Array.isArray(object?.resourceSelectors)
+        ? object.resourceSelectors.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.resource_selectors)
+        ? object.resource_selectors.map((e: any) => globalThis.String(e))
+        : [],
+      promptSelectors: globalThis.Array.isArray(object?.promptSelectors)
+        ? object.promptSelectors.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.prompt_selectors)
+        ? object.prompt_selectors.map((e: any) => globalThis.String(e))
+        : [],
+      dataClass: isSet(object.dataClass)
+        ? globalThis.String(object.dataClass)
+        : isSet(object.data_class)
+        ? globalThis.String(object.data_class)
+        : "",
+      policyDigest: isSet(object.policyDigest)
+        ? globalThis.String(object.policyDigest)
+        : isSet(object.policy_digest)
+        ? globalThis.String(object.policy_digest)
+        : "",
+      policyEpoch: isSet(object.policyEpoch)
+        ? globalThis.String(object.policyEpoch)
+        : isSet(object.policy_epoch)
+        ? globalThis.String(object.policy_epoch)
+        : "",
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
     };
   },
 
@@ -3082,6 +3697,39 @@ export const Grant: MessageFns<Grant, "anvilkit.mcp.v1.Grant"> = {
     if (message.updatedAt !== undefined) {
       obj.updatedAt = message.updatedAt.toISOString();
     }
+    if (message.canonicalResource !== "") {
+      obj.canonicalResource = message.canonicalResource;
+    }
+    if (message.transport !== "") {
+      obj.transport = message.transport;
+    }
+    if (message.protocolVersion !== "") {
+      obj.protocolVersion = message.protocolVersion;
+    }
+    if (message.issuer !== "") {
+      obj.issuer = message.issuer;
+    }
+    if (message.audience !== "") {
+      obj.audience = message.audience;
+    }
+    if (message.resourceSelectors?.length) {
+      obj.resourceSelectors = message.resourceSelectors;
+    }
+    if (message.promptSelectors?.length) {
+      obj.promptSelectors = message.promptSelectors;
+    }
+    if (message.dataClass !== "") {
+      obj.dataClass = message.dataClass;
+    }
+    if (message.policyDigest !== "") {
+      obj.policyDigest = message.policyDigest;
+    }
+    if (message.policyEpoch !== "") {
+      obj.policyEpoch = message.policyEpoch;
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
     return obj;
   },
 
@@ -3108,6 +3756,17 @@ export const Grant: MessageFns<Grant, "anvilkit.mcp.v1.Grant"> = {
     message.expiresAt = object.expiresAt ?? undefined;
     message.createdAt = object.createdAt ?? undefined;
     message.updatedAt = object.updatedAt ?? undefined;
+    message.canonicalResource = object.canonicalResource ?? "";
+    message.transport = object.transport ?? "";
+    message.protocolVersion = object.protocolVersion ?? "";
+    message.issuer = object.issuer ?? "";
+    message.audience = object.audience ?? "";
+    message.resourceSelectors = object.resourceSelectors?.map((e) => e) || [];
+    message.promptSelectors = object.promptSelectors?.map((e) => e) || [];
+    message.dataClass = object.dataClass ?? "";
+    message.policyDigest = object.policyDigest ?? "";
+    message.policyEpoch = object.policyEpoch ?? "";
+    message.failureCode = object.failureCode ?? undefined;
     return message;
   },
 };
@@ -3128,6 +3787,9 @@ function createBaseCreateGrantRequest(): CreateGrantRequest {
     purpose: "",
     costCap: undefined,
     expiresAt: undefined,
+    resourceSelectors: [],
+    promptSelectors: [],
+    dataClass: "",
   };
 }
 
@@ -3167,6 +3829,15 @@ export const CreateGrantRequest: MessageFns<CreateGrantRequest, "anvilkit.mcp.v1
     }
     if (message.expiresAt !== undefined) {
       Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(90).fork()).join();
+    }
+    for (const v of message.resourceSelectors) {
+      writer.uint32(98).string(v!);
+    }
+    for (const v of message.promptSelectors) {
+      writer.uint32(106).string(v!);
+    }
+    if (message.dataClass !== "") {
+      writer.uint32(114).string(message.dataClass);
     }
     return writer;
   },
@@ -3272,6 +3943,30 @@ export const CreateGrantRequest: MessageFns<CreateGrantRequest, "anvilkit.mcp.v1
             message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.resourceSelectors.push(reader.string());
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.promptSelectors.push(reader.string());
+            continue;
+          }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.dataClass = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -3328,6 +4023,21 @@ export const CreateGrantRequest: MessageFns<CreateGrantRequest, "anvilkit.mcp.v1
         : isSet(object.expires_at)
         ? fromJsonTimestamp(object.expires_at)
         : undefined,
+      resourceSelectors: globalThis.Array.isArray(object?.resourceSelectors)
+        ? object.resourceSelectors.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.resource_selectors)
+        ? object.resource_selectors.map((e: any) => globalThis.String(e))
+        : [],
+      promptSelectors: globalThis.Array.isArray(object?.promptSelectors)
+        ? object.promptSelectors.map((e: any) => globalThis.String(e))
+        : globalThis.Array.isArray(object?.prompt_selectors)
+        ? object.prompt_selectors.map((e: any) => globalThis.String(e))
+        : [],
+      dataClass: isSet(object.dataClass)
+        ? globalThis.String(object.dataClass)
+        : isSet(object.data_class)
+        ? globalThis.String(object.data_class)
+        : "",
     };
   },
 
@@ -3366,6 +4076,15 @@ export const CreateGrantRequest: MessageFns<CreateGrantRequest, "anvilkit.mcp.v1
     if (message.expiresAt !== undefined) {
       obj.expiresAt = message.expiresAt.toISOString();
     }
+    if (message.resourceSelectors?.length) {
+      obj.resourceSelectors = message.resourceSelectors;
+    }
+    if (message.promptSelectors?.length) {
+      obj.promptSelectors = message.promptSelectors;
+    }
+    if (message.dataClass !== "") {
+      obj.dataClass = message.dataClass;
+    }
     return obj;
   },
 
@@ -3389,6 +4108,9 @@ export const CreateGrantRequest: MessageFns<CreateGrantRequest, "anvilkit.mcp.v1
       ? Money.fromPartial(object.costCap)
       : undefined;
     message.expiresAt = object.expiresAt ?? undefined;
+    message.resourceSelectors = object.resourceSelectors?.map((e) => e) || [];
+    message.promptSelectors = object.promptSelectors?.map((e) => e) || [];
+    message.dataClass = object.dataClass ?? "";
     return message;
   },
 };
@@ -4220,6 +4942,8 @@ function createBaseGetRevocationProgressResponse(): GetRevocationProgressRespons
     sendersConverged: false,
     inFlightCalls: "",
     unknownCalls: "",
+    controlState: "",
+    openCalls: "",
   };
 }
 
@@ -4244,6 +4968,12 @@ export const GetRevocationProgressResponse: MessageFns<
     }
     if (message.unknownCalls !== "") {
       writer.uint32(42).string(message.unknownCalls);
+    }
+    if (message.controlState !== "") {
+      writer.uint32(50).string(message.controlState);
+    }
+    if (message.openCalls !== "") {
+      writer.uint32(58).string(message.openCalls);
     }
     return writer;
   },
@@ -4301,6 +5031,22 @@ export const GetRevocationProgressResponse: MessageFns<
             message.unknownCalls = reader.string();
             continue;
           }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.controlState = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.openCalls = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4337,6 +5083,16 @@ export const GetRevocationProgressResponse: MessageFns<
         : isSet(object.unknown_calls)
         ? globalThis.String(object.unknown_calls)
         : "",
+      controlState: isSet(object.controlState)
+        ? globalThis.String(object.controlState)
+        : isSet(object.control_state)
+        ? globalThis.String(object.control_state)
+        : "",
+      openCalls: isSet(object.openCalls)
+        ? globalThis.String(object.openCalls)
+        : isSet(object.open_calls)
+        ? globalThis.String(object.open_calls)
+        : "",
     };
   },
 
@@ -4357,6 +5113,12 @@ export const GetRevocationProgressResponse: MessageFns<
     if (message.unknownCalls !== "") {
       obj.unknownCalls = message.unknownCalls;
     }
+    if (message.controlState !== "") {
+      obj.controlState = message.controlState;
+    }
+    if (message.openCalls !== "") {
+      obj.openCalls = message.openCalls;
+    }
     return obj;
   },
 
@@ -4372,6 +5134,8 @@ export const GetRevocationProgressResponse: MessageFns<
     message.sendersConverged = object.sendersConverged ?? false;
     message.inFlightCalls = object.inFlightCalls ?? "";
     message.unknownCalls = object.unknownCalls ?? "";
+    message.controlState = object.controlState ?? "";
+    message.openCalls = object.openCalls ?? "";
     return message;
   },
 };
@@ -4395,6 +5159,10 @@ function createBaseToolCall(): ToolCall {
     failureCode: undefined,
     createdAt: undefined,
     updatedAt: undefined,
+    result: Buffer.alloc(0),
+    descriptorRevision: "",
+    descriptorDigest: "",
+    protocolVersion: "",
   };
 }
 
@@ -4443,6 +5211,18 @@ export const ToolCall: MessageFns<ToolCall, "anvilkit.mcp.v1.ToolCall"> = {
     }
     if (message.updatedAt !== undefined) {
       Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(114).fork()).join();
+    }
+    if (message.result.length !== 0) {
+      writer.uint32(122).bytes(message.result);
+    }
+    if (message.descriptorRevision !== "") {
+      writer.uint32(130).string(message.descriptorRevision);
+    }
+    if (message.descriptorDigest !== "") {
+      writer.uint32(138).string(message.descriptorDigest);
+    }
+    if (message.protocolVersion !== "") {
+      writer.uint32(146).string(message.protocolVersion);
     }
     return writer;
   },
@@ -4572,6 +5352,38 @@ export const ToolCall: MessageFns<ToolCall, "anvilkit.mcp.v1.ToolCall"> = {
             message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 15: {
+            if (tag !== 122) {
+              break;
+            }
+
+            message.result = Buffer.from(reader.bytes());
+            continue;
+          }
+          case 16: {
+            if (tag !== 130) {
+              break;
+            }
+
+            message.descriptorRevision = reader.string();
+            continue;
+          }
+          case 17: {
+            if (tag !== 138) {
+              break;
+            }
+
+            message.descriptorDigest = reader.string();
+            continue;
+          }
+          case 18: {
+            if (tag !== 146) {
+              break;
+            }
+
+            message.protocolVersion = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4649,6 +5461,22 @@ export const ToolCall: MessageFns<ToolCall, "anvilkit.mcp.v1.ToolCall"> = {
         : isSet(object.updated_at)
         ? fromJsonTimestamp(object.updated_at)
         : undefined,
+      result: isSet(object.result) ? Buffer.from(bytesFromBase64(object.result)) : Buffer.alloc(0),
+      descriptorRevision: isSet(object.descriptorRevision)
+        ? globalThis.String(object.descriptorRevision)
+        : isSet(object.descriptor_revision)
+        ? globalThis.String(object.descriptor_revision)
+        : "",
+      descriptorDigest: isSet(object.descriptorDigest)
+        ? globalThis.String(object.descriptorDigest)
+        : isSet(object.descriptor_digest)
+        ? globalThis.String(object.descriptor_digest)
+        : "",
+      protocolVersion: isSet(object.protocolVersion)
+        ? globalThis.String(object.protocolVersion)
+        : isSet(object.protocol_version)
+        ? globalThis.String(object.protocol_version)
+        : "",
     };
   },
 
@@ -4696,6 +5524,18 @@ export const ToolCall: MessageFns<ToolCall, "anvilkit.mcp.v1.ToolCall"> = {
     if (message.updatedAt !== undefined) {
       obj.updatedAt = message.updatedAt.toISOString();
     }
+    if (message.result.length !== 0) {
+      obj.result = base64FromBytes(message.result);
+    }
+    if (message.descriptorRevision !== "") {
+      obj.descriptorRevision = message.descriptorRevision;
+    }
+    if (message.descriptorDigest !== "") {
+      obj.descriptorDigest = message.descriptorDigest;
+    }
+    if (message.protocolVersion !== "") {
+      obj.protocolVersion = message.protocolVersion;
+    }
     return obj;
   },
 
@@ -4718,6 +5558,10 @@ export const ToolCall: MessageFns<ToolCall, "anvilkit.mcp.v1.ToolCall"> = {
     message.failureCode = object.failureCode ?? undefined;
     message.createdAt = object.createdAt ?? undefined;
     message.updatedAt = object.updatedAt ?? undefined;
+    message.result = object.result ?? Buffer.alloc(0);
+    message.descriptorRevision = object.descriptorRevision ?? "";
+    message.descriptorDigest = object.descriptorDigest ?? "";
+    message.protocolVersion = object.protocolVersion ?? "";
     return message;
   },
 };
@@ -4737,6 +5581,9 @@ function createBaseCreateCallRequest(): CreateCallRequest {
     operationId: "",
     attemptId: "",
     deadline: undefined,
+    instanceId: "",
+    executionEpoch: "",
+    arguments: Buffer.alloc(0),
   };
 }
 
@@ -4773,6 +5620,15 @@ export const CreateCallRequest: MessageFns<CreateCallRequest, "anvilkit.mcp.v1.C
     }
     if (message.deadline !== undefined) {
       Timestamp.encode(toTimestamp(message.deadline), writer.uint32(82).fork()).join();
+    }
+    if (message.instanceId !== "") {
+      writer.uint32(90).string(message.instanceId);
+    }
+    if (message.executionEpoch !== "") {
+      writer.uint32(98).string(message.executionEpoch);
+    }
+    if (message.arguments.length !== 0) {
+      writer.uint32(106).bytes(message.arguments);
     }
     return writer;
   },
@@ -4870,6 +5726,30 @@ export const CreateCallRequest: MessageFns<CreateCallRequest, "anvilkit.mcp.v1.C
             message.deadline = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.instanceId = reader.string();
+            continue;
+          }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.executionEpoch = reader.string();
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.arguments = Buffer.from(reader.bytes());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4919,6 +5799,17 @@ export const CreateCallRequest: MessageFns<CreateCallRequest, "anvilkit.mcp.v1.C
         ? globalThis.String(object.attempt_id)
         : "",
       deadline: isSet(object.deadline) ? fromJsonTimestamp(object.deadline) : undefined,
+      instanceId: isSet(object.instanceId)
+        ? globalThis.String(object.instanceId)
+        : isSet(object.instance_id)
+        ? globalThis.String(object.instance_id)
+        : "",
+      executionEpoch: isSet(object.executionEpoch)
+        ? globalThis.String(object.executionEpoch)
+        : isSet(object.execution_epoch)
+        ? globalThis.String(object.execution_epoch)
+        : "",
+      arguments: isSet(object.arguments) ? Buffer.from(bytesFromBase64(object.arguments)) : Buffer.alloc(0),
     };
   },
 
@@ -4954,6 +5845,15 @@ export const CreateCallRequest: MessageFns<CreateCallRequest, "anvilkit.mcp.v1.C
     if (message.deadline !== undefined) {
       obj.deadline = message.deadline.toISOString();
     }
+    if (message.instanceId !== "") {
+      obj.instanceId = message.instanceId;
+    }
+    if (message.executionEpoch !== "") {
+      obj.executionEpoch = message.executionEpoch;
+    }
+    if (message.arguments.length !== 0) {
+      obj.arguments = base64FromBytes(message.arguments);
+    }
     return obj;
   },
 
@@ -4974,6 +5874,9 @@ export const CreateCallRequest: MessageFns<CreateCallRequest, "anvilkit.mcp.v1.C
     message.operationId = object.operationId ?? "";
     message.attemptId = object.attemptId ?? "";
     message.deadline = object.deadline ?? undefined;
+    message.instanceId = object.instanceId ?? "";
+    message.executionEpoch = object.executionEpoch ?? "";
+    message.arguments = object.arguments ?? Buffer.alloc(0);
     return message;
   },
 };

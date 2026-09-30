@@ -201,6 +201,57 @@ export function factStateToJSON(object: FactState): string {
   }
 }
 
+/**
+ * Who a proposal speaks for. Models and workers only propose; a decision is
+ * taken by an authorized user (or, inside Knowledge, a reviewed rule such as
+ * expiry) and never by an identity that proposed on behalf of a model or a
+ * worker.
+ */
+export enum FactOrigin {
+  FACT_ORIGIN_UNSPECIFIED = 0,
+  FACT_ORIGIN_USER = 1,
+  FACT_ORIGIN_MODEL = 2,
+  FACT_ORIGIN_WORKER = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function factOriginFromJSON(object: any): FactOrigin {
+  switch (object) {
+    case 0:
+    case "FACT_ORIGIN_UNSPECIFIED":
+      return FactOrigin.FACT_ORIGIN_UNSPECIFIED;
+    case 1:
+    case "FACT_ORIGIN_USER":
+      return FactOrigin.FACT_ORIGIN_USER;
+    case 2:
+    case "FACT_ORIGIN_MODEL":
+      return FactOrigin.FACT_ORIGIN_MODEL;
+    case 3:
+    case "FACT_ORIGIN_WORKER":
+      return FactOrigin.FACT_ORIGIN_WORKER;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return FactOrigin.UNRECOGNIZED;
+  }
+}
+
+export function factOriginToJSON(object: FactOrigin): string {
+  switch (object) {
+    case FactOrigin.FACT_ORIGIN_UNSPECIFIED:
+      return "FACT_ORIGIN_UNSPECIFIED";
+    case FactOrigin.FACT_ORIGIN_USER:
+      return "FACT_ORIGIN_USER";
+    case FactOrigin.FACT_ORIGIN_MODEL:
+      return "FACT_ORIGIN_MODEL";
+    case FactOrigin.FACT_ORIGIN_WORKER:
+      return "FACT_ORIGIN_WORKER";
+    case FactOrigin.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 export enum FactDecision {
   FACT_DECISION_UNSPECIFIED = 0,
   FACT_DECISION_CONFIRM = 1,
@@ -640,6 +691,12 @@ export interface MemoryFact {
   expiresAt?: Date | undefined;
   createdAt: Date | undefined;
   updatedAt: Date | undefined;
+  origin: FactOrigin;
+  /**
+   * Set by DeleteFact in the response that deleted it: content is erased
+   * and the fact is unreadable afterwards (reads answer NOT_FOUND).
+   */
+  deleted: boolean;
 }
 
 export interface ProposeFactRequest {
@@ -649,8 +706,10 @@ export interface ProposeFactRequest {
   subjectType: string;
   subjectId: string;
   content: string;
+  /** Exact provenance: <source_id>@<revision> of sources the caller can read. */
   sourceRefs: string[];
   expiresAt?: Date | undefined;
+  origin: FactOrigin;
 }
 
 export interface ProposeFactResponse {
@@ -666,7 +725,11 @@ export interface DecideFactRequest {
   factId: string;
   expectedRevision: string;
   decision: FactDecision;
-  reasonCode?: string | undefined;
+  reasonCode?:
+    | string
+    | undefined;
+  /** CONFIRM only: the confirmed fact's expiry (must lie in the future). */
+  expiresAt?: Date | undefined;
 }
 
 export interface DecideFactResponse {
@@ -700,6 +763,36 @@ export interface ListFactsResponse {
   $type: "anvilkit.knowledge.v1.ListFactsResponse";
   facts: MemoryFact[];
   nextCursor: string;
+}
+
+export interface DeleteFactRequest {
+  $type: "anvilkit.knowledge.v1.DeleteFactRequest";
+  command: CommandIdentity | undefined;
+  scope: Scope | undefined;
+  factId: string;
+  expectedRevision: string;
+}
+
+export interface DeleteFactResponse {
+  $type: "anvilkit.knowledge.v1.DeleteFactResponse";
+  fact: MemoryFact | undefined;
+  existing: boolean;
+}
+
+export interface RecallFactsRequest {
+  $type: "anvilkit.knowledge.v1.RecallFactsRequest";
+  scope: Scope | undefined;
+  query: string;
+  maxFacts: number;
+  retrievalProfileId: string;
+  deadline: Date | undefined;
+}
+
+export interface RecallFactsResponse {
+  $type: "anvilkit.knowledge.v1.RecallFactsResponse";
+  facts: MemoryFact[];
+  noAnswer: boolean;
+  indexGeneration: string;
 }
 
 export interface BackgroundTask {
@@ -802,6 +895,26 @@ export interface AdvanceIndexRequest {
 
 export interface AdvanceIndexResponse {
   $type: "anvilkit.knowledge.v1.AdvanceIndexResponse";
+  state: IndexState;
+  resultRef: string;
+  resultDigest: string;
+  failureCode?:
+    | string
+    | undefined;
+  /** Suggested wait before the next call while RUNNING. */
+  retryAfterMs: number;
+}
+
+export interface AdvanceProjectionRequest {
+  $type: "anvilkit.knowledge.v1.AdvanceProjectionRequest";
+  taskId: string;
+  generation: string;
+  workerId: string;
+  inputDigest: string;
+}
+
+export interface AdvanceProjectionResponse {
+  $type: "anvilkit.knowledge.v1.AdvanceProjectionResponse";
   state: IndexState;
   resultRef: string;
   resultDigest: string;
@@ -3873,6 +3986,8 @@ function createBaseMemoryFact(): MemoryFact {
     expiresAt: undefined,
     createdAt: undefined,
     updatedAt: undefined,
+    origin: 0,
+    deleted: false,
   };
 }
 
@@ -3924,6 +4039,12 @@ export const MemoryFact: MessageFns<MemoryFact, "anvilkit.knowledge.v1.MemoryFac
     }
     if (message.updatedAt !== undefined) {
       Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(122).fork()).join();
+    }
+    if (message.origin !== 0) {
+      writer.uint32(128).int32(message.origin);
+    }
+    if (message.deleted !== false) {
+      writer.uint32(136).bool(message.deleted);
     }
     return writer;
   },
@@ -4061,6 +4182,22 @@ export const MemoryFact: MessageFns<MemoryFact, "anvilkit.knowledge.v1.MemoryFac
             message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 16: {
+            if (tag !== 128) {
+              break;
+            }
+
+            message.origin = reader.int32() as any;
+            continue;
+          }
+          case 17: {
+            if (tag !== 136) {
+              break;
+            }
+
+            message.deleted = reader.bool();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4131,6 +4268,8 @@ export const MemoryFact: MessageFns<MemoryFact, "anvilkit.knowledge.v1.MemoryFac
         : isSet(object.updated_at)
         ? fromJsonTimestamp(object.updated_at)
         : undefined,
+      origin: isSet(object.origin) ? factOriginFromJSON(object.origin) : 0,
+      deleted: isSet(object.deleted) ? globalThis.Boolean(object.deleted) : false,
     };
   },
 
@@ -4181,6 +4320,12 @@ export const MemoryFact: MessageFns<MemoryFact, "anvilkit.knowledge.v1.MemoryFac
     if (message.updatedAt !== undefined) {
       obj.updatedAt = message.updatedAt.toISOString();
     }
+    if (message.origin !== 0) {
+      obj.origin = factOriginToJSON(message.origin);
+    }
+    if (message.deleted !== false) {
+      obj.deleted = message.deleted;
+    }
     return obj;
   },
 
@@ -4204,6 +4349,8 @@ export const MemoryFact: MessageFns<MemoryFact, "anvilkit.knowledge.v1.MemoryFac
     message.expiresAt = object.expiresAt ?? undefined;
     message.createdAt = object.createdAt ?? undefined;
     message.updatedAt = object.updatedAt ?? undefined;
+    message.origin = object.origin ?? 0;
+    message.deleted = object.deleted ?? false;
     return message;
   },
 };
@@ -4220,6 +4367,7 @@ function createBaseProposeFactRequest(): ProposeFactRequest {
     content: "",
     sourceRefs: [],
     expiresAt: undefined,
+    origin: 0,
   };
 }
 
@@ -4247,6 +4395,9 @@ export const ProposeFactRequest: MessageFns<ProposeFactRequest, "anvilkit.knowle
     }
     if (message.expiresAt !== undefined) {
       Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(58).fork()).join();
+    }
+    if (message.origin !== 0) {
+      writer.uint32(64).int32(message.origin);
     }
     return writer;
   },
@@ -4320,6 +4471,14 @@ export const ProposeFactRequest: MessageFns<ProposeFactRequest, "anvilkit.knowle
             message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 8: {
+            if (tag !== 64) {
+              break;
+            }
+
+            message.origin = reader.int32() as any;
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4358,6 +4517,7 @@ export const ProposeFactRequest: MessageFns<ProposeFactRequest, "anvilkit.knowle
         : isSet(object.expires_at)
         ? fromJsonTimestamp(object.expires_at)
         : undefined,
+      origin: isSet(object.origin) ? factOriginFromJSON(object.origin) : 0,
     };
   },
 
@@ -4384,6 +4544,9 @@ export const ProposeFactRequest: MessageFns<ProposeFactRequest, "anvilkit.knowle
     if (message.expiresAt !== undefined) {
       obj.expiresAt = message.expiresAt.toISOString();
     }
+    if (message.origin !== 0) {
+      obj.origin = factOriginToJSON(message.origin);
+    }
     return obj;
   },
 
@@ -4401,6 +4564,7 @@ export const ProposeFactRequest: MessageFns<ProposeFactRequest, "anvilkit.knowle
     message.content = object.content ?? "";
     message.sourceRefs = object.sourceRefs?.map((e) => e) || [];
     message.expiresAt = object.expiresAt ?? undefined;
+    message.origin = object.origin ?? 0;
     return message;
   },
 };
@@ -4508,6 +4672,7 @@ function createBaseDecideFactRequest(): DecideFactRequest {
     expectedRevision: "",
     decision: 0,
     reasonCode: undefined,
+    expiresAt: undefined,
   };
 }
 
@@ -4532,6 +4697,9 @@ export const DecideFactRequest: MessageFns<DecideFactRequest, "anvilkit.knowledg
     }
     if (message.reasonCode !== undefined) {
       writer.uint32(50).string(message.reasonCode);
+    }
+    if (message.expiresAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(58).fork()).join();
     }
     return writer;
   },
@@ -4597,6 +4765,14 @@ export const DecideFactRequest: MessageFns<DecideFactRequest, "anvilkit.knowledg
             message.reasonCode = reader.string();
             continue;
           }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4630,6 +4806,11 @@ export const DecideFactRequest: MessageFns<DecideFactRequest, "anvilkit.knowledg
         : isSet(object.reason_code)
         ? globalThis.String(object.reason_code)
         : undefined,
+      expiresAt: isSet(object.expiresAt)
+        ? fromJsonTimestamp(object.expiresAt)
+        : isSet(object.expires_at)
+        ? fromJsonTimestamp(object.expires_at)
+        : undefined,
     };
   },
 
@@ -4653,6 +4834,9 @@ export const DecideFactRequest: MessageFns<DecideFactRequest, "anvilkit.knowledg
     if (message.reasonCode !== undefined) {
       obj.reasonCode = message.reasonCode;
     }
+    if (message.expiresAt !== undefined) {
+      obj.expiresAt = message.expiresAt.toISOString();
+    }
     return obj;
   },
 
@@ -4669,6 +4853,7 @@ export const DecideFactRequest: MessageFns<DecideFactRequest, "anvilkit.knowledg
     message.expectedRevision = object.expectedRevision ?? "";
     message.decision = object.decision ?? 0;
     message.reasonCode = object.reasonCode ?? undefined;
+    message.expiresAt = object.expiresAt ?? undefined;
     return message;
   },
 };
@@ -5197,6 +5382,503 @@ export const ListFactsResponse: MessageFns<ListFactsResponse, "anvilkit.knowledg
 };
 
 messageTypeRegistry.set(ListFactsResponse.$type, ListFactsResponse);
+
+function createBaseDeleteFactRequest(): DeleteFactRequest {
+  return {
+    $type: "anvilkit.knowledge.v1.DeleteFactRequest",
+    command: undefined,
+    scope: undefined,
+    factId: "",
+    expectedRevision: "",
+  };
+}
+
+export const DeleteFactRequest: MessageFns<DeleteFactRequest, "anvilkit.knowledge.v1.DeleteFactRequest"> = {
+  $type: "anvilkit.knowledge.v1.DeleteFactRequest" as const,
+
+  encode(message: DeleteFactRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(18).fork()).join();
+    }
+    if (message.factId !== "") {
+      writer.uint32(26).string(message.factId);
+    }
+    if (message.expectedRevision !== "") {
+      writer.uint32(34).string(message.expectedRevision);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DeleteFactRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseDeleteFactRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.factId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.expectedRevision = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): DeleteFactRequest {
+    return {
+      $type: DeleteFactRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      factId: isSet(object.factId)
+        ? globalThis.String(object.factId)
+        : isSet(object.fact_id)
+        ? globalThis.String(object.fact_id)
+        : "",
+      expectedRevision: isSet(object.expectedRevision)
+        ? globalThis.String(object.expectedRevision)
+        : isSet(object.expected_revision)
+        ? globalThis.String(object.expected_revision)
+        : "",
+    };
+  },
+
+  toJSON(message: DeleteFactRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.factId !== "") {
+      obj.factId = message.factId;
+    }
+    if (message.expectedRevision !== "") {
+      obj.expectedRevision = message.expectedRevision;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<DeleteFactRequest>, I>>(base?: I): DeleteFactRequest {
+    return DeleteFactRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<DeleteFactRequest>, I>>(object: I): DeleteFactRequest {
+    const message = createBaseDeleteFactRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.factId = object.factId ?? "";
+    message.expectedRevision = object.expectedRevision ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(DeleteFactRequest.$type, DeleteFactRequest);
+
+function createBaseDeleteFactResponse(): DeleteFactResponse {
+  return { $type: "anvilkit.knowledge.v1.DeleteFactResponse", fact: undefined, existing: false };
+}
+
+export const DeleteFactResponse: MessageFns<DeleteFactResponse, "anvilkit.knowledge.v1.DeleteFactResponse"> = {
+  $type: "anvilkit.knowledge.v1.DeleteFactResponse" as const,
+
+  encode(message: DeleteFactResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.fact !== undefined) {
+      MemoryFact.encode(message.fact, writer.uint32(10).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(16).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DeleteFactResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseDeleteFactResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.fact = MemoryFact.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): DeleteFactResponse {
+    return {
+      $type: DeleteFactResponse.$type,
+      fact: isSet(object.fact) ? MemoryFact.fromJSON(object.fact) : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: DeleteFactResponse): unknown {
+    const obj: any = {};
+    if (message.fact !== undefined) {
+      obj.fact = MemoryFact.toJSON(message.fact);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<DeleteFactResponse>, I>>(base?: I): DeleteFactResponse {
+    return DeleteFactResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<DeleteFactResponse>, I>>(object: I): DeleteFactResponse {
+    const message = createBaseDeleteFactResponse();
+    message.fact = (object.fact !== undefined && object.fact !== null)
+      ? MemoryFact.fromPartial(object.fact)
+      : undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(DeleteFactResponse.$type, DeleteFactResponse);
+
+function createBaseRecallFactsRequest(): RecallFactsRequest {
+  return {
+    $type: "anvilkit.knowledge.v1.RecallFactsRequest",
+    scope: undefined,
+    query: "",
+    maxFacts: 0,
+    retrievalProfileId: "",
+    deadline: undefined,
+  };
+}
+
+export const RecallFactsRequest: MessageFns<RecallFactsRequest, "anvilkit.knowledge.v1.RecallFactsRequest"> = {
+  $type: "anvilkit.knowledge.v1.RecallFactsRequest" as const,
+
+  encode(message: RecallFactsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.query !== "") {
+      writer.uint32(18).string(message.query);
+    }
+    if (message.maxFacts !== 0) {
+      writer.uint32(24).uint32(message.maxFacts);
+    }
+    if (message.retrievalProfileId !== "") {
+      writer.uint32(34).string(message.retrievalProfileId);
+    }
+    if (message.deadline !== undefined) {
+      Timestamp.encode(toTimestamp(message.deadline), writer.uint32(42).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecallFactsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRecallFactsRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.query = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.maxFacts = reader.uint32();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.retrievalProfileId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.deadline = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RecallFactsRequest {
+    return {
+      $type: RecallFactsRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      query: isSet(object.query) ? globalThis.String(object.query) : "",
+      maxFacts: isSet(object.maxFacts)
+        ? globalThis.Number(object.maxFacts)
+        : isSet(object.max_facts)
+        ? globalThis.Number(object.max_facts)
+        : 0,
+      retrievalProfileId: isSet(object.retrievalProfileId)
+        ? globalThis.String(object.retrievalProfileId)
+        : isSet(object.retrieval_profile_id)
+        ? globalThis.String(object.retrieval_profile_id)
+        : "",
+      deadline: isSet(object.deadline) ? fromJsonTimestamp(object.deadline) : undefined,
+    };
+  },
+
+  toJSON(message: RecallFactsRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.query !== "") {
+      obj.query = message.query;
+    }
+    if (message.maxFacts !== 0) {
+      obj.maxFacts = Math.round(message.maxFacts);
+    }
+    if (message.retrievalProfileId !== "") {
+      obj.retrievalProfileId = message.retrievalProfileId;
+    }
+    if (message.deadline !== undefined) {
+      obj.deadline = message.deadline.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecallFactsRequest>, I>>(base?: I): RecallFactsRequest {
+    return RecallFactsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecallFactsRequest>, I>>(object: I): RecallFactsRequest {
+    const message = createBaseRecallFactsRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.query = object.query ?? "";
+    message.maxFacts = object.maxFacts ?? 0;
+    message.retrievalProfileId = object.retrievalProfileId ?? "";
+    message.deadline = object.deadline ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RecallFactsRequest.$type, RecallFactsRequest);
+
+function createBaseRecallFactsResponse(): RecallFactsResponse {
+  return { $type: "anvilkit.knowledge.v1.RecallFactsResponse", facts: [], noAnswer: false, indexGeneration: "" };
+}
+
+export const RecallFactsResponse: MessageFns<RecallFactsResponse, "anvilkit.knowledge.v1.RecallFactsResponse"> = {
+  $type: "anvilkit.knowledge.v1.RecallFactsResponse" as const,
+
+  encode(message: RecallFactsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.facts) {
+      MemoryFact.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.noAnswer !== false) {
+      writer.uint32(16).bool(message.noAnswer);
+    }
+    if (message.indexGeneration !== "") {
+      writer.uint32(26).string(message.indexGeneration);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecallFactsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRecallFactsResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.facts.push(MemoryFact.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.noAnswer = reader.bool();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.indexGeneration = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RecallFactsResponse {
+    return {
+      $type: RecallFactsResponse.$type,
+      facts: globalThis.Array.isArray(object?.facts) ? object.facts.map((e: any) => MemoryFact.fromJSON(e)) : [],
+      noAnswer: isSet(object.noAnswer)
+        ? globalThis.Boolean(object.noAnswer)
+        : isSet(object.no_answer)
+        ? globalThis.Boolean(object.no_answer)
+        : false,
+      indexGeneration: isSet(object.indexGeneration)
+        ? globalThis.String(object.indexGeneration)
+        : isSet(object.index_generation)
+        ? globalThis.String(object.index_generation)
+        : "",
+    };
+  },
+
+  toJSON(message: RecallFactsResponse): unknown {
+    const obj: any = {};
+    if (message.facts?.length) {
+      obj.facts = message.facts.map((e) => MemoryFact.toJSON(e));
+    }
+    if (message.noAnswer !== false) {
+      obj.noAnswer = message.noAnswer;
+    }
+    if (message.indexGeneration !== "") {
+      obj.indexGeneration = message.indexGeneration;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecallFactsResponse>, I>>(base?: I): RecallFactsResponse {
+    return RecallFactsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecallFactsResponse>, I>>(object: I): RecallFactsResponse {
+    const message = createBaseRecallFactsResponse();
+    message.facts = object.facts?.map((e) => MemoryFact.fromPartial(e)) || [];
+    message.noAnswer = object.noAnswer ?? false;
+    message.indexGeneration = object.indexGeneration ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RecallFactsResponse.$type, RecallFactsResponse);
 
 function createBaseBackgroundTask(): BackgroundTask {
   return {
@@ -6924,6 +7606,313 @@ export const AdvanceIndexResponse: MessageFns<AdvanceIndexResponse, "anvilkit.kn
 
 messageTypeRegistry.set(AdvanceIndexResponse.$type, AdvanceIndexResponse);
 
+function createBaseAdvanceProjectionRequest(): AdvanceProjectionRequest {
+  return {
+    $type: "anvilkit.knowledge.v1.AdvanceProjectionRequest",
+    taskId: "",
+    generation: "",
+    workerId: "",
+    inputDigest: "",
+  };
+}
+
+export const AdvanceProjectionRequest: MessageFns<
+  AdvanceProjectionRequest,
+  "anvilkit.knowledge.v1.AdvanceProjectionRequest"
+> = {
+  $type: "anvilkit.knowledge.v1.AdvanceProjectionRequest" as const,
+
+  encode(message: AdvanceProjectionRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.taskId !== "") {
+      writer.uint32(10).string(message.taskId);
+    }
+    if (message.generation !== "") {
+      writer.uint32(18).string(message.generation);
+    }
+    if (message.workerId !== "") {
+      writer.uint32(26).string(message.workerId);
+    }
+    if (message.inputDigest !== "") {
+      writer.uint32(34).string(message.inputDigest);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceProjectionRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceProjectionRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.taskId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.generation = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.workerId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.inputDigest = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceProjectionRequest {
+    return {
+      $type: AdvanceProjectionRequest.$type,
+      taskId: isSet(object.taskId)
+        ? globalThis.String(object.taskId)
+        : isSet(object.task_id)
+        ? globalThis.String(object.task_id)
+        : "",
+      generation: isSet(object.generation) ? globalThis.String(object.generation) : "",
+      workerId: isSet(object.workerId)
+        ? globalThis.String(object.workerId)
+        : isSet(object.worker_id)
+        ? globalThis.String(object.worker_id)
+        : "",
+      inputDigest: isSet(object.inputDigest)
+        ? globalThis.String(object.inputDigest)
+        : isSet(object.input_digest)
+        ? globalThis.String(object.input_digest)
+        : "",
+    };
+  },
+
+  toJSON(message: AdvanceProjectionRequest): unknown {
+    const obj: any = {};
+    if (message.taskId !== "") {
+      obj.taskId = message.taskId;
+    }
+    if (message.generation !== "") {
+      obj.generation = message.generation;
+    }
+    if (message.workerId !== "") {
+      obj.workerId = message.workerId;
+    }
+    if (message.inputDigest !== "") {
+      obj.inputDigest = message.inputDigest;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceProjectionRequest>, I>>(base?: I): AdvanceProjectionRequest {
+    return AdvanceProjectionRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceProjectionRequest>, I>>(object: I): AdvanceProjectionRequest {
+    const message = createBaseAdvanceProjectionRequest();
+    message.taskId = object.taskId ?? "";
+    message.generation = object.generation ?? "";
+    message.workerId = object.workerId ?? "";
+    message.inputDigest = object.inputDigest ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceProjectionRequest.$type, AdvanceProjectionRequest);
+
+function createBaseAdvanceProjectionResponse(): AdvanceProjectionResponse {
+  return {
+    $type: "anvilkit.knowledge.v1.AdvanceProjectionResponse",
+    state: 0,
+    resultRef: "",
+    resultDigest: "",
+    failureCode: undefined,
+    retryAfterMs: 0,
+  };
+}
+
+export const AdvanceProjectionResponse: MessageFns<
+  AdvanceProjectionResponse,
+  "anvilkit.knowledge.v1.AdvanceProjectionResponse"
+> = {
+  $type: "anvilkit.knowledge.v1.AdvanceProjectionResponse" as const,
+
+  encode(message: AdvanceProjectionResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.state !== 0) {
+      writer.uint32(8).int32(message.state);
+    }
+    if (message.resultRef !== "") {
+      writer.uint32(18).string(message.resultRef);
+    }
+    if (message.resultDigest !== "") {
+      writer.uint32(26).string(message.resultDigest);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(34).string(message.failureCode);
+    }
+    if (message.retryAfterMs !== 0) {
+      writer.uint32(40).uint32(message.retryAfterMs);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceProjectionResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceProjectionResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.state = reader.int32() as any;
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.resultRef = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.resultDigest = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.retryAfterMs = reader.uint32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceProjectionResponse {
+    return {
+      $type: AdvanceProjectionResponse.$type,
+      state: isSet(object.state) ? indexStateFromJSON(object.state) : 0,
+      resultRef: isSet(object.resultRef)
+        ? globalThis.String(object.resultRef)
+        : isSet(object.result_ref)
+        ? globalThis.String(object.result_ref)
+        : "",
+      resultDigest: isSet(object.resultDigest)
+        ? globalThis.String(object.resultDigest)
+        : isSet(object.result_digest)
+        ? globalThis.String(object.result_digest)
+        : "",
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
+      retryAfterMs: isSet(object.retryAfterMs)
+        ? globalThis.Number(object.retryAfterMs)
+        : isSet(object.retry_after_ms)
+        ? globalThis.Number(object.retry_after_ms)
+        : 0,
+    };
+  },
+
+  toJSON(message: AdvanceProjectionResponse): unknown {
+    const obj: any = {};
+    if (message.state !== 0) {
+      obj.state = indexStateToJSON(message.state);
+    }
+    if (message.resultRef !== "") {
+      obj.resultRef = message.resultRef;
+    }
+    if (message.resultDigest !== "") {
+      obj.resultDigest = message.resultDigest;
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
+    if (message.retryAfterMs !== 0) {
+      obj.retryAfterMs = Math.round(message.retryAfterMs);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceProjectionResponse>, I>>(base?: I): AdvanceProjectionResponse {
+    return AdvanceProjectionResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceProjectionResponse>, I>>(object: I): AdvanceProjectionResponse {
+    const message = createBaseAdvanceProjectionResponse();
+    message.state = object.state ?? 0;
+    message.resultRef = object.resultRef ?? "";
+    message.resultDigest = object.resultDigest ?? "";
+    message.failureCode = object.failureCode ?? undefined;
+    message.retryAfterMs = object.retryAfterMs ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceProjectionResponse.$type, AdvanceProjectionResponse);
+
 export type SourceServiceService = typeof SourceServiceService;
 export const SourceServiceService = {
   /**
@@ -7282,6 +8271,35 @@ export const MemoryServiceService = {
     responseSerialize: (value: ListFactsResponse): Buffer => Buffer.from(ListFactsResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ListFactsResponse => ListFactsResponse.decode(value),
   },
+  /**
+   * Ends readability in one transaction under expected revision (content
+   * erased, decision recorded); the Store and every vector generation are
+   * cleared asynchronously from that tombstone.
+   */
+  deleteFact: {
+    path: "/anvilkit.knowledge.v1.MemoryService/DeleteFact" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: DeleteFactRequest): Buffer => Buffer.from(DeleteFactRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): DeleteFactRequest => DeleteFactRequest.decode(value),
+    responseSerialize: (value: DeleteFactResponse): Buffer => Buffer.from(DeleteFactResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): DeleteFactResponse => DeleteFactResponse.decode(value),
+  },
+  /**
+   * Semantic recall of confirmed, unexpired facts the caller may read now:
+   * both prefetch branches are filtered by the current allowed-fact set,
+   * content comes from the authoritative record after a recheck; no
+   * sufficient evidence returns no_answer=true.
+   */
+  recallFacts: {
+    path: "/anvilkit.knowledge.v1.MemoryService/RecallFacts" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RecallFactsRequest): Buffer => Buffer.from(RecallFactsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RecallFactsRequest => RecallFactsRequest.decode(value),
+    responseSerialize: (value: RecallFactsResponse): Buffer => Buffer.from(RecallFactsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RecallFactsResponse => RecallFactsResponse.decode(value),
+  },
 } as const;
 
 export interface MemoryServiceServer extends UntypedServiceImplementation {
@@ -7294,6 +8312,19 @@ export interface MemoryServiceServer extends UntypedServiceImplementation {
   decideFact: handleUnaryCall<DecideFactRequest, DecideFactResponse>;
   getFact: handleUnaryCall<GetFactRequest, GetFactResponse>;
   listFacts: handleUnaryCall<ListFactsRequest, ListFactsResponse>;
+  /**
+   * Ends readability in one transaction under expected revision (content
+   * erased, decision recorded); the Store and every vector generation are
+   * cleared asynchronously from that tombstone.
+   */
+  deleteFact: handleUnaryCall<DeleteFactRequest, DeleteFactResponse>;
+  /**
+   * Semantic recall of confirmed, unexpired facts the caller may read now:
+   * both prefetch branches are filtered by the current allowed-fact set,
+   * content comes from the authoritative record after a recheck; no
+   * sufficient evidence returns no_answer=true.
+   */
+  recallFacts: handleUnaryCall<RecallFactsRequest, RecallFactsResponse>;
 }
 
 export interface MemoryServiceClient extends Client {
@@ -7361,6 +8392,47 @@ export interface MemoryServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ListFactsResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Ends readability in one transaction under expected revision (content
+   * erased, decision recorded); the Store and every vector generation are
+   * cleared asynchronously from that tombstone.
+   */
+  deleteFact(
+    request: DeleteFactRequest,
+    callback: (error: ServiceError | null, response: DeleteFactResponse) => void,
+  ): ClientUnaryCall;
+  deleteFact(
+    request: DeleteFactRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: DeleteFactResponse) => void,
+  ): ClientUnaryCall;
+  deleteFact(
+    request: DeleteFactRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: DeleteFactResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Semantic recall of confirmed, unexpired facts the caller may read now:
+   * both prefetch branches are filtered by the current allowed-fact set,
+   * content comes from the authoritative record after a recheck; no
+   * sufficient evidence returns no_answer=true.
+   */
+  recallFacts(
+    request: RecallFactsRequest,
+    callback: (error: ServiceError | null, response: RecallFactsResponse) => void,
+  ): ClientUnaryCall;
+  recallFacts(
+    request: RecallFactsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RecallFactsResponse) => void,
+  ): ClientUnaryCall;
+  recallFacts(
+    request: RecallFactsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RecallFactsResponse) => void,
   ): ClientUnaryCall;
 }
 
@@ -7525,6 +8597,27 @@ export const IngestServiceService = {
       Buffer.from(AdvanceIndexResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): AdvanceIndexResponse => AdvanceIndexResponse.decode(value),
   },
+  /**
+   * The projection step of a claimed memory-project task (DD-07 §5):
+   * Knowledge applies the fact's current state (content when confirmed, a
+   * tombstone otherwise) to one projection target — the PostgresStore or one
+   * vector generation — checking the fact's current revision before and
+   * after the write, then verifies it. Same claimant rules as AdvanceIndex;
+   * no content, vector, key or collection name crosses. IndexState is reused:
+   * RUNNING (call again), MATERIALIZED (result_ref/result_digest to submit),
+   * FAILED (failure_code).
+   */
+  advanceProjection: {
+    path: "/anvilkit.knowledge.v1.IngestService/AdvanceProjection" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AdvanceProjectionRequest): Buffer =>
+      Buffer.from(AdvanceProjectionRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AdvanceProjectionRequest => AdvanceProjectionRequest.decode(value),
+    responseSerialize: (value: AdvanceProjectionResponse): Buffer =>
+      Buffer.from(AdvanceProjectionResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AdvanceProjectionResponse => AdvanceProjectionResponse.decode(value),
+  },
 } as const;
 
 export interface IngestServiceServer extends UntypedServiceImplementation {
@@ -7538,6 +8631,17 @@ export interface IngestServiceServer extends UntypedServiceImplementation {
    * AdvanceParse; no text, vector, key or collection name crosses.
    */
   advanceIndex: handleUnaryCall<AdvanceIndexRequest, AdvanceIndexResponse>;
+  /**
+   * The projection step of a claimed memory-project task (DD-07 §5):
+   * Knowledge applies the fact's current state (content when confirmed, a
+   * tombstone otherwise) to one projection target — the PostgresStore or one
+   * vector generation — checking the fact's current revision before and
+   * after the write, then verifies it. Same claimant rules as AdvanceIndex;
+   * no content, vector, key or collection name crosses. IndexState is reused:
+   * RUNNING (call again), MATERIALIZED (result_ref/result_digest to submit),
+   * FAILED (failure_code).
+   */
+  advanceProjection: handleUnaryCall<AdvanceProjectionRequest, AdvanceProjectionResponse>;
 }
 
 export interface IngestServiceClient extends Client {
@@ -7578,6 +8682,31 @@ export interface IngestServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: AdvanceIndexResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * The projection step of a claimed memory-project task (DD-07 §5):
+   * Knowledge applies the fact's current state (content when confirmed, a
+   * tombstone otherwise) to one projection target — the PostgresStore or one
+   * vector generation — checking the fact's current revision before and
+   * after the write, then verifies it. Same claimant rules as AdvanceIndex;
+   * no content, vector, key or collection name crosses. IndexState is reused:
+   * RUNNING (call again), MATERIALIZED (result_ref/result_digest to submit),
+   * FAILED (failure_code).
+   */
+  advanceProjection(
+    request: AdvanceProjectionRequest,
+    callback: (error: ServiceError | null, response: AdvanceProjectionResponse) => void,
+  ): ClientUnaryCall;
+  advanceProjection(
+    request: AdvanceProjectionRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AdvanceProjectionResponse) => void,
+  ): ClientUnaryCall;
+  advanceProjection(
+    request: AdvanceProjectionRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AdvanceProjectionResponse) => void,
   ): ClientUnaryCall;
 }
 

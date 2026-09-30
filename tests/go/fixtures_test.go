@@ -7,6 +7,8 @@ package contracts
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -270,4 +272,36 @@ func TestProtoVectors(t *testing.T) {
 	for _, pkg := range []string{"anvilkit.control.v1", "anvilkit.knowledge.v1", "anvilkit.mcp.v1"} {
 		require.True(t, domains[pkg], "vectors cover %s", pkg)
 	}
+}
+
+// TestReleaseSubjectDigests recomputes subjectDigest of every valid
+// releaseSubject fixture: sha256 over the RFC 8785 canonical JSON of the
+// subject without subjectDigest (P21). The values are strings, one integer
+// and nested objects/arrays, so Go's sorted-map encoding without HTML
+// escaping is the canonical form.
+func TestReleaseSubjectDigests(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(contractsDir, "components", "fixtures.json"))
+	require.NoError(t, err)
+	var fx fixtureFile
+	require.NoError(t, json.Unmarshal(raw, &fx))
+	checked := 0
+	for _, cs := range fx.Cases {
+		if cs.Ref != "#/$defs/releaseSubject" || !cs.Valid {
+			continue
+		}
+		var subject map[string]any
+		dec := json.NewDecoder(bytes.NewReader(cs.Instance))
+		dec.UseNumber()
+		require.NoError(t, dec.Decode(&subject))
+		want := subject["subjectDigest"]
+		delete(subject, "subjectDigest")
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(false)
+		require.NoError(t, enc.Encode(subject))
+		sum := sha256.Sum256(bytes.TrimSuffix(buf.Bytes(), []byte("\n")))
+		require.Equal(t, want, "sha256:"+hex.EncodeToString(sum[:]), cs.Name)
+		checked++
+	}
+	require.Positive(t, checked)
 }

@@ -8,8 +8,8 @@ Checks, each failing loudly when its input is missing:
      recorded baseline ref of this repository (never against legacy protos).
   2. OpenAPI: openapi/{agent,inference,model-proxy}.yaml validate as OpenAPI 3.0.
   3. JSON Schema: every **/*.schema.json passes the 2020-12 metaschema; every **/fixtures.json
-     case validates (or is rejected) as declared; every profile in jobs/profiles.json validates
-     as a Job profile.
+     case validates (or is rejected) as declared (jobs/codegen/fixtures.json: the codegen
+     process protocol); every profile in jobs/profiles.json validates as a Job profile.
   4. OpenAPI vectors: openapi/<spec>.fixtures.json for every spec (agent, inference,
      model-proxy): instances validate against the named component schema; raw cases are rejected
      by a strict parser (duplicate members, trailing data, non-finite numbers).
@@ -134,7 +134,7 @@ def check_schemas() -> None:
             count("schemas")
         except Exception as e:  # noqa: BLE001
             fail(f"{path.relative_to(ROOT)}: {e}")
-    for expected in ("urn:anvilkit:jobs:v1", "urn:anvilkit:components:v1", "urn:anvilkit:events:v1"):
+    for expected in ("urn:anvilkit:jobs:v1", "urn:anvilkit:codegen-protocol:v1", "urn:anvilkit:components:v1", "urn:anvilkit:events:v1"):
         if expected not in schemas:
             fail(f"missing required schema {expected}")
     registry = Registry().with_resources(

@@ -31,7 +31,7 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-fixed-v1",
-      "revision": "2",
+      "revision": "3",
       "jobKind": "codegen",
       "description": "Trusted harness with the fixed non-paid candidate task (P09b): the supervisor drops to the candidate UID, the observer verifies the output bytes, the finalizer submits through the access sidecar. Requires the gVisor RuntimeClass; DISABLED until its negative tests pass on the target runtime (G-04/G-05).",
       "image": {
@@ -40,7 +40,7 @@
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
-        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+        "digest": "sha256:b3e6230cda4a8852bf2d06a23db762c1e40517e9fdd28d3aefd0ab2f47ac44eb"
       },
       "entrypoint": [
         "/usr/local/bin/anvilkit-codegen-supervisor"
@@ -56,7 +56,7 @@
     {
       "schemaVersion": 1,
       "profileId": "harness-wiring-dev-v1",
-      "revision": "2",
+      "revision": "3",
       "jobKind": "codegen",
       "description": "DEVELOPMENT_ONLY wiring fixture: the same trusted image, entrypoint, sidecar and fixed task as codegen-fixed-v1 on an unqualified runtime (no RuntimeClass). It verifies launcher templates, sidecar identity, the artifact flow and duplicate-Pod fencing on the development foundation; it qualifies no candidate isolation and is never enabled outside development.",
       "image": {
@@ -65,7 +65,7 @@
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
-        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+        "digest": "sha256:b3e6230cda4a8852bf2d06a23db762c1e40517e9fdd28d3aefd0ab2f47ac44eb"
       },
       "entrypoint": [
         "/usr/local/bin/anvilkit-codegen-supervisor"
@@ -80,7 +80,7 @@
     {
       "schemaVersion": 1,
       "profileId": "validator-fixed-dev-v1",
-      "revision": "7",
+      "revision": "8",
       "jobKind": "validator",
       "description": "DEVELOPMENT_ONLY fixed validator (P10d): the anvilkit-validator image runs the complete-source, protected-build and certification chain on the launch's bound source archive (P20 preview) or else the fixed component baked into it (SSR and browser checks in the Pod's Chromium headless shell), uploads npm/browser/css/evidence through the access sidecar and submits the result manifest. Harness layout without RuntimeClass; it qualifies no candidate isolation and is never enabled outside development.",
       "image": {
@@ -89,7 +89,7 @@
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
-        "digest": "sha256:5e813787e46c7af55a59e904baf84ad65f286233139aece98ec635220475e55b"
+        "digest": "sha256:b3e6230cda4a8852bf2d06a23db762c1e40517e9fdd28d3aefd0ab2f47ac44eb"
       },
       "entrypoint": [
         "/usr/local/bin/node",
@@ -105,7 +105,7 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-dev-v1",
-      "revision": "2",
+      "revision": "3",
       "jobKind": "codegen",
       "description": "Bounded LangGraph/Pi coding team (P12): the trusted supervisor runs the team coordinator and launches the Pi coder as the candidate; the sealed source, the joint stage and the evidence are accepted through the access sidecar and the independent validator chain runs in the Pod. It executes model-written code: requires the gVisor RuntimeClass; DISABLED until its negative tests pass on the target runtime (G-04/G-05).",
       "image": {
@@ -114,7 +114,7 @@
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
-        "digest": "sha256:0d12442eb1f75dab2036ee679979e3bcfc86ad801e6775e88d10a3fabdb7367a"
+        "digest": "sha256:b3e6230cda4a8852bf2d06a23db762c1e40517e9fdd28d3aefd0ab2f47ac44eb"
       },
       "entrypoint": [
         "/usr/local/bin/anvilkit-codegen-supervisor",

@@ -173,6 +173,49 @@ def check_schemas() -> None:
                 count("job_profiles")
         if "local-check-v1" not in ids:
             fail("jobs/profiles.json lacks the local-check-v1 fixture profile")
+        # P0.8 negatives: the schema itself refuses a profile that executes bound
+        # source without being candidate code, candidate code outside the
+        # development state without its RuntimeClass, and a profile without a state.
+        base = next((p for p in doc.get("profiles", []) if p.get("profileId") == "validator-source-v1"), None)
+        if base is None:
+            fail("jobs/profiles.json lacks validator-source-v1")
+        else:
+            def mutated(change):
+                prof = json.loads(json.dumps(base))
+                change(prof)
+                return prof
+            negatives = {
+                "bindsSource without candidateCode": mutated(lambda x: x.update(candidateCode=False)),
+                "enabled candidate code without runtimeClass": mutated(lambda x: (x.update(state="enabled"), x.pop("runtimeClass"))),
+                "disabled candidate code without runtimeClass": mutated(lambda x: x.pop("runtimeClass")),
+                "a profile without a state": mutated(lambda x: x.pop("state")),
+                "an unknown state": mutated(lambda x: x.update(state="qualified")),
+            }
+            for name, prof in negatives.items():
+                if v.is_valid(prof):
+                    fail(f"jobs/profiles.json negative {name!r} validates")
+                else:
+                    count("profile_negatives")
+        # P0.8: the launch envelope's component binds a revision always and the
+        # allocated identity whole or not at all.
+        env_v = Draft202012Validator({"$ref": "urn:anvilkit:jobs:v1#/$defs/launchEnvelope"}, registry=registry)
+        env_base = {"schemaVersion": 1, "launchId": "lch_01J9", "launchKey": "validator-01j9abc", "operationId": "op_01J9",
+                    "attemptId": "att_01J9", "profileId": "validator-source-v1", "profileRevision": "1", "jobKind": "validator",
+                    "executionEpoch": "1", "launchEpoch": "1", "deadline": "2026-09-14T12:00:00Z",
+                    "inputs": [{"name": "source", "digest": "sha256:" + "2" * 64, "handle": "h"}]}
+        identity = {"componentId": "cmp_hero", "puckType": "Hero", "packageName": "@anvilkit/hero", "sourceRevision": "3"}
+        for name, component, valid in (
+            ("the allocated identity and its revision", identity, True),
+            ("a revision alone", {"sourceRevision": "3"}, True),
+            ("an identity without a revision", {k: v for k, v in identity.items() if k != "sourceRevision"}, False),
+            ("a partial identity", {"puckType": "Hero", "sourceRevision": "3"}, False),
+            ("an identity without its package", {k: v for k, v in identity.items() if k != "packageName"}, False),
+            ("a revision that is not a sequence", {"sourceRevision": "03"}, False),
+        ):
+            if env_v.is_valid(dict(env_base, component=component)) != valid:
+                fail(f"jobs/job.schema.json launch envelope with {name} {'is refused' if valid else 'validates'}")
+            else:
+                count("envelope_component_cases")
 
 
 def check_api_vectors(specs: dict[str, dict]) -> None:

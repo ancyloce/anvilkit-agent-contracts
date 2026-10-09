@@ -164,13 +164,13 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-dev-v1",
-      "revision": "5",
+      "revision": "6",
       "jobKind": "codegen",
       "state": "disabled",
       "description": "Bounded LangGraph/Pi coding team (P12): the trusted supervisor runs the team coordinator and launches the Pi coder as the candidate; the sealed source, the joint stage and the evidence are accepted through the access sidecar and the independent validator chain runs in the Pod. It executes model-written code: requires the gVisor RuntimeClass; DISABLED until its negative tests pass on the target runtime (G-04/G-05).",
       "image": {
         "repository": "anvilkit-codegen-team",
-        "digest": "sha256:f2fed90e88ed71326e5433e4d0da2579c3757705eb751568d3a037417d0ed393"
+        "digest": "sha256:5f1326cc641442c9affd4b8c8f737545c00dc4bd09bdd5a7e79aae478128f717"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",

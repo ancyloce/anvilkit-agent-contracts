@@ -6,7 +6,7 @@
       "ref": "#/$defs/profile",
       "valid": true,
       "instance": {
-        "schemaVersion": 1, "profileId": "local-check-v1", "revision": "1", "jobKind": "validator",
+        "schemaVersion": 1, "profileId": "local-check-v1", "revision": "1", "jobKind": "validator", "state": "enabled",
         "description": "Fixed qualification fixture: computes the digest of a fixed input and reports a result manifest through the Pod termination message.",
         "image": { "repository": "docker.io/library/busybox", "digest": "sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0" },
         "entrypoint": ["/bin/sh", "-c", "true"],
@@ -52,7 +52,7 @@
       "ref": "#/$defs/profile",
       "valid": true,
       "instance": {
-        "schemaVersion": 1, "profileId": "codegen-fixed-v1", "revision": "1", "jobKind": "codegen",
+        "schemaVersion": 1, "profileId": "codegen-fixed-v1", "revision": "1", "jobKind": "codegen", "state": "disabled",
         "image": { "repository": "anvilkit-codegen", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
         "sidecarImage": { "repository": "anvilkit-job-access-sidecar", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" },
         "entrypoint": ["/usr/local/bin/anvilkit-codegen-supervisor"], "resources": { "cpu": "1", "memory": "1Gi" },
@@ -176,7 +176,7 @@
       "name": "parser profile: fixed Docling bounds and chunker, no candidate code",
       "ref": "#/$defs/profile",
       "valid": true,
-      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "parser", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": false, "parser": {"parserName": "docling", "parserVersion": "2.130.0", "mediaTypes": ["application/pdf", "text/markdown"], "maxInputBytes": 33554432, "maxPages": 200, "maxDecompressedBytes": 134217728, "maxDecompressionRatio": 100, "maxArchiveEntries": 2000, "maxOutputBytes": 33554432, "maxChunks": 5000, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1", "maxChunkChars": 2000}}}
+      "instance": {"schemaVersion": 1, "profileId": "parser-docling-dev-v1", "revision": "1", "jobKind": "parser", "state": "development", "image": {"repository": "anvilkit-parser", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "entrypoint": ["/usr/local/bin/anvilkit-parse"], "resources": {"cpu": "1", "memory": "2Gi"}, "deadlineSeconds": 600, "candidateCode": false, "parser": {"parserName": "docling", "parserVersion": "2.130.0", "mediaTypes": ["application/pdf", "text/markdown"], "maxInputBytes": 33554432, "maxPages": 200, "maxDecompressedBytes": 134217728, "maxDecompressionRatio": 100, "maxArchiveEntries": 2000, "maxOutputBytes": 33554432, "maxChunks": 5000, "chunker": {"chunkerId": "docling-hierarchical", "revision": "1", "maxChunkChars": 2000}}}
     },
     {
       "name": "parser profile without its parser bounds is rejected",

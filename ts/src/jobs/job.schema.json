@@ -16,7 +16,8 @@
       "enum": [
         "CANDIDATE_BUILD_FAILED", "CANDIDATE_TEST_FAILED", "PROTECTED_FIXTURE_ALTERED", "MISSING_CSS",
         "INVALID_EXPORTS", "DUPLICATE_RUNTIME", "PATH_ESCAPE", "PROFILE_UNQUALIFIED", "IMAGE_PULL_FAILED",
-        "POD_EVICTED", "DEADLINE_EXCEEDED", "OBSERVER_FAILED", "RESULT_DIGEST_MISMATCH", "CANCELED"
+        "POD_EVICTED", "DEADLINE_EXCEEDED", "OBSERVER_FAILED", "RESULT_DIGEST_MISMATCH", "CANCELED",
+        "IDENTITY_MISMATCH", "PROFILE_DISABLED"
       ]
     },
     "resource": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(m|Mi|Gi)?$" },
@@ -32,11 +33,20 @@
     "profile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schemaVersion", "profileId", "revision", "jobKind", "image", "entrypoint", "resources", "deadlineSeconds", "candidateCode"],
+      "required": ["schemaVersion", "profileId", "revision", "jobKind", "state", "image", "entrypoint", "resources", "deadlineSeconds", "candidateCode"],
       "properties": {
         "schemaVersion": { "const": 1 },
         "profileId": { "$ref": "#/$defs/id" },
         "revision": { "$ref": "#/$defs/sequence" },
+        "state": {
+          "type": "string",
+          "enum": ["enabled", "disabled", "development"],
+          "description": "P0.8: the profile's lifecycle, enforced by every launcher before the environment's own allowlist: disabled is refused everywhere (PROFILE_DISABLED); development runs only in a launcher whose development guard is on (PROFILE_UNQUALIFIED elsewhere); enabled may run wherever the environment enables it."
+        },
+        "bindsSource": {
+          "type": "boolean",
+          "description": "P0.8: true when the profile executes a launch-bound source archive (the input named source): such a profile runs candidate code (candidateCode true). A profile without it refuses a source input (launcher and Job)."
+        },
         "jobKind": { "$ref": "#/$defs/jobKind" },
         "description": { "type": "string", "maxLength": 512 },
         "image": { "$ref": "#/$defs/image" },
@@ -64,7 +74,12 @@
         "parser": { "$ref": "#/$defs/parserLimits" }
       },
       "allOf": [
-        { "if": { "properties": { "candidateCode": { "const": true } } }, "then": { "required": ["runtimeClass", "sidecarImage"] } },
+        { "if": { "properties": { "candidateCode": { "const": true } } }, "then": { "required": ["sidecarImage"] } },
+        {
+          "if": { "properties": { "candidateCode": { "const": true }, "state": { "enum": ["enabled", "disabled"] } } },
+          "then": { "required": ["runtimeClass"] }
+        },
+        { "if": { "properties": { "bindsSource": { "const": true } }, "required": ["bindsSource"] }, "then": { "properties": { "candidateCode": { "const": true } } } },
         {
           "if": { "properties": { "jobKind": { "const": "parser" } }, "required": ["jobKind"] },
           "then": { "required": ["parser"], "properties": { "candidateCode": { "const": false }, "sidecarImage": false } },
@@ -219,6 +234,23 @@
         "executionEpoch": { "$ref": "#/$defs/sequence" },
         "launchEpoch": { "$ref": "#/$defs/sequence" },
         "deadline": { "$ref": "#/$defs/timestamp" },
+        "component": {
+          "type": "object",
+          "description": "P0.8: what a launch certifies or produces. sourceRevision is the source revision the launch binds (the certified revision of a bound source, never a configured default). componentId, puckType and packageName are the allocated identity, all three or none: a generation names them from its frozen brief and the source's component.json must declare that componentId and puckType and its package.json that name; a preview or release launch names only the revision (no allocated identity is recorded for a lineage).",
+          "additionalProperties": false,
+          "required": ["sourceRevision"],
+          "dependentRequired": {
+            "componentId": ["puckType", "packageName"],
+            "puckType": ["componentId", "packageName"],
+            "packageName": ["componentId", "puckType"]
+          },
+          "properties": {
+            "componentId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+            "puckType": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]{0,63}$" },
+            "packageName": { "type": "string", "minLength": 1, "maxLength": 214 },
+            "sourceRevision": { "$ref": "#/$defs/sequence" }
+          }
+        },
         "inputs": {
           "type": "array",
           "maxItems": 64,

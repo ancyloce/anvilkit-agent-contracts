@@ -20,6 +20,7 @@ import {
 } from "@grpc/grpc-js";
 import { Timestamp } from "../../../google/protobuf/timestamp.js";
 import { messageTypeRegistry } from "../../../typeRegistry.js";
+import { CommandIdentity } from "./control.js";
 
 export const protobufPackage = "anvilkit.control.v1";
 
@@ -361,7 +362,18 @@ export interface RecordReleaseRequest {
   browser: ReleaseTarget | undefined;
   activation: ReleaseTarget | undefined;
   catalogRevision?: string | undefined;
-  failureCode?: string | undefined;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * The recording command: its tenant must be the operation's (another
+   * tenant's operation is not found); the recorder is the caller's
+   * workload identity. A succeeded target binds a succeeded effect of the
+   * operation whose observed outcome is the target's receipt digest, and an
+   * approval binds the operation's succeeded review effect of the subject
+   * (P0.2).
+   */
+  command: CommandIdentity | undefined;
 }
 
 export interface RecordReleaseResponse {
@@ -1731,6 +1743,7 @@ function createBaseRecordReleaseRequest(): RecordReleaseRequest {
     activation: undefined,
     catalogRevision: undefined,
     failureCode: undefined,
+    command: undefined,
   };
 }
 
@@ -1776,6 +1789,9 @@ export const RecordReleaseRequest: MessageFns<RecordReleaseRequest, "anvilkit.co
     }
     if (message.failureCode !== undefined) {
       writer.uint32(106).string(message.failureCode);
+    }
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(114).fork()).join();
     }
     return writer;
   },
@@ -1897,6 +1913,14 @@ export const RecordReleaseRequest: MessageFns<RecordReleaseRequest, "anvilkit.co
             message.failureCode = reader.string();
             continue;
           }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1953,6 +1977,7 @@ export const RecordReleaseRequest: MessageFns<RecordReleaseRequest, "anvilkit.co
         : isSet(object.failure_code)
         ? globalThis.String(object.failure_code)
         : undefined,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
     };
   },
 
@@ -1997,6 +2022,9 @@ export const RecordReleaseRequest: MessageFns<RecordReleaseRequest, "anvilkit.co
     if (message.failureCode !== undefined) {
       obj.failureCode = message.failureCode;
     }
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
     return obj;
   },
 
@@ -2026,6 +2054,9 @@ export const RecordReleaseRequest: MessageFns<RecordReleaseRequest, "anvilkit.co
       : undefined;
     message.catalogRevision = object.catalogRevision ?? undefined;
     message.failureCode = object.failureCode ?? undefined;
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
     return message;
   },
 };

@@ -332,6 +332,11 @@ export interface ReadArtifactRequest {
    * sidecar; empty for the Workflow's own reads.
    */
   instanceId: string;
+  /**
+   * The tenant the reader acts for: the reading operation and the
+   * artifact must both be of it; otherwise not found (P0.2).
+   */
+  tenantId: string;
 }
 
 export interface ReadArtifactResponse {
@@ -2032,6 +2037,7 @@ function createBaseReadArtifactRequest(): ReadArtifactRequest {
     transferId: "",
     operationId: "",
     instanceId: "",
+    tenantId: "",
   };
 }
 
@@ -2050,6 +2056,9 @@ export const ReadArtifactRequest: MessageFns<ReadArtifactRequest, "anvilkit.cont
     }
     if (message.instanceId !== "") {
       writer.uint32(34).string(message.instanceId);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(42).string(message.tenantId);
     }
     return writer;
   },
@@ -2099,6 +2108,14 @@ export const ReadArtifactRequest: MessageFns<ReadArtifactRequest, "anvilkit.cont
             message.instanceId = reader.string();
             continue;
           }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2130,6 +2147,11 @@ export const ReadArtifactRequest: MessageFns<ReadArtifactRequest, "anvilkit.cont
         : isSet(object.instance_id)
         ? globalThis.String(object.instance_id)
         : "",
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
     };
   },
 
@@ -2147,6 +2169,9 @@ export const ReadArtifactRequest: MessageFns<ReadArtifactRequest, "anvilkit.cont
     if (message.instanceId !== "") {
       obj.instanceId = message.instanceId;
     }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
     return obj;
   },
 
@@ -2159,6 +2184,7 @@ export const ReadArtifactRequest: MessageFns<ReadArtifactRequest, "anvilkit.cont
     message.transferId = object.transferId ?? "";
     message.operationId = object.operationId ?? "";
     message.instanceId = object.instanceId ?? "";
+    message.tenantId = object.tenantId ?? "";
     return message;
   },
 };

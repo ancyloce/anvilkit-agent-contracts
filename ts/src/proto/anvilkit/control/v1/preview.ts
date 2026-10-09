@@ -20,7 +20,7 @@ import {
 } from "@grpc/grpc-js";
 import { Timestamp } from "../../../google/protobuf/timestamp.js";
 import { messageTypeRegistry } from "../../../typeRegistry.js";
-import { ArtifactReference } from "./control.js";
+import { ArtifactReference, CommandIdentity } from "./control.js";
 
 export const protobufPackage = "anvilkit.control.v1";
 
@@ -150,7 +150,15 @@ export interface RecordPreviewRequest {
   styles: ArtifactReference[];
   buildProfileId: string;
   hostProfileId: string;
-  failureCode?: string | undefined;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * The recording command: its tenant must be the operation's (another
+   * tenant's operation is not found); the recorder is the caller's
+   * workload identity (P0.2).
+   */
+  command: CommandIdentity | undefined;
 }
 
 export interface RecordPreviewResponse {
@@ -568,6 +576,7 @@ function createBaseRecordPreviewRequest(): RecordPreviewRequest {
     buildProfileId: "",
     hostProfileId: "",
     failureCode: undefined,
+    command: undefined,
   };
 }
 
@@ -607,6 +616,9 @@ export const RecordPreviewRequest: MessageFns<RecordPreviewRequest, "anvilkit.co
     }
     if (message.failureCode !== undefined) {
       writer.uint32(90).string(message.failureCode);
+    }
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(98).fork()).join();
     }
     return writer;
   },
@@ -712,6 +724,14 @@ export const RecordPreviewRequest: MessageFns<RecordPreviewRequest, "anvilkit.co
             message.failureCode = reader.string();
             continue;
           }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -772,6 +792,7 @@ export const RecordPreviewRequest: MessageFns<RecordPreviewRequest, "anvilkit.co
         : isSet(object.failure_code)
         ? globalThis.String(object.failure_code)
         : undefined,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
     };
   },
 
@@ -810,6 +831,9 @@ export const RecordPreviewRequest: MessageFns<RecordPreviewRequest, "anvilkit.co
     if (message.failureCode !== undefined) {
       obj.failureCode = message.failureCode;
     }
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
     return obj;
   },
 
@@ -831,6 +855,9 @@ export const RecordPreviewRequest: MessageFns<RecordPreviewRequest, "anvilkit.co
     message.buildProfileId = object.buildProfileId ?? "";
     message.hostProfileId = object.hostProfileId ?? "";
     message.failureCode = object.failureCode ?? undefined;
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
     return message;
   },
 };

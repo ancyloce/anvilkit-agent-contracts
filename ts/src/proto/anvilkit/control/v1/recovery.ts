@@ -21,7 +21,7 @@ import {
 import { Duration } from "../../../google/protobuf/duration.js";
 import { Timestamp } from "../../../google/protobuf/timestamp.js";
 import { messageTypeRegistry } from "../../../typeRegistry.js";
-import { CommandIdentity, InstancePhase, instancePhaseFromJSON, instancePhaseToJSON } from "./control.js";
+import { CommandIdentity, InstancePhase, instancePhaseFromJSON, instancePhaseToJSON, Scope } from "./control.js";
 
 export const protobufPackage = "anvilkit.control.v1";
 
@@ -269,6 +269,11 @@ export interface BeginRecoveryRequest {
   windowEnd: Date | undefined;
   clockUncertainty: Duration | undefined;
   reason: string;
+  /**
+   * The operator's verified user scope (P0.3): the run begins only for a
+   * caller whose roles include operator, in the command's tenant.
+   */
+  scope: Scope | undefined;
 }
 
 export interface BeginRecoveryResponse {
@@ -382,6 +387,8 @@ export interface DisposeObligationRequest {
   recoveryEpoch: string;
   runId?: string | undefined;
   reason: string;
+  /** The operator's verified user scope (P0.3), as for BeginRecovery. */
+  scope: Scope | undefined;
 }
 
 export interface Disposition {
@@ -1138,6 +1145,7 @@ function createBaseBeginRecoveryRequest(): BeginRecoveryRequest {
     windowEnd: undefined,
     clockUncertainty: undefined,
     reason: "",
+    scope: undefined,
   };
 }
 
@@ -1162,6 +1170,9 @@ export const BeginRecoveryRequest: MessageFns<BeginRecoveryRequest, "anvilkit.co
     }
     if (message.reason !== "") {
       writer.uint32(50).string(message.reason);
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(58).fork()).join();
     }
     return writer;
   },
@@ -1227,6 +1238,14 @@ export const BeginRecoveryRequest: MessageFns<BeginRecoveryRequest, "anvilkit.co
             message.reason = reader.string();
             continue;
           }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1264,6 +1283,7 @@ export const BeginRecoveryRequest: MessageFns<BeginRecoveryRequest, "anvilkit.co
         ? Duration.fromJSON(object.clock_uncertainty)
         : undefined,
       reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
     };
   },
 
@@ -1287,6 +1307,9 @@ export const BeginRecoveryRequest: MessageFns<BeginRecoveryRequest, "anvilkit.co
     if (message.reason !== "") {
       obj.reason = message.reason;
     }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
     return obj;
   },
 
@@ -1305,6 +1328,7 @@ export const BeginRecoveryRequest: MessageFns<BeginRecoveryRequest, "anvilkit.co
       ? Duration.fromPartial(object.clockUncertainty)
       : undefined;
     message.reason = object.reason ?? "";
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
     return message;
   },
 };
@@ -2685,6 +2709,7 @@ function createBaseDisposeObligationRequest(): DisposeObligationRequest {
     recoveryEpoch: "",
     runId: undefined,
     reason: "",
+    scope: undefined,
   };
 }
 
@@ -2721,6 +2746,9 @@ export const DisposeObligationRequest: MessageFns<
     }
     if (message.reason !== "") {
       writer.uint32(74).string(message.reason);
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(82).fork()).join();
     }
     return writer;
   },
@@ -2810,6 +2838,14 @@ export const DisposeObligationRequest: MessageFns<
             message.reason = reader.string();
             continue;
           }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2854,6 +2890,7 @@ export const DisposeObligationRequest: MessageFns<
         ? globalThis.String(object.run_id)
         : undefined,
       reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
     };
   },
 
@@ -2886,6 +2923,9 @@ export const DisposeObligationRequest: MessageFns<
     if (message.reason !== "") {
       obj.reason = message.reason;
     }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
     return obj;
   },
 
@@ -2905,6 +2945,7 @@ export const DisposeObligationRequest: MessageFns<
     message.recoveryEpoch = object.recoveryEpoch ?? "";
     message.runId = object.runId ?? undefined;
     message.reason = object.reason ?? "";
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
     return message;
   },
 };

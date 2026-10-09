@@ -348,6 +348,13 @@ export interface GetDispatchRequest {
   dispatchId: string;
   callId: string;
   owner: string;
+  /**
+   * The tenant the reader acts for; a dispatch of another tenant is not
+   * found. A dispatch owner (Model Proxy, MCP) reads only its own
+   * dispatches: Control takes the owner from the caller's workload
+   * identity, and a stated owner must be that identity (P0.2).
+   */
+  tenantId: string;
 }
 
 export interface GetDispatchResponse {
@@ -2178,7 +2185,7 @@ export const ObserveDispatchResponse: MessageFns<
 messageTypeRegistry.set(ObserveDispatchResponse.$type, ObserveDispatchResponse);
 
 function createBaseGetDispatchRequest(): GetDispatchRequest {
-  return { $type: "anvilkit.control.v1.GetDispatchRequest", dispatchId: "", callId: "", owner: "" };
+  return { $type: "anvilkit.control.v1.GetDispatchRequest", dispatchId: "", callId: "", owner: "", tenantId: "" };
 }
 
 export const GetDispatchRequest: MessageFns<GetDispatchRequest, "anvilkit.control.v1.GetDispatchRequest"> = {
@@ -2193,6 +2200,9 @@ export const GetDispatchRequest: MessageFns<GetDispatchRequest, "anvilkit.contro
     }
     if (message.owner !== "") {
       writer.uint32(26).string(message.owner);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(34).string(message.tenantId);
     }
     return writer;
   },
@@ -2234,6 +2244,14 @@ export const GetDispatchRequest: MessageFns<GetDispatchRequest, "anvilkit.contro
             message.owner = reader.string();
             continue;
           }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2260,6 +2278,11 @@ export const GetDispatchRequest: MessageFns<GetDispatchRequest, "anvilkit.contro
         ? globalThis.String(object.call_id)
         : "",
       owner: isSet(object.owner) ? globalThis.String(object.owner) : "",
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
     };
   },
 
@@ -2274,6 +2297,9 @@ export const GetDispatchRequest: MessageFns<GetDispatchRequest, "anvilkit.contro
     if (message.owner !== "") {
       obj.owner = message.owner;
     }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
     return obj;
   },
 
@@ -2285,6 +2311,7 @@ export const GetDispatchRequest: MessageFns<GetDispatchRequest, "anvilkit.contro
     message.dispatchId = object.dispatchId ?? "";
     message.callId = object.callId ?? "";
     message.owner = object.owner ?? "";
+    message.tenantId = object.tenantId ?? "";
     return message;
   },
 };

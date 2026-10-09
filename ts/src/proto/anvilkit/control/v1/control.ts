@@ -740,6 +740,12 @@ export interface Scope {
   tenantId: string;
   projectId: string;
   actorId: string;
+  /**
+   * The user's roles as the API verified them from the identity provider
+   * (P0.3). An owner trusts them only when the verified caller workload is
+   * the API; from any other caller they are ignored.
+   */
+  roles: string[];
 }
 
 /**
@@ -1130,7 +1136,14 @@ export interface ObserveInstanceRequest {
   instanceId: string;
   phase: InstancePhase;
   exitCode?: number | undefined;
-  observedAt: Date | undefined;
+  observedAt:
+    | Date
+    | undefined;
+  /**
+   * The tenant the observation acts for; an instance of another tenant is
+   * not found (P0.2).
+   */
+  tenantId: string;
 }
 
 export interface ObserveInstanceResponse {
@@ -1388,7 +1401,7 @@ export const CommandIdentity: MessageFns<CommandIdentity, "anvilkit.control.v1.C
 messageTypeRegistry.set(CommandIdentity.$type, CommandIdentity);
 
 function createBaseScope(): Scope {
-  return { $type: "anvilkit.control.v1.Scope", tenantId: "", projectId: "", actorId: "" };
+  return { $type: "anvilkit.control.v1.Scope", tenantId: "", projectId: "", actorId: "", roles: [] };
 }
 
 export const Scope: MessageFns<Scope, "anvilkit.control.v1.Scope"> = {
@@ -1403,6 +1416,9 @@ export const Scope: MessageFns<Scope, "anvilkit.control.v1.Scope"> = {
     }
     if (message.actorId !== "") {
       writer.uint32(26).string(message.actorId);
+    }
+    for (const v of message.roles) {
+      writer.uint32(34).string(v!);
     }
     return writer;
   },
@@ -1444,6 +1460,14 @@ export const Scope: MessageFns<Scope, "anvilkit.control.v1.Scope"> = {
             message.actorId = reader.string();
             continue;
           }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.roles.push(reader.string());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1474,6 +1498,7 @@ export const Scope: MessageFns<Scope, "anvilkit.control.v1.Scope"> = {
         : isSet(object.actor_id)
         ? globalThis.String(object.actor_id)
         : "",
+      roles: globalThis.Array.isArray(object?.roles) ? object.roles.map((e: any) => globalThis.String(e)) : [],
     };
   },
 
@@ -1488,6 +1513,9 @@ export const Scope: MessageFns<Scope, "anvilkit.control.v1.Scope"> = {
     if (message.actorId !== "") {
       obj.actorId = message.actorId;
     }
+    if (message.roles?.length) {
+      obj.roles = message.roles;
+    }
     return obj;
   },
 
@@ -1499,6 +1527,7 @@ export const Scope: MessageFns<Scope, "anvilkit.control.v1.Scope"> = {
     message.tenantId = object.tenantId ?? "";
     message.projectId = object.projectId ?? "";
     message.actorId = object.actorId ?? "";
+    message.roles = object.roles?.map((e) => e) || [];
     return message;
   },
 };
@@ -6806,6 +6835,7 @@ function createBaseObserveInstanceRequest(): ObserveInstanceRequest {
     phase: 0,
     exitCode: undefined,
     observedAt: undefined,
+    tenantId: "",
   };
 }
 
@@ -6828,6 +6858,9 @@ export const ObserveInstanceRequest: MessageFns<ObserveInstanceRequest, "anvilki
       }
       if (message.observedAt !== undefined) {
         Timestamp.encode(toTimestamp(message.observedAt), writer.uint32(42).fork()).join();
+      }
+      if (message.tenantId !== "") {
+        writer.uint32(50).string(message.tenantId);
       }
       return writer;
     },
@@ -6885,6 +6918,14 @@ export const ObserveInstanceRequest: MessageFns<ObserveInstanceRequest, "anvilki
               message.observedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
               continue;
             }
+            case 6: {
+              if (tag !== 50) {
+                break;
+              }
+
+              message.tenantId = reader.string();
+              continue;
+            }
           }
           if ((tag & 7) === 4 || tag === 0) {
             break;
@@ -6921,6 +6962,11 @@ export const ObserveInstanceRequest: MessageFns<ObserveInstanceRequest, "anvilki
           : isSet(object.observed_at)
           ? fromJsonTimestamp(object.observed_at)
           : undefined,
+        tenantId: isSet(object.tenantId)
+          ? globalThis.String(object.tenantId)
+          : isSet(object.tenant_id)
+          ? globalThis.String(object.tenant_id)
+          : "",
       };
     },
 
@@ -6941,6 +6987,9 @@ export const ObserveInstanceRequest: MessageFns<ObserveInstanceRequest, "anvilki
       if (message.observedAt !== undefined) {
         obj.observedAt = message.observedAt.toISOString();
       }
+      if (message.tenantId !== "") {
+        obj.tenantId = message.tenantId;
+      }
       return obj;
     },
 
@@ -6954,6 +7003,7 @@ export const ObserveInstanceRequest: MessageFns<ObserveInstanceRequest, "anvilki
       message.phase = object.phase ?? 0;
       message.exitCode = object.exitCode ?? undefined;
       message.observedAt = object.observedAt ?? undefined;
+      message.tenantId = object.tenantId ?? "";
       return message;
     },
   };

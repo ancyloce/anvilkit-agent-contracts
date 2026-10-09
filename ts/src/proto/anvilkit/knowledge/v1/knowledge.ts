@@ -503,6 +503,12 @@ export interface Scope {
   tenantId: string;
   projectId: string;
   actorId: string;
+  /**
+   * The user's roles as the API verified them from the identity provider
+   * (P0.3). An owner trusts them only when the verified caller workload is
+   * the API; from any other caller they are ignored.
+   */
+  roles: string[];
 }
 
 /**
@@ -1070,7 +1076,7 @@ export const CommandIdentity: MessageFns<CommandIdentity, "anvilkit.knowledge.v1
 messageTypeRegistry.set(CommandIdentity.$type, CommandIdentity);
 
 function createBaseScope(): Scope {
-  return { $type: "anvilkit.knowledge.v1.Scope", tenantId: "", projectId: "", actorId: "" };
+  return { $type: "anvilkit.knowledge.v1.Scope", tenantId: "", projectId: "", actorId: "", roles: [] };
 }
 
 export const Scope: MessageFns<Scope, "anvilkit.knowledge.v1.Scope"> = {
@@ -1085,6 +1091,9 @@ export const Scope: MessageFns<Scope, "anvilkit.knowledge.v1.Scope"> = {
     }
     if (message.actorId !== "") {
       writer.uint32(26).string(message.actorId);
+    }
+    for (const v of message.roles) {
+      writer.uint32(34).string(v!);
     }
     return writer;
   },
@@ -1126,6 +1135,14 @@ export const Scope: MessageFns<Scope, "anvilkit.knowledge.v1.Scope"> = {
             message.actorId = reader.string();
             continue;
           }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.roles.push(reader.string());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1156,6 +1173,7 @@ export const Scope: MessageFns<Scope, "anvilkit.knowledge.v1.Scope"> = {
         : isSet(object.actor_id)
         ? globalThis.String(object.actor_id)
         : "",
+      roles: globalThis.Array.isArray(object?.roles) ? object.roles.map((e: any) => globalThis.String(e)) : [],
     };
   },
 
@@ -1170,6 +1188,9 @@ export const Scope: MessageFns<Scope, "anvilkit.knowledge.v1.Scope"> = {
     if (message.actorId !== "") {
       obj.actorId = message.actorId;
     }
+    if (message.roles?.length) {
+      obj.roles = message.roles;
+    }
     return obj;
   },
 
@@ -1181,6 +1202,7 @@ export const Scope: MessageFns<Scope, "anvilkit.knowledge.v1.Scope"> = {
     message.tenantId = object.tenantId ?? "";
     message.projectId = object.projectId ?? "";
     message.actorId = object.actorId ?? "";
+    message.roles = object.roles?.map((e) => e) || [];
     return message;
   },
 };

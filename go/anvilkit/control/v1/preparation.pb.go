@@ -490,6 +490,7 @@ type Brief struct {
 	AssetDigests       []*ContentDigest       `protobuf:"bytes,10,rep,name=asset_digests,json=assetDigests,proto3" json:"asset_digests,omitempty"`
 	State              BriefState             `protobuf:"varint,11,opt,name=state,proto3,enum=anvilkit.control.v1.BriefState" json:"state,omitempty"`
 	FrozenAt           *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=frozen_at,json=frozenAt,proto3" json:"frozen_at,omitempty"`
+	Component          *ComponentIdentity     `protobuf:"bytes,13,opt,name=component,proto3,oneof" json:"component,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -604,6 +605,13 @@ func (x *Brief) GetState() BriefState {
 func (x *Brief) GetFrozenAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.FrozenAt
+	}
+	return nil
+}
+
+func (x *Brief) GetComponent() *ComponentIdentity {
+	if x != nil {
+		return x.Component
 	}
 	return nil
 }
@@ -1312,8 +1320,11 @@ type RecordBriefRequest struct {
 	SourceRevisions    []*SourceReference     `protobuf:"bytes,5,rep,name=source_revisions,json=sourceRevisions,proto3" json:"source_revisions,omitempty"`
 	BrandDigests       []*ContentDigest       `protobuf:"bytes,6,rep,name=brand_digests,json=brandDigests,proto3" json:"brand_digests,omitempty"`
 	AssetDigests       []*ContentDigest       `protobuf:"bytes,7,rep,name=asset_digests,json=assetDigests,proto3" json:"asset_digests,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// The identity the brief document allocates (P0.8): Control binds it to
+	// the Generation's lineage when its candidate registration is prepared.
+	Component     *ComponentIdentity `protobuf:"bytes,8,opt,name=component,proto3,oneof" json:"component,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RecordBriefRequest) Reset() {
@@ -1391,6 +1402,13 @@ func (x *RecordBriefRequest) GetBrandDigests() []*ContentDigest {
 func (x *RecordBriefRequest) GetAssetDigests() []*ContentDigest {
 	if x != nil {
 		return x.AssetDigests
+	}
+	return nil
+}
+
+func (x *RecordBriefRequest) GetComponent() *ComponentIdentity {
+	if x != nil {
+		return x.Component
 	}
 	return nil
 }
@@ -1577,7 +1595,7 @@ const file_anvilkit_control_v1_preparation_proto_rawDesc = "" +
 	"\tsource_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\bsourceId\x129\n" +
 	"\brevision\x18\x02 \x01(\tB\x1d\xbaH\x1ar\x182\x16^(0|[1-9][0-9]{0,19})$R\brevision\x124\n" +
-	"\x06digest\x18\x03 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\x06digest\"\xd6\x04\n" +
+	"\x06digest\x18\x03 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\x06digest\"\xaf\x05\n" +
 	"\x05Brief\x12\x19\n" +
 	"\bbrief_id\x18\x01 \x01(\tR\abriefId\x12!\n" +
 	"\foperation_id\x18\x02 \x01(\tR\voperationId\x12\x1b\n" +
@@ -1591,7 +1609,10 @@ const file_anvilkit_control_v1_preparation_proto_rawDesc = "" +
 	"\rasset_digests\x18\n" +
 	" \x03(\v2\".anvilkit.control.v1.ContentDigestR\fassetDigests\x125\n" +
 	"\x05state\x18\v \x01(\x0e2\x1f.anvilkit.control.v1.BriefStateR\x05state\x127\n" +
-	"\tfrozen_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\bfrozenAt\"\xc1\x04\n" +
+	"\tfrozen_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\bfrozenAt\x12I\n" +
+	"\tcomponent\x18\r \x01(\v2&.anvilkit.control.v1.ComponentIdentityH\x00R\tcomponent\x88\x01\x01B\f\n" +
+	"\n" +
+	"_component\"\xc1\x04\n" +
 	"\vPreparation\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12<\n" +
@@ -1653,7 +1674,7 @@ const file_anvilkit_control_v1_preparation_proto_rawDesc = "" +
 	"\x05relay\x18\x03 \x01(\x0e2\x1f.anvilkit.control.v1.RelayStateB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x05relay\"P\n" +
 	"\x19RecordAnswerRelayResponse\x123\n" +
-	"\x06answer\x18\x01 \x01(\v2\x1b.anvilkit.control.v1.AnswerR\x06answer\"\x9f\x04\n" +
+	"\x06answer\x18\x01 \x01(\v2\x1b.anvilkit.control.v1.AnswerR\x06answer\"\xf8\x04\n" +
 	"\x12RecordBriefRequest\x12F\n" +
 	"\acommand\x18\x01 \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x12-\n" +
 	"\foperation_id\x18\x02 \x01(\tB\n" +
@@ -1662,7 +1683,10 @@ const file_anvilkit_control_v1_preparation_proto_rawDesc = "" +
 	"\x13requirements_digest\x18\x04 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\x12requirementsDigest\x12Y\n" +
 	"\x10source_revisions\x18\x05 \x03(\v2$.anvilkit.control.v1.SourceReferenceB\b\xbaH\x05\x92\x01\x02\x10@R\x0fsourceRevisions\x12Q\n" +
 	"\rbrand_digests\x18\x06 \x03(\v2\".anvilkit.control.v1.ContentDigestB\b\xbaH\x05\x92\x01\x02\x10\x10R\fbrandDigests\x12Q\n" +
-	"\rasset_digests\x18\a \x03(\v2\".anvilkit.control.v1.ContentDigestB\b\xbaH\x05\x92\x01\x02\x10@R\fassetDigests\"c\n" +
+	"\rasset_digests\x18\a \x03(\v2\".anvilkit.control.v1.ContentDigestB\b\xbaH\x05\x92\x01\x02\x10@R\fassetDigests\x12I\n" +
+	"\tcomponent\x18\b \x01(\v2&.anvilkit.control.v1.ComponentIdentityH\x00R\tcomponent\x88\x01\x01B\f\n" +
+	"\n" +
+	"_component\"c\n" +
 	"\x13RecordBriefResponse\x120\n" +
 	"\x05brief\x18\x01 \x01(\v2\x1a.anvilkit.control.v1.BriefR\x05brief\x12\x1a\n" +
 	"\bexisting\x18\x02 \x01(\bR\bexisting\"a\n" +
@@ -1742,8 +1766,9 @@ var file_anvilkit_control_v1_preparation_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),     // 23: google.protobuf.Timestamp
 	(*ArtifactBinding)(nil),           // 24: anvilkit.control.v1.ArtifactBinding
 	(*SourceReference)(nil),           // 25: anvilkit.control.v1.SourceReference
-	(*CommandIdentity)(nil),           // 26: anvilkit.control.v1.CommandIdentity
-	(*Scope)(nil),                     // 27: anvilkit.control.v1.Scope
+	(*ComponentIdentity)(nil),         // 26: anvilkit.control.v1.ComponentIdentity
+	(*CommandIdentity)(nil),           // 27: anvilkit.control.v1.CommandIdentity
+	(*Scope)(nil),                     // 28: anvilkit.control.v1.Scope
 }
 var file_anvilkit_control_v1_preparation_proto_depIdxs = []int32{
 	22, // 0: anvilkit.control.v1.QuestionSet.questions:type_name -> anvilkit.control.v1.Question
@@ -1760,48 +1785,50 @@ var file_anvilkit_control_v1_preparation_proto_depIdxs = []int32{
 	5,  // 11: anvilkit.control.v1.Brief.asset_digests:type_name -> anvilkit.control.v1.ContentDigest
 	2,  // 12: anvilkit.control.v1.Brief.state:type_name -> anvilkit.control.v1.BriefState
 	23, // 13: anvilkit.control.v1.Brief.frozen_at:type_name -> google.protobuf.Timestamp
-	24, // 14: anvilkit.control.v1.Preparation.prompt:type_name -> anvilkit.control.v1.ArtifactBinding
-	25, // 15: anvilkit.control.v1.Preparation.brand_references:type_name -> anvilkit.control.v1.SourceReference
-	25, // 16: anvilkit.control.v1.Preparation.asset_references:type_name -> anvilkit.control.v1.SourceReference
-	3,  // 17: anvilkit.control.v1.Preparation.question_sets:type_name -> anvilkit.control.v1.QuestionSet
-	6,  // 18: anvilkit.control.v1.Preparation.brief:type_name -> anvilkit.control.v1.Brief
-	7,  // 19: anvilkit.control.v1.GetPreparationResponse.preparation:type_name -> anvilkit.control.v1.Preparation
-	26, // 20: anvilkit.control.v1.RecordQuestionSetRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	22, // 21: anvilkit.control.v1.RecordQuestionSetRequest.questions:type_name -> anvilkit.control.v1.Question
-	3,  // 22: anvilkit.control.v1.RecordQuestionSetResponse.question_set:type_name -> anvilkit.control.v1.QuestionSet
-	26, // 23: anvilkit.control.v1.SubmitAnswerRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	27, // 24: anvilkit.control.v1.SubmitAnswerRequest.scope:type_name -> anvilkit.control.v1.Scope
-	24, // 25: anvilkit.control.v1.SubmitAnswerRequest.answer:type_name -> anvilkit.control.v1.ArtifactBinding
-	4,  // 26: anvilkit.control.v1.SubmitAnswerResponse.answer:type_name -> anvilkit.control.v1.Answer
-	4,  // 27: anvilkit.control.v1.GetAnswerResponse.answer:type_name -> anvilkit.control.v1.Answer
-	1,  // 28: anvilkit.control.v1.RecordAnswerRelayRequest.relay:type_name -> anvilkit.control.v1.RelayState
-	4,  // 29: anvilkit.control.v1.RecordAnswerRelayResponse.answer:type_name -> anvilkit.control.v1.Answer
-	26, // 30: anvilkit.control.v1.RecordBriefRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	24, // 31: anvilkit.control.v1.RecordBriefRequest.brief:type_name -> anvilkit.control.v1.ArtifactBinding
-	25, // 32: anvilkit.control.v1.RecordBriefRequest.source_revisions:type_name -> anvilkit.control.v1.SourceReference
-	5,  // 33: anvilkit.control.v1.RecordBriefRequest.brand_digests:type_name -> anvilkit.control.v1.ContentDigest
-	5,  // 34: anvilkit.control.v1.RecordBriefRequest.asset_digests:type_name -> anvilkit.control.v1.ContentDigest
-	6,  // 35: anvilkit.control.v1.RecordBriefResponse.brief:type_name -> anvilkit.control.v1.Brief
-	6,  // 36: anvilkit.control.v1.GetBriefResponse.brief:type_name -> anvilkit.control.v1.Brief
-	8,  // 37: anvilkit.control.v1.PreparationService.GetPreparation:input_type -> anvilkit.control.v1.GetPreparationRequest
-	10, // 38: anvilkit.control.v1.PreparationService.RecordQuestionSet:input_type -> anvilkit.control.v1.RecordQuestionSetRequest
-	12, // 39: anvilkit.control.v1.PreparationService.SubmitAnswer:input_type -> anvilkit.control.v1.SubmitAnswerRequest
-	14, // 40: anvilkit.control.v1.PreparationService.GetAnswer:input_type -> anvilkit.control.v1.GetAnswerRequest
-	16, // 41: anvilkit.control.v1.PreparationService.RecordAnswerRelay:input_type -> anvilkit.control.v1.RecordAnswerRelayRequest
-	18, // 42: anvilkit.control.v1.PreparationService.RecordBrief:input_type -> anvilkit.control.v1.RecordBriefRequest
-	20, // 43: anvilkit.control.v1.PreparationService.GetBrief:input_type -> anvilkit.control.v1.GetBriefRequest
-	9,  // 44: anvilkit.control.v1.PreparationService.GetPreparation:output_type -> anvilkit.control.v1.GetPreparationResponse
-	11, // 45: anvilkit.control.v1.PreparationService.RecordQuestionSet:output_type -> anvilkit.control.v1.RecordQuestionSetResponse
-	13, // 46: anvilkit.control.v1.PreparationService.SubmitAnswer:output_type -> anvilkit.control.v1.SubmitAnswerResponse
-	15, // 47: anvilkit.control.v1.PreparationService.GetAnswer:output_type -> anvilkit.control.v1.GetAnswerResponse
-	17, // 48: anvilkit.control.v1.PreparationService.RecordAnswerRelay:output_type -> anvilkit.control.v1.RecordAnswerRelayResponse
-	19, // 49: anvilkit.control.v1.PreparationService.RecordBrief:output_type -> anvilkit.control.v1.RecordBriefResponse
-	21, // 50: anvilkit.control.v1.PreparationService.GetBrief:output_type -> anvilkit.control.v1.GetBriefResponse
-	44, // [44:51] is the sub-list for method output_type
-	37, // [37:44] is the sub-list for method input_type
-	37, // [37:37] is the sub-list for extension type_name
-	37, // [37:37] is the sub-list for extension extendee
-	0,  // [0:37] is the sub-list for field type_name
+	26, // 14: anvilkit.control.v1.Brief.component:type_name -> anvilkit.control.v1.ComponentIdentity
+	24, // 15: anvilkit.control.v1.Preparation.prompt:type_name -> anvilkit.control.v1.ArtifactBinding
+	25, // 16: anvilkit.control.v1.Preparation.brand_references:type_name -> anvilkit.control.v1.SourceReference
+	25, // 17: anvilkit.control.v1.Preparation.asset_references:type_name -> anvilkit.control.v1.SourceReference
+	3,  // 18: anvilkit.control.v1.Preparation.question_sets:type_name -> anvilkit.control.v1.QuestionSet
+	6,  // 19: anvilkit.control.v1.Preparation.brief:type_name -> anvilkit.control.v1.Brief
+	7,  // 20: anvilkit.control.v1.GetPreparationResponse.preparation:type_name -> anvilkit.control.v1.Preparation
+	27, // 21: anvilkit.control.v1.RecordQuestionSetRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	22, // 22: anvilkit.control.v1.RecordQuestionSetRequest.questions:type_name -> anvilkit.control.v1.Question
+	3,  // 23: anvilkit.control.v1.RecordQuestionSetResponse.question_set:type_name -> anvilkit.control.v1.QuestionSet
+	27, // 24: anvilkit.control.v1.SubmitAnswerRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	28, // 25: anvilkit.control.v1.SubmitAnswerRequest.scope:type_name -> anvilkit.control.v1.Scope
+	24, // 26: anvilkit.control.v1.SubmitAnswerRequest.answer:type_name -> anvilkit.control.v1.ArtifactBinding
+	4,  // 27: anvilkit.control.v1.SubmitAnswerResponse.answer:type_name -> anvilkit.control.v1.Answer
+	4,  // 28: anvilkit.control.v1.GetAnswerResponse.answer:type_name -> anvilkit.control.v1.Answer
+	1,  // 29: anvilkit.control.v1.RecordAnswerRelayRequest.relay:type_name -> anvilkit.control.v1.RelayState
+	4,  // 30: anvilkit.control.v1.RecordAnswerRelayResponse.answer:type_name -> anvilkit.control.v1.Answer
+	27, // 31: anvilkit.control.v1.RecordBriefRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	24, // 32: anvilkit.control.v1.RecordBriefRequest.brief:type_name -> anvilkit.control.v1.ArtifactBinding
+	25, // 33: anvilkit.control.v1.RecordBriefRequest.source_revisions:type_name -> anvilkit.control.v1.SourceReference
+	5,  // 34: anvilkit.control.v1.RecordBriefRequest.brand_digests:type_name -> anvilkit.control.v1.ContentDigest
+	5,  // 35: anvilkit.control.v1.RecordBriefRequest.asset_digests:type_name -> anvilkit.control.v1.ContentDigest
+	26, // 36: anvilkit.control.v1.RecordBriefRequest.component:type_name -> anvilkit.control.v1.ComponentIdentity
+	6,  // 37: anvilkit.control.v1.RecordBriefResponse.brief:type_name -> anvilkit.control.v1.Brief
+	6,  // 38: anvilkit.control.v1.GetBriefResponse.brief:type_name -> anvilkit.control.v1.Brief
+	8,  // 39: anvilkit.control.v1.PreparationService.GetPreparation:input_type -> anvilkit.control.v1.GetPreparationRequest
+	10, // 40: anvilkit.control.v1.PreparationService.RecordQuestionSet:input_type -> anvilkit.control.v1.RecordQuestionSetRequest
+	12, // 41: anvilkit.control.v1.PreparationService.SubmitAnswer:input_type -> anvilkit.control.v1.SubmitAnswerRequest
+	14, // 42: anvilkit.control.v1.PreparationService.GetAnswer:input_type -> anvilkit.control.v1.GetAnswerRequest
+	16, // 43: anvilkit.control.v1.PreparationService.RecordAnswerRelay:input_type -> anvilkit.control.v1.RecordAnswerRelayRequest
+	18, // 44: anvilkit.control.v1.PreparationService.RecordBrief:input_type -> anvilkit.control.v1.RecordBriefRequest
+	20, // 45: anvilkit.control.v1.PreparationService.GetBrief:input_type -> anvilkit.control.v1.GetBriefRequest
+	9,  // 46: anvilkit.control.v1.PreparationService.GetPreparation:output_type -> anvilkit.control.v1.GetPreparationResponse
+	11, // 47: anvilkit.control.v1.PreparationService.RecordQuestionSet:output_type -> anvilkit.control.v1.RecordQuestionSetResponse
+	13, // 48: anvilkit.control.v1.PreparationService.SubmitAnswer:output_type -> anvilkit.control.v1.SubmitAnswerResponse
+	15, // 49: anvilkit.control.v1.PreparationService.GetAnswer:output_type -> anvilkit.control.v1.GetAnswerResponse
+	17, // 50: anvilkit.control.v1.PreparationService.RecordAnswerRelay:output_type -> anvilkit.control.v1.RecordAnswerRelayResponse
+	19, // 51: anvilkit.control.v1.PreparationService.RecordBrief:output_type -> anvilkit.control.v1.RecordBriefResponse
+	21, // 52: anvilkit.control.v1.PreparationService.GetBrief:output_type -> anvilkit.control.v1.GetBriefResponse
+	46, // [46:53] is the sub-list for method output_type
+	39, // [39:46] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_preparation_proto_init() }
@@ -1811,7 +1838,9 @@ func file_anvilkit_control_v1_preparation_proto_init() {
 	}
 	file_anvilkit_control_v1_control_proto_init()
 	file_anvilkit_control_v1_preparation_proto_msgTypes[1].OneofWrappers = []any{}
+	file_anvilkit_control_v1_preparation_proto_msgTypes[3].OneofWrappers = []any{}
 	file_anvilkit_control_v1_preparation_proto_msgTypes[4].OneofWrappers = []any{}
+	file_anvilkit_control_v1_preparation_proto_msgTypes[15].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

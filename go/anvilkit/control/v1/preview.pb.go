@@ -277,8 +277,12 @@ type RecordPreviewRequest struct {
 	BuildProfileId   string               `protobuf:"bytes,9,opt,name=build_profile_id,json=buildProfileId,proto3" json:"build_profile_id,omitempty"`
 	HostProfileId    string               `protobuf:"bytes,10,opt,name=host_profile_id,json=hostProfileId,proto3" json:"host_profile_id,omitempty"`
 	FailureCode      *string              `protobuf:"bytes,11,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The recording command: its tenant must be the operation's (another
+	// tenant's operation is not found); the recorder is the caller's
+	// workload identity (P0.2).
+	Command       *CommandIdentity `protobuf:"bytes,12,opt,name=command,proto3" json:"command,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RecordPreviewRequest) Reset() {
@@ -386,6 +390,13 @@ func (x *RecordPreviewRequest) GetFailureCode() string {
 		return *x.FailureCode
 	}
 	return ""
+}
+
+func (x *RecordPreviewRequest) GetCommand() *CommandIdentity {
+	if x != nil {
+		return x.Command
+	}
+	return nil
 }
 
 type RecordPreviewResponse struct {
@@ -678,7 +689,7 @@ const file_anvilkit_control_v1_preview_proto_rawDesc = "" +
 	"\x10_source_revisionB\x13\n" +
 	"\x11_current_revisionB\t\n" +
 	"\a_moduleB\x0f\n" +
-	"\r_failure_code\"\xf6\x05\n" +
+	"\r_failure_code\"\xbe\x06\n" +
 	"\x14RecordPreviewRequest\x12-\n" +
 	"\foperation_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\voperationId\x12J\n" +
@@ -693,7 +704,8 @@ const file_anvilkit_control_v1_preview_proto_rawDesc = "" +
 	"\x10build_profile_id\x18\t \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\x0ebuildProfileId\x120\n" +
 	"\x0fhost_profile_id\x18\n" +
 	" \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\rhostProfileId\x12/\n" +
-	"\ffailure_code\x18\v \x01(\tB\a\xbaH\x04r\x02\x18@H\x03R\vfailureCode\x88\x01\x01B\x12\n" +
+	"\ffailure_code\x18\v \x01(\tB\a\xbaH\x04r\x02\x18@H\x03R\vfailureCode\x88\x01\x01\x12F\n" +
+	"\acommand\x18\f \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommandB\x12\n" +
 	"\x10_source_revisionB\x13\n" +
 	"\x11_current_revisionB\t\n" +
 	"\a_moduleB\x0f\n" +
@@ -758,6 +770,7 @@ var file_anvilkit_control_v1_preview_proto_goTypes = []any{
 	(*GetSourceResponse)(nil),     // 7: anvilkit.control.v1.GetSourceResponse
 	(*ArtifactReference)(nil),     // 8: anvilkit.control.v1.ArtifactReference
 	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(*CommandIdentity)(nil),       // 10: anvilkit.control.v1.CommandIdentity
 }
 var file_anvilkit_control_v1_preview_proto_depIdxs = []int32{
 	0,  // 0: anvilkit.control.v1.Preview.state:type_name -> anvilkit.control.v1.PreviewState
@@ -767,20 +780,21 @@ var file_anvilkit_control_v1_preview_proto_depIdxs = []int32{
 	0,  // 4: anvilkit.control.v1.RecordPreviewRequest.state:type_name -> anvilkit.control.v1.PreviewState
 	8,  // 5: anvilkit.control.v1.RecordPreviewRequest.module:type_name -> anvilkit.control.v1.ArtifactReference
 	8,  // 6: anvilkit.control.v1.RecordPreviewRequest.styles:type_name -> anvilkit.control.v1.ArtifactReference
-	1,  // 7: anvilkit.control.v1.RecordPreviewResponse.preview:type_name -> anvilkit.control.v1.Preview
-	1,  // 8: anvilkit.control.v1.GetPreviewResponse.preview:type_name -> anvilkit.control.v1.Preview
-	8,  // 9: anvilkit.control.v1.GetSourceResponse.source:type_name -> anvilkit.control.v1.ArtifactReference
-	2,  // 10: anvilkit.control.v1.PreviewService.RecordPreview:input_type -> anvilkit.control.v1.RecordPreviewRequest
-	4,  // 11: anvilkit.control.v1.PreviewService.GetPreview:input_type -> anvilkit.control.v1.GetPreviewRequest
-	6,  // 12: anvilkit.control.v1.PreviewService.GetSource:input_type -> anvilkit.control.v1.GetSourceRequest
-	3,  // 13: anvilkit.control.v1.PreviewService.RecordPreview:output_type -> anvilkit.control.v1.RecordPreviewResponse
-	5,  // 14: anvilkit.control.v1.PreviewService.GetPreview:output_type -> anvilkit.control.v1.GetPreviewResponse
-	7,  // 15: anvilkit.control.v1.PreviewService.GetSource:output_type -> anvilkit.control.v1.GetSourceResponse
-	13, // [13:16] is the sub-list for method output_type
-	10, // [10:13] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	10, // 7: anvilkit.control.v1.RecordPreviewRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	1,  // 8: anvilkit.control.v1.RecordPreviewResponse.preview:type_name -> anvilkit.control.v1.Preview
+	1,  // 9: anvilkit.control.v1.GetPreviewResponse.preview:type_name -> anvilkit.control.v1.Preview
+	8,  // 10: anvilkit.control.v1.GetSourceResponse.source:type_name -> anvilkit.control.v1.ArtifactReference
+	2,  // 11: anvilkit.control.v1.PreviewService.RecordPreview:input_type -> anvilkit.control.v1.RecordPreviewRequest
+	4,  // 12: anvilkit.control.v1.PreviewService.GetPreview:input_type -> anvilkit.control.v1.GetPreviewRequest
+	6,  // 13: anvilkit.control.v1.PreviewService.GetSource:input_type -> anvilkit.control.v1.GetSourceRequest
+	3,  // 14: anvilkit.control.v1.PreviewService.RecordPreview:output_type -> anvilkit.control.v1.RecordPreviewResponse
+	5,  // 15: anvilkit.control.v1.PreviewService.GetPreview:output_type -> anvilkit.control.v1.GetPreviewResponse
+	7,  // 16: anvilkit.control.v1.PreviewService.GetSource:output_type -> anvilkit.control.v1.GetSourceResponse
+	14, // [14:17] is the sub-list for method output_type
+	11, // [11:14] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_preview_proto_init() }

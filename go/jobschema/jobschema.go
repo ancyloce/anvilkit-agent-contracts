@@ -80,14 +80,29 @@ type ImageRef struct {
 	Digest     string `json:"digest"`
 }
 
+// The profile states (job.schema.json#/$defs/profile, P0.8).
+const (
+	StateEnabled     = "enabled"
+	StateDisabled    = "disabled"
+	StateDevelopment = "development"
+)
+
+// SourceInput is the launch input that binds a source archive; only a
+// BindsSource profile accepts it.
+const SourceInput = "source"
+
 // Profile is a reviewed fixed Job profile (contracts/jobs/profiles.json).
 type Profile struct {
-	SchemaVersion int      `json:"schemaVersion"`
-	ProfileID     string   `json:"profileId"`
-	Revision      string   `json:"revision"`
-	JobKind       string   `json:"jobKind"`
-	Description   string   `json:"description,omitempty"`
-	Image         ImageRef `json:"image"`
+	SchemaVersion int    `json:"schemaVersion"`
+	ProfileID     string `json:"profileId"`
+	Revision      string `json:"revision"`
+	JobKind       string `json:"jobKind"`
+	// State is the profile's lifecycle (P0.8): StateDisabled is refused by
+	// every launcher, StateDevelopment runs only behind a launcher's
+	// development guard, StateEnabled wherever the environment enables it.
+	State       string   `json:"state"`
+	Description string   `json:"description,omitempty"`
+	Image       ImageRef `json:"image"`
 	// SidecarImage is the trusted access sidecar of a harness profile; its
 	// presence selects the two-container harness layout (DD-03 §5).
 	SidecarImage *ImageRef `json:"sidecarImage,omitempty"`
@@ -99,6 +114,10 @@ type Profile struct {
 	DeadlineSeconds int    `json:"deadlineSeconds"`
 	RuntimeClass    string `json:"runtimeClass,omitempty"`
 	CandidateCode   bool   `json:"candidateCode"`
+	// BindsSource is true for a profile that executes a launch-bound source
+	// archive (the input named "source"; P0.8): only such a profile accepts
+	// one, and it is always candidate code.
+	BindsSource bool `json:"bindsSource,omitempty"`
 	// ExpectedResult is the one fixed result of a qualification fixture:
 	// its digest and byte size (a decimal string, as sizeBytes on the
 	// result manifest) the trusted observer and Control compare with.

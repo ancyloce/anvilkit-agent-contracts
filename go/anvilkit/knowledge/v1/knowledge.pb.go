@@ -567,10 +567,14 @@ func (x *CommandIdentity) GetRequestDigest() string {
 }
 
 type Scope struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ProjectId     string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	ActorId       string                 `protobuf:"bytes,3,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantId  string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ProjectId string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	ActorId   string                 `protobuf:"bytes,3,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	// The user's roles as the API verified them from the identity provider
+	// (P0.3). An owner trusts them only when the verified caller workload is
+	// the API; from any other caller they are ignored.
+	Roles         []string `protobuf:"bytes,4,rep,name=roles,proto3" json:"roles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -624,6 +628,13 @@ func (x *Scope) GetActorId() string {
 		return x.ActorId
 	}
 	return ""
+}
+
+func (x *Scope) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
 }
 
 // AccessEntry is a trusted ACL row: principals are verified identities,
@@ -4013,14 +4024,15 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\tcommandId\x12%\n" +
 	"\bactor_id\x18\x03 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\aactorId\x12C\n" +
-	"\x0erequest_digest\x18\x04 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\rrequestDigest\"\x80\x01\n" +
+	"\x0erequest_digest\x18\x04 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\rrequestDigest\"\xbf\x01\n" +
 	"\x05Scope\x12'\n" +
 	"\ttenant_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\btenantId\x12'\n" +
 	"\n" +
 	"project_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\tprojectId\x12%\n" +
 	"\bactor_id\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\aactorId\"\x88\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\aactorId\x12=\n" +
+	"\x05roles\x18\x04 \x03(\tB'\xbaH$\x92\x01!\x10 \x18\x01\"\x1br\x192\x17^[a-z][a-z0-9_-]{0,63}$R\x05roles\"\x88\x01\n" +
 	"\vAccessEntry\x12J\n" +
 	"\x0eprincipal_type\x18\x01 \x01(\tB#\xbaH r\x1eR\x06tenantR\aprojectR\x05actorR\x04roleR\rprincipalType\x12-\n" +
 	"\fprincipal_id\x18\x02 \x01(\tB\n" +

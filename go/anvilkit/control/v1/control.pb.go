@@ -803,10 +803,14 @@ func (x *CommandIdentity) GetRequestDigest() string {
 // Scope is the verified caller scope. It is established by the API from the
 // authenticated principal; a caller-supplied tenant is never authorization.
 type Scope struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ProjectId     string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	ActorId       string                 `protobuf:"bytes,3,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantId  string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ProjectId string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	ActorId   string                 `protobuf:"bytes,3,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	// The user's roles as the API verified them from the identity provider
+	// (P0.3). An owner trusts them only when the verified caller workload is
+	// the API; from any other caller they are ignored.
+	Roles         []string `protobuf:"bytes,4,rep,name=roles,proto3" json:"roles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -860,6 +864,13 @@ func (x *Scope) GetActorId() string {
 		return x.ActorId
 	}
 	return ""
+}
+
+func (x *Scope) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
 }
 
 // Money is an integer quantity at scale 6 carried as a decimal string. It is
@@ -3473,12 +3484,15 @@ func (x *RegisterInstanceResponse) GetExisting() bool {
 }
 
 type ObserveInstanceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AttemptId     string                 `protobuf:"bytes,1,opt,name=attempt_id,json=attemptId,proto3" json:"attempt_id,omitempty"`
-	InstanceId    string                 `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
-	Phase         InstancePhase          `protobuf:"varint,3,opt,name=phase,proto3,enum=anvilkit.control.v1.InstancePhase" json:"phase,omitempty"`
-	ExitCode      *int32                 `protobuf:"varint,4,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
-	ObservedAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	AttemptId  string                 `protobuf:"bytes,1,opt,name=attempt_id,json=attemptId,proto3" json:"attempt_id,omitempty"`
+	InstanceId string                 `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	Phase      InstancePhase          `protobuf:"varint,3,opt,name=phase,proto3,enum=anvilkit.control.v1.InstancePhase" json:"phase,omitempty"`
+	ExitCode   *int32                 `protobuf:"varint,4,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
+	ObservedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	// The tenant the observation acts for; an instance of another tenant is
+	// not found (P0.2).
+	TenantId      string `protobuf:"bytes,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3546,6 +3560,13 @@ func (x *ObserveInstanceRequest) GetObservedAt() *timestamppb.Timestamp {
 		return x.ObservedAt
 	}
 	return nil
+}
+
+func (x *ObserveInstanceRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type ObserveInstanceResponse struct {
@@ -4295,14 +4316,15 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\tcommandId\x12%\n" +
 	"\bactor_id\x18\x03 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\aactorId\x12C\n" +
-	"\x0erequest_digest\x18\x04 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\rrequestDigest\"\x80\x01\n" +
+	"\x0erequest_digest\x18\x04 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\rrequestDigest\"\xbf\x01\n" +
 	"\x05Scope\x12'\n" +
 	"\ttenant_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\btenantId\x12'\n" +
 	"\n" +
 	"project_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\tprojectId\x12%\n" +
 	"\bactor_id\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\aactorId\"o\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\aactorId\x12=\n" +
+	"\x05roles\x18\x04 \x03(\tB'\xbaH$\x92\x01!\x10 \x18\x01\"\x1br\x192\x17^[a-z][a-z0-9_-]{0,63}$R\x05roles\"o\n" +
 	"\x05Money\x12-\n" +
 	"\bcurrency\x18\x01 \x01(\tB\x11\xbaH\x0er\f2\n" +
 	"^[A-Z]{3}$R\bcurrency\x127\n" +
@@ -4585,7 +4607,7 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\fimage_digest\x18\a \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\vimageDigest\"y\n" +
 	"\x18RegisterInstanceResponse\x12A\n" +
 	"\binstance\x18\x01 \x01(\v2%.anvilkit.control.v1.PhysicalInstanceR\binstance\x12\x1a\n" +
-	"\bexisting\x18\x02 \x01(\bR\bexisting\"\xab\x02\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"\xd4\x02\n" +
 	"\x16ObserveInstanceRequest\x12)\n" +
 	"\n" +
 	"attempt_id\x18\x01 \x01(\tB\n" +
@@ -4597,7 +4619,9 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x05phase\x12 \n" +
 	"\texit_code\x18\x04 \x01(\x05H\x00R\bexitCode\x88\x01\x01\x12C\n" +
 	"\vobserved_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"observedAtB\f\n" +
+	"observedAt\x12'\n" +
+	"\ttenant_id\x18\x06 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\btenantIdB\f\n" +
 	"\n" +
 	"_exit_code\"\\\n" +
 	"\x17ObserveInstanceResponse\x12A\n" +

@@ -1071,10 +1071,15 @@ func (x *ObserveDispatchResponse) GetExisting() bool {
 }
 
 type GetDispatchRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DispatchId    string                 `protobuf:"bytes,1,opt,name=dispatch_id,json=dispatchId,proto3" json:"dispatch_id,omitempty"`
-	CallId        string                 `protobuf:"bytes,2,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
-	Owner         string                 `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	DispatchId string                 `protobuf:"bytes,1,opt,name=dispatch_id,json=dispatchId,proto3" json:"dispatch_id,omitempty"`
+	CallId     string                 `protobuf:"bytes,2,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
+	Owner      string                 `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
+	// The tenant the reader acts for; a dispatch of another tenant is not
+	// found. A dispatch owner (Model Proxy, MCP) reads only its own
+	// dispatches: Control takes the owner from the caller's workload
+	// identity, and a stated owner must be that identity (P0.2).
+	TenantId      string `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1126,6 +1131,13 @@ func (x *GetDispatchRequest) GetCallId() string {
 func (x *GetDispatchRequest) GetOwner() string {
 	if x != nil {
 		return x.Owner
+	}
+	return ""
+}
+
+func (x *GetDispatchRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -2161,12 +2173,14 @@ const file_anvilkit_control_v1_dispatch_proto_rawDesc = "" +
 	"observedAt\"p\n" +
 	"\x17ObserveDispatchResponse\x129\n" +
 	"\bdispatch\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.DispatchR\bdispatch\x12\x1a\n" +
-	"\bexisting\x18\x02 \x01(\bR\bexisting\"\x82\x01\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"\xab\x01\n" +
 	"\x12GetDispatchRequest\x12)\n" +
 	"\vdispatch_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\n" +
 	"dispatchId\x12!\n" +
 	"\acall_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\x06callId\x12\x1e\n" +
-	"\x05owner\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\x05owner\"P\n" +
+	"\x05owner\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\x05owner\x12'\n" +
+	"\ttenant_id\x18\x04 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\btenantId\"P\n" +
 	"\x13GetDispatchResponse\x129\n" +
 	"\bdispatch\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.DispatchR\bdispatch\"\x82\x02\n" +
 	"\x15ConfirmNotSentRequest\x12F\n" +

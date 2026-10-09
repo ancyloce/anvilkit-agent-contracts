@@ -959,7 +959,10 @@ type ReadArtifactRequest struct {
 	OperationId string `protobuf:"bytes,3,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
 	// The reading physical instance when the reader is a Job's trusted
 	// sidecar; empty for the Workflow's own reads.
-	InstanceId    string `protobuf:"bytes,4,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	InstanceId string `protobuf:"bytes,4,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	// The tenant the reader acts for: the reading operation and the
+	// artifact must both be of it; otherwise not found (P0.2).
+	TenantId      string `protobuf:"bytes,5,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1018,6 +1021,13 @@ func (x *ReadArtifactRequest) GetOperationId() string {
 func (x *ReadArtifactRequest) GetInstanceId() string {
 	if x != nil {
 		return x.InstanceId
+	}
+	return ""
+}
+
+func (x *ReadArtifactRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -1171,7 +1181,7 @@ const file_anvilkit_control_v1_artifact_proto_rawDesc = "" +
 	"\x05scope\x18\x02 \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12 \n" +
 	"\x06handle\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06handle\"P\n" +
 	"\x13GetTransferResponse\x129\n" +
-	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer\"\xbc\x01\n" +
+	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer\"\xe5\x01\n" +
 	"\x13ReadArtifactRequest\x12 \n" +
 	"\x06handle\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06handle\x12)\n" +
 	"\vtransfer_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\n" +
@@ -1179,7 +1189,9 @@ const file_anvilkit_control_v1_artifact_proto_rawDesc = "" +
 	"\foperation_id\x18\x03 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\voperationId\x12)\n" +
 	"\vinstance_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\n" +
-	"instanceId\"\x96\x01\n" +
+	"instanceId\x12'\n" +
+	"\ttenant_id\x18\x05 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\btenantId\"\x96\x01\n" +
 	"\x14ReadArtifactResponse\x129\n" +
 	"\btransfer\x18\x01 \x01(\v2\x1d.anvilkit.control.v1.TransferR\btransfer\x12C\n" +
 	"\bdownload\x18\x02 \x01(\v2'.anvilkit.control.v1.TransferCapabilityR\bdownload*\xd5\x02\n" +

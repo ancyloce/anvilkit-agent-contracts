@@ -855,8 +855,15 @@ type RecordReleaseRequest struct {
 	Activation       *ReleaseTarget         `protobuf:"bytes,11,opt,name=activation,proto3" json:"activation,omitempty"`
 	CatalogRevision  *string                `protobuf:"bytes,12,opt,name=catalog_revision,json=catalogRevision,proto3,oneof" json:"catalog_revision,omitempty"`
 	FailureCode      *string                `protobuf:"bytes,13,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The recording command: its tenant must be the operation's (another
+	// tenant's operation is not found); the recorder is the caller's
+	// workload identity. A succeeded target binds a succeeded effect of the
+	// operation whose observed outcome is the target's receipt digest, and an
+	// approval binds the operation's succeeded review effect of the subject
+	// (P0.2).
+	Command       *CommandIdentity `protobuf:"bytes,14,opt,name=command,proto3" json:"command,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RecordReleaseRequest) Reset() {
@@ -978,6 +985,13 @@ func (x *RecordReleaseRequest) GetFailureCode() string {
 		return *x.FailureCode
 	}
 	return ""
+}
+
+func (x *RecordReleaseRequest) GetCommand() *CommandIdentity {
+	if x != nil {
+		return x.Command
+	}
+	return nil
 }
 
 type RecordReleaseResponse struct {
@@ -1132,7 +1146,7 @@ var File_anvilkit_control_v1_release_proto protoreflect.FileDescriptor
 
 const file_anvilkit_control_v1_release_proto_rawDesc = "" +
 	"\n" +
-	"!anvilkit/control/v1/release.proto\x12\x13anvilkit.control.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x84\x01\n" +
+	"!anvilkit/control/v1/release.proto\x12\x13anvilkit.control.v1\x1a!anvilkit/control/v1/control.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x84\x01\n" +
 	"\x0eArtifactDigest\x124\n" +
 	"\x06digest\x18\x01 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\x06digest\x12<\n" +
 	"\n" +
@@ -1231,7 +1245,7 @@ const file_anvilkit_control_v1_release_proto_rawDesc = "" +
 	"\t_approvalB\x14\n" +
 	"\x12_approval_deadlineB\x13\n" +
 	"\x11_catalog_revisionB\x0f\n" +
-	"\r_failure_code\"\xc2\a\n" +
+	"\r_failure_code\"\x8a\b\n" +
 	"\x14RecordReleaseRequest\x12-\n" +
 	"\foperation_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\voperationId\x12J\n" +
@@ -1251,7 +1265,8 @@ const file_anvilkit_control_v1_release_proto_rawDesc = "" +
 	"activation\x18\v \x01(\v2\".anvilkit.control.v1.ReleaseTargetB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"activation\x127\n" +
 	"\x10catalog_revision\x18\f \x01(\tB\a\xbaH\x04r\x02\x18\x14H\x05R\x0fcatalogRevision\x88\x01\x01\x12/\n" +
-	"\ffailure_code\x18\r \x01(\tB\a\xbaH\x04r\x02\x18@H\x06R\vfailureCode\x88\x01\x01B\n" +
+	"\ffailure_code\x18\r \x01(\tB\a\xbaH\x04r\x02\x18@H\x06R\vfailureCode\x88\x01\x01\x12F\n" +
+	"\acommand\x18\x0e \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommandB\n" +
 	"\n" +
 	"\b_subjectB\r\n" +
 	"\v_release_idB\x13\n" +
@@ -1327,6 +1342,7 @@ var file_anvilkit_control_v1_release_proto_goTypes = []any{
 	(*GetReleaseRequest)(nil),     // 10: anvilkit.control.v1.GetReleaseRequest
 	(*GetReleaseResponse)(nil),    // 11: anvilkit.control.v1.GetReleaseResponse
 	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
+	(*CommandIdentity)(nil),       // 13: anvilkit.control.v1.CommandIdentity
 }
 var file_anvilkit_control_v1_release_proto_depIdxs = []int32{
 	3,  // 0: anvilkit.control.v1.ReleaseSubject.npm:type_name -> anvilkit.control.v1.ArtifactDigest
@@ -1350,17 +1366,18 @@ var file_anvilkit_control_v1_release_proto_depIdxs = []int32{
 	6,  // 18: anvilkit.control.v1.RecordReleaseRequest.npm:type_name -> anvilkit.control.v1.ReleaseTarget
 	6,  // 19: anvilkit.control.v1.RecordReleaseRequest.browser:type_name -> anvilkit.control.v1.ReleaseTarget
 	6,  // 20: anvilkit.control.v1.RecordReleaseRequest.activation:type_name -> anvilkit.control.v1.ReleaseTarget
-	7,  // 21: anvilkit.control.v1.RecordReleaseResponse.release:type_name -> anvilkit.control.v1.Release
-	7,  // 22: anvilkit.control.v1.GetReleaseResponse.release:type_name -> anvilkit.control.v1.Release
-	8,  // 23: anvilkit.control.v1.ReleaseService.RecordRelease:input_type -> anvilkit.control.v1.RecordReleaseRequest
-	10, // 24: anvilkit.control.v1.ReleaseService.GetRelease:input_type -> anvilkit.control.v1.GetReleaseRequest
-	9,  // 25: anvilkit.control.v1.ReleaseService.RecordRelease:output_type -> anvilkit.control.v1.RecordReleaseResponse
-	11, // 26: anvilkit.control.v1.ReleaseService.GetRelease:output_type -> anvilkit.control.v1.GetReleaseResponse
-	25, // [25:27] is the sub-list for method output_type
-	23, // [23:25] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	13, // 21: anvilkit.control.v1.RecordReleaseRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	7,  // 22: anvilkit.control.v1.RecordReleaseResponse.release:type_name -> anvilkit.control.v1.Release
+	7,  // 23: anvilkit.control.v1.GetReleaseResponse.release:type_name -> anvilkit.control.v1.Release
+	8,  // 24: anvilkit.control.v1.ReleaseService.RecordRelease:input_type -> anvilkit.control.v1.RecordReleaseRequest
+	10, // 25: anvilkit.control.v1.ReleaseService.GetRelease:input_type -> anvilkit.control.v1.GetReleaseRequest
+	9,  // 26: anvilkit.control.v1.ReleaseService.RecordRelease:output_type -> anvilkit.control.v1.RecordReleaseResponse
+	11, // 27: anvilkit.control.v1.ReleaseService.GetRelease:output_type -> anvilkit.control.v1.GetReleaseResponse
+	26, // [26:28] is the sub-list for method output_type
+	24, // [24:26] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_release_proto_init() }
@@ -1368,6 +1385,7 @@ func file_anvilkit_control_v1_release_proto_init() {
 	if File_anvilkit_control_v1_release_proto != nil {
 		return
 	}
+	file_anvilkit_control_v1_control_proto_init()
 	file_anvilkit_control_v1_release_proto_msgTypes[2].OneofWrappers = []any{}
 	file_anvilkit_control_v1_release_proto_msgTypes[3].OneofWrappers = []any{}
 	file_anvilkit_control_v1_release_proto_msgTypes[4].OneofWrappers = []any{}

@@ -850,6 +850,20 @@ export interface OperationSubject {
   packageVersion?: string | undefined;
 }
 
+/**
+ * ComponentIdentity is the identity a Generation's frozen brief allocated to
+ * a component (P0.8): bound to its component source lineage when the
+ * Generation's candidate registration is prepared, and named by every
+ * validator launch on that lineage so that the source's own declaration never
+ * chooses what is certified or released.
+ */
+export interface ComponentIdentity {
+  $type: "anvilkit.control.v1.ComponentIdentity";
+  componentId: string;
+  puckType: string;
+  packageName: string;
+}
+
 /** OperationView is the single committed projection the API exposes. */
 export interface OperationView {
   $type: "anvilkit.control.v1.OperationView";
@@ -882,7 +896,15 @@ export interface OperationView {
     | Date
     | undefined;
   /** clarification is the open question set of a waiting Preparation. */
-  clarification?: Clarification | undefined;
+  clarification?:
+    | Clarification
+    | undefined;
+  /**
+   * lineage_identity is the component identity allocated to subject_digest
+   * (P0.8), resolved by Control for preview_build and release operations;
+   * absent when the lineage has none (a release is refused then).
+   */
+  lineageIdentity?: ComponentIdentity | undefined;
 }
 
 /** OperationChangedPayload is the reviewed small payload of operation.changed. */
@@ -2414,6 +2436,124 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
 
 messageTypeRegistry.set(OperationSubject.$type, OperationSubject);
 
+function createBaseComponentIdentity(): ComponentIdentity {
+  return { $type: "anvilkit.control.v1.ComponentIdentity", componentId: "", puckType: "", packageName: "" };
+}
+
+export const ComponentIdentity: MessageFns<ComponentIdentity, "anvilkit.control.v1.ComponentIdentity"> = {
+  $type: "anvilkit.control.v1.ComponentIdentity" as const,
+
+  encode(message: ComponentIdentity, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.componentId !== "") {
+      writer.uint32(10).string(message.componentId);
+    }
+    if (message.puckType !== "") {
+      writer.uint32(18).string(message.puckType);
+    }
+    if (message.packageName !== "") {
+      writer.uint32(26).string(message.packageName);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComponentIdentity {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseComponentIdentity();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.componentId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.puckType = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.packageName = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ComponentIdentity {
+    return {
+      $type: ComponentIdentity.$type,
+      componentId: isSet(object.componentId)
+        ? globalThis.String(object.componentId)
+        : isSet(object.component_id)
+        ? globalThis.String(object.component_id)
+        : "",
+      puckType: isSet(object.puckType)
+        ? globalThis.String(object.puckType)
+        : isSet(object.puck_type)
+        ? globalThis.String(object.puck_type)
+        : "",
+      packageName: isSet(object.packageName)
+        ? globalThis.String(object.packageName)
+        : isSet(object.package_name)
+        ? globalThis.String(object.package_name)
+        : "",
+    };
+  },
+
+  toJSON(message: ComponentIdentity): unknown {
+    const obj: any = {};
+    if (message.componentId !== "") {
+      obj.componentId = message.componentId;
+    }
+    if (message.puckType !== "") {
+      obj.puckType = message.puckType;
+    }
+    if (message.packageName !== "") {
+      obj.packageName = message.packageName;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComponentIdentity>, I>>(base?: I): ComponentIdentity {
+    return ComponentIdentity.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComponentIdentity>, I>>(object: I): ComponentIdentity {
+    const message = createBaseComponentIdentity();
+    message.componentId = object.componentId ?? "";
+    message.puckType = object.puckType ?? "";
+    message.packageName = object.packageName ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ComponentIdentity.$type, ComponentIdentity);
+
 function createBaseOperationView(): OperationView {
   return {
     $type: "anvilkit.control.v1.OperationView",
@@ -2437,6 +2577,7 @@ function createBaseOperationView(): OperationView {
     failureCode: undefined,
     activeDeadline: undefined,
     clarification: undefined,
+    lineageIdentity: undefined,
   };
 }
 
@@ -2503,6 +2644,9 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     }
     if (message.clarification !== undefined) {
       Clarification.encode(message.clarification, writer.uint32(162).fork()).join();
+    }
+    if (message.lineageIdentity !== undefined) {
+      ComponentIdentity.encode(message.lineageIdentity, writer.uint32(170).fork()).join();
     }
     return writer;
   },
@@ -2680,6 +2824,14 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
             message.clarification = Clarification.decode(reader, reader.uint32());
             continue;
           }
+          case 21: {
+            if (tag !== 170) {
+              break;
+            }
+
+            message.lineageIdentity = ComponentIdentity.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2755,6 +2907,11 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
         ? fromJsonTimestamp(object.active_deadline)
         : undefined,
       clarification: isSet(object.clarification) ? Clarification.fromJSON(object.clarification) : undefined,
+      lineageIdentity: isSet(object.lineageIdentity)
+        ? ComponentIdentity.fromJSON(object.lineageIdentity)
+        : isSet(object.lineage_identity)
+        ? ComponentIdentity.fromJSON(object.lineage_identity)
+        : undefined,
     };
   },
 
@@ -2820,6 +2977,9 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     if (message.clarification !== undefined) {
       obj.clarification = Clarification.toJSON(message.clarification);
     }
+    if (message.lineageIdentity !== undefined) {
+      obj.lineageIdentity = ComponentIdentity.toJSON(message.lineageIdentity);
+    }
     return obj;
   },
 
@@ -2851,6 +3011,9 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     message.activeDeadline = object.activeDeadline ?? undefined;
     message.clarification = (object.clarification !== undefined && object.clarification !== null)
       ? Clarification.fromPartial(object.clarification)
+      : undefined;
+    message.lineageIdentity = (object.lineageIdentity !== undefined && object.lineageIdentity !== null)
+      ? ComponentIdentity.fromPartial(object.lineageIdentity)
       : undefined;
     return message;
   },

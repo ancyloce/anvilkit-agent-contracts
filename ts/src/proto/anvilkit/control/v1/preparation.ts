@@ -20,7 +20,7 @@ import {
 } from "@grpc/grpc-js";
 import { Timestamp } from "../../../google/protobuf/timestamp.js";
 import { messageTypeRegistry } from "../../../typeRegistry.js";
-import { ArtifactBinding, CommandIdentity, Question, Scope, SourceReference } from "./control.js";
+import { ArtifactBinding, CommandIdentity, ComponentIdentity, Question, Scope, SourceReference } from "./control.js";
 
 export const protobufPackage = "anvilkit.control.v1";
 
@@ -238,6 +238,7 @@ export interface Brief {
   assetDigests: ContentDigest[];
   state: BriefState;
   frozenAt: Date | undefined;
+  component?: ComponentIdentity | undefined;
 }
 
 export interface Preparation {
@@ -337,6 +338,11 @@ export interface RecordBriefRequest {
   sourceRevisions: SourceReference[];
   brandDigests: ContentDigest[];
   assetDigests: ContentDigest[];
+  /**
+   * The identity the brief document allocates (P0.8): Control binds it to
+   * the Generation's lineage when its candidate registration is prepared.
+   */
+  component?: ComponentIdentity | undefined;
 }
 
 export interface RecordBriefResponse {
@@ -955,6 +961,7 @@ function createBaseBrief(): Brief {
     assetDigests: [],
     state: 0,
     frozenAt: undefined,
+    component: undefined,
   };
 }
 
@@ -997,6 +1004,9 @@ export const Brief: MessageFns<Brief, "anvilkit.control.v1.Brief"> = {
     }
     if (message.frozenAt !== undefined) {
       Timestamp.encode(toTimestamp(message.frozenAt), writer.uint32(98).fork()).join();
+    }
+    if (message.component !== undefined) {
+      ComponentIdentity.encode(message.component, writer.uint32(106).fork()).join();
     }
     return writer;
   },
@@ -1110,6 +1120,14 @@ export const Brief: MessageFns<Brief, "anvilkit.control.v1.Brief"> = {
             message.frozenAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.component = ComponentIdentity.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1169,6 +1187,7 @@ export const Brief: MessageFns<Brief, "anvilkit.control.v1.Brief"> = {
         : isSet(object.frozen_at)
         ? fromJsonTimestamp(object.frozen_at)
         : undefined,
+      component: isSet(object.component) ? ComponentIdentity.fromJSON(object.component) : undefined,
     };
   },
 
@@ -1210,6 +1229,9 @@ export const Brief: MessageFns<Brief, "anvilkit.control.v1.Brief"> = {
     if (message.frozenAt !== undefined) {
       obj.frozenAt = message.frozenAt.toISOString();
     }
+    if (message.component !== undefined) {
+      obj.component = ComponentIdentity.toJSON(message.component);
+    }
     return obj;
   },
 
@@ -1232,6 +1254,9 @@ export const Brief: MessageFns<Brief, "anvilkit.control.v1.Brief"> = {
     message.assetDigests = object.assetDigests?.map((e) => ContentDigest.fromPartial(e)) || [];
     message.state = object.state ?? 0;
     message.frozenAt = object.frozenAt ?? undefined;
+    message.component = (object.component !== undefined && object.component !== null)
+      ? ComponentIdentity.fromPartial(object.component)
+      : undefined;
     return message;
   },
 };
@@ -2632,6 +2657,7 @@ function createBaseRecordBriefRequest(): RecordBriefRequest {
     sourceRevisions: [],
     brandDigests: [],
     assetDigests: [],
+    component: undefined,
   };
 }
 
@@ -2659,6 +2685,9 @@ export const RecordBriefRequest: MessageFns<RecordBriefRequest, "anvilkit.contro
     }
     for (const v of message.assetDigests) {
       ContentDigest.encode(v!, writer.uint32(58).fork()).join();
+    }
+    if (message.component !== undefined) {
+      ComponentIdentity.encode(message.component, writer.uint32(66).fork()).join();
     }
     return writer;
   },
@@ -2732,6 +2761,14 @@ export const RecordBriefRequest: MessageFns<RecordBriefRequest, "anvilkit.contro
             message.assetDigests.push(ContentDigest.decode(reader, reader.uint32()));
             continue;
           }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.component = ComponentIdentity.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2774,6 +2811,7 @@ export const RecordBriefRequest: MessageFns<RecordBriefRequest, "anvilkit.contro
         : globalThis.Array.isArray(object?.asset_digests)
         ? object.asset_digests.map((e: any) => ContentDigest.fromJSON(e))
         : [],
+      component: isSet(object.component) ? ComponentIdentity.fromJSON(object.component) : undefined,
     };
   },
 
@@ -2800,6 +2838,9 @@ export const RecordBriefRequest: MessageFns<RecordBriefRequest, "anvilkit.contro
     if (message.assetDigests?.length) {
       obj.assetDigests = message.assetDigests.map((e) => ContentDigest.toJSON(e));
     }
+    if (message.component !== undefined) {
+      obj.component = ComponentIdentity.toJSON(message.component);
+    }
     return obj;
   },
 
@@ -2819,6 +2860,9 @@ export const RecordBriefRequest: MessageFns<RecordBriefRequest, "anvilkit.contro
     message.sourceRevisions = object.sourceRevisions?.map((e) => SourceReference.fromPartial(e)) || [];
     message.brandDigests = object.brandDigests?.map((e) => ContentDigest.fromPartial(e)) || [];
     message.assetDigests = object.assetDigests?.map((e) => ContentDigest.fromPartial(e)) || [];
+    message.component = (object.component !== undefined && object.component !== null)
+      ? ComponentIdentity.fromPartial(object.component)
+      : undefined;
     return message;
   },
 };

@@ -14,6 +14,7 @@ import "../src/proto/anvilkit/control/v1/artifact.js";
 import "../src/proto/anvilkit/control/v1/control.js";
 import "../src/proto/anvilkit/control/v1/dispatch.js";
 import "../src/proto/anvilkit/control/v1/effect.js";
+import "../src/proto/anvilkit/control/v1/preparation.js";
 import "../src/proto/anvilkit/control/v1/preview.js";
 import "../src/proto/anvilkit/control/v1/recovery.js";
 import "../src/proto/anvilkit/control/v1/release.js";

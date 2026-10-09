@@ -91,6 +91,7 @@ message Brief {
   repeated ContentDigest asset_digests = 10;
   BriefState state = 11;
   google.protobuf.Timestamp frozen_at = 12;
+  optional ComponentIdentity component = 13;
 }
 
 message Preparation {
@@ -237,6 +238,9 @@ message RecordBriefRequest {
   repeated SourceReference source_revisions = 5 [(buf.validate.field).repeated.max_items = 64];
   repeated ContentDigest brand_digests = 6 [(buf.validate.field).repeated.max_items = 16];
   repeated ContentDigest asset_digests = 7 [(buf.validate.field).repeated.max_items = 64];
+  // The identity the brief document allocates (P0.8): Control binds it to
+  // the Generation's lineage when its candidate registration is prepared.
+  optional ComponentIdentity component = 8;
 }
 
 message RecordBriefResponse {

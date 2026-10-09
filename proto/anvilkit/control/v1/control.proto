@@ -197,6 +197,20 @@ message OperationSubject {
   optional string package_version = 7 [(buf.validate.field).string = {max_len: 64}];
 }
 
+// ComponentIdentity is the identity a Generation's frozen brief allocated to
+// a component (P0.8): bound to its component source lineage when the
+// Generation's candidate registration is prepared, and named by every
+// validator launch on that lineage so that the source's own declaration never
+// chooses what is certified or released.
+message ComponentIdentity {
+  string component_id = 1 [(buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"];
+  string puck_type = 2 [(buf.validate.field).string.pattern = "^[A-Z][A-Za-z0-9]{0,63}$"];
+  string package_name = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 214
+  }];
+}
+
 // OperationView is the single committed projection the API exposes.
 message OperationView {
   string operation_id = 1;
@@ -223,6 +237,10 @@ message OperationView {
   optional google.protobuf.Timestamp active_deadline = 19;
   // clarification is the open question set of a waiting Preparation.
   optional Clarification clarification = 20;
+  // lineage_identity is the component identity allocated to subject_digest
+  // (P0.8), resolved by Control for preview_build and release operations;
+  // absent when the lineage has none (a release is refused then).
+  optional ComponentIdentity lineage_identity = 21;
 }
 
 // OperationChangedPayload is the reviewed small payload of operation.changed.

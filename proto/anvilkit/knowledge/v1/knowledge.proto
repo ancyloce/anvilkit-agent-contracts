@@ -39,6 +39,16 @@ message Scope {
     min_len: 1
     max_len: 128
   }];
+  // The user's roles as the API verified them from the identity provider
+  // (P0.3). An owner trusts them only when the verified caller workload is
+  // the API; from any other caller they are ignored.
+  repeated string roles = 4 [(buf.validate.field).repeated = {
+    max_items: 32
+    unique: true
+    items: {
+      string: {pattern: "^[a-z][a-z0-9_-]{0,63}$"}
+    }
+  }];
 }
 
 // ---------------------------------------------------------------------------

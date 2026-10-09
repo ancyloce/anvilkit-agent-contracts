@@ -87,6 +87,10 @@ message RecordPreviewRequest {
   string build_profile_id = 9 [(buf.validate.field).string = {max_len: 128}];
   string host_profile_id = 10 [(buf.validate.field).string = {max_len: 128}];
   optional string failure_code = 11 [(buf.validate.field).string = {max_len: 64}];
+  // The recording command: its tenant must be the operation's (another
+  // tenant's operation is not found); the recorder is the caller's
+  // workload identity (P0.2).
+  CommandIdentity command = 12 [(buf.validate.field).required = true];
 }
 
 message RecordPreviewResponse {

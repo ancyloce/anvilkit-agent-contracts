@@ -13,6 +13,7 @@ syntax = "proto3";
 
 package anvilkit.control.v1;
 
+import "anvilkit/control/v1/control.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -202,6 +203,13 @@ message RecordReleaseRequest {
   ReleaseTarget activation = 11 [(buf.validate.field).required = true];
   optional string catalog_revision = 12 [(buf.validate.field).string = {max_len: 20}];
   optional string failure_code = 13 [(buf.validate.field).string = {max_len: 64}];
+  // The recording command: its tenant must be the operation's (another
+  // tenant's operation is not found); the recorder is the caller's
+  // workload identity. A succeeded target binds a succeeded effect of the
+  // operation whose observed outcome is the target's receipt digest, and an
+  // approval binds the operation's succeeded review effect of the subject
+  // (P0.2).
+  CommandIdentity command = 14 [(buf.validate.field).required = true];
 }
 
 message RecordReleaseResponse {

@@ -188,6 +188,12 @@ message ReadArtifactRequest {
   // The reading physical instance when the reader is a Job's trusted
   // sidecar; empty for the Workflow's own reads.
   string instance_id = 4 [(buf.validate.field).string = {max_len: 128}];
+  // The tenant the reader acts for: the reading operation and the
+  // artifact must both be of it; otherwise not found (P0.2).
+  string tenant_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
 }
 
 message ReadArtifactResponse {

@@ -109,6 +109,9 @@ message BeginRecoveryRequest {
   google.protobuf.Timestamp window_end = 4 [(buf.validate.field).required = true];
   google.protobuf.Duration clock_uncertainty = 5;
   string reason = 6 [(buf.validate.field).string = {max_len: 512}];
+  // The operator's verified user scope (P0.3): the run begins only for a
+  // caller whose roles include operator, in the command's tenant.
+  Scope scope = 7 [(buf.validate.field).required = true];
 }
 
 message BeginRecoveryResponse {
@@ -240,6 +243,8 @@ message DisposeObligationRequest {
   string recovery_epoch = 7 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
   optional string run_id = 8 [(buf.validate.field).string = {max_len: 128}];
   string reason = 9 [(buf.validate.field).string = {max_len: 512}];
+  // The operator's verified user scope (P0.3), as for BeginRecovery.
+  Scope scope = 10 [(buf.validate.field).required = true];
 }
 
 message Disposition {

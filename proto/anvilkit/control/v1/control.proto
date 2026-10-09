@@ -49,6 +49,16 @@ message Scope {
     min_len: 1
     max_len: 128
   }];
+  // The user's roles as the API verified them from the identity provider
+  // (P0.3). An owner trusts them only when the verified caller workload is
+  // the API; from any other caller they are ignored.
+  repeated string roles = 4 [(buf.validate.field).repeated = {
+    max_items: 32
+    unique: true
+    items: {
+      string: {pattern: "^[a-z][a-z0-9_-]{0,63}$"}
+    }
+  }];
 }
 
 // Money is an integer quantity at scale 6 carried as a decimal string. It is
@@ -616,6 +626,12 @@ message ObserveInstanceRequest {
   }];
   optional int32 exit_code = 4;
   google.protobuf.Timestamp observed_at = 5 [(buf.validate.field).required = true];
+  // The tenant the observation acts for; an instance of another tenant is
+  // not found (P0.2).
+  string tenant_id = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
 }
 
 message ObserveInstanceResponse {

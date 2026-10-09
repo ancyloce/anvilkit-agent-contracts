@@ -188,6 +188,14 @@ message GetDispatchRequest {
   string dispatch_id = 1 [(buf.validate.field).string = {max_len: 128}];
   string call_id = 2 [(buf.validate.field).string = {max_len: 128}];
   string owner = 3 [(buf.validate.field).string = {max_len: 128}];
+  // The tenant the reader acts for; a dispatch of another tenant is not
+  // found. A dispatch owner (Model Proxy, MCP) reads only its own
+  // dispatches: Control takes the owner from the caller's workload
+  // identity, and a stated owner must be that identity (P0.2).
+  string tenant_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
 }
 
 message GetDispatchResponse {

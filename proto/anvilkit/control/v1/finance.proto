@@ -1,0 +1,251 @@
+// Platform finance administration (DD-02 §3, ENV-06): the price book that
+// admission freezes revisions from, the budget pools that fund operations
+// and the tenant/project/operation actual-cost caps that admission checks.
+//
+// Every mutation is an operator command: it carries the command identity
+// and the operator's verified user scope (P0.3), and Control decides on the
+// verified roles, never on the caller's word. A price revision is
+// immutable once published; withdrawing it stops new admission under it
+// while prepared and in-flight dispatches keep settling under it. Lowering
+// a pool or cap fences new admission only; it never revokes an issued
+// permission or erases incurred cost.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+// UnitPrices are the prices of the four metering categories per one million
+// units, as scale-6 decimal strings.
+message UnitPrices {
+  string input_units = 1 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,17})$"];
+  string output_units = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,17})$"];
+  string reasoning_units = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,17})$"];
+  string cached_input_units = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,17})$"];
+}
+
+// PriceRevision is one immutable pricing observation: a model route binds
+// the trusted provider and model it reaches, a tool route ("server/method")
+// binds neither.
+message PriceRevision {
+  string revision = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }];
+  string kind = 2 [(buf.validate.field).string = {in: ["model", "tool"]}];
+  string route = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string provider = 4 [(buf.validate.field).string = {max_len: 128}];
+  string model = 5 [(buf.validate.field).string = {max_len: 256}];
+  string currency = 6 [(buf.validate.field).string.pattern = "^[A-Z]{3}$"];
+  google.protobuf.Timestamp effective_from = 7 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp effective_until = 8 [(buf.validate.field).required = true];
+  UnitPrices per_million = 9 [(buf.validate.field).required = true];
+  // The largest exposure one call may reserve on the route (scale 6).
+  string max_exposure = 10 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,17}$"];
+  bool input_includes_cached = 11;
+  bool output_includes_reasoning = 12;
+  // Set by Control: the digest of the canonical revision, the publication
+  // and the withdrawal time.
+  string digest = 13;
+  google.protobuf.Timestamp published_at = 14;
+  optional google.protobuf.Timestamp withdrawn_at = 15;
+}
+
+service PriceAdminService {
+  // PublishPriceRevision records a new immutable revision; the same
+  // revision with the same content returns the existing record, different
+  // content is IDEMPOTENCY_CONFLICT.
+  rpc PublishPriceRevision(PublishPriceRevisionRequest) returns (PublishPriceRevisionResponse);
+  // WithdrawPriceRevision stops new admission under the revision; dispatches
+  // already prepared under it keep their frozen price until they settle.
+  rpc WithdrawPriceRevision(WithdrawPriceRevisionRequest) returns (WithdrawPriceRevisionResponse);
+  rpc GetPriceRevision(GetPriceRevisionRequest) returns (GetPriceRevisionResponse);
+}
+
+message PublishPriceRevisionRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  PriceRevision price = 3 [(buf.validate.field).required = true];
+}
+
+message PublishPriceRevisionResponse {
+  PriceRevision price = 1;
+  bool existing = 2;
+}
+
+message WithdrawPriceRevisionRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string revision = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string reason = 4 [(buf.validate.field).string = {max_len: 512}];
+}
+
+message WithdrawPriceRevisionResponse {
+  PriceRevision price = 1;
+  bool existing = 2;
+}
+
+message GetPriceRevisionRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string revision = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetPriceRevisionResponse {
+  PriceRevision price = 1;
+}
+
+enum BudgetLevel {
+  BUDGET_LEVEL_UNSPECIFIED = 0;
+  BUDGET_LEVEL_PLATFORM = 1;
+  BUDGET_LEVEL_TENANT = 2;
+  BUDGET_LEVEL_ACTOR = 3;
+}
+
+// BudgetPool is a shared funding limit of one level for one period:
+// allocations to operations draw from it; settlement returns the unspent
+// part of a terminal operation's allocation.
+message BudgetPool {
+  string pool_id = 1;
+  BudgetLevel level = 2;
+  string tenant_id = 3;
+  string actor_id = 4;
+  google.protobuf.Timestamp period_start = 5;
+  google.protobuf.Timestamp period_end = 6;
+  Money cap = 7;
+  Money allocated = 8;
+  Money available = 9;
+  string revision = 10;
+}
+
+enum CostCapLevel {
+  COST_CAP_LEVEL_UNSPECIFIED = 0;
+  COST_CAP_LEVEL_TENANT = 1;
+  COST_CAP_LEVEL_PROJECT = 2;
+  // OPERATION caps every operation of the tenant (project_id empty) or of
+  // one project.
+  COST_CAP_LEVEL_OPERATION = 3;
+}
+
+// CostCap is an actual-cost cap: reserved exposure plus consumed cost in its
+// scope never exceeds it at admission. Reserved and consumed are kept for
+// the tenant and project levels; an operation's are its allocation's.
+message CostCap {
+  string cap_id = 1;
+  CostCapLevel level = 2;
+  string tenant_id = 3;
+  string project_id = 4;
+  Money cap = 5;
+  Money reserved = 6;
+  Money consumed = 7;
+  string revision = 8;
+}
+
+service BudgetPoolService {
+  // CreatePool funds a new pool; the same scope, period and cap returns the
+  // existing pool, a different cap is IDEMPOTENCY_CONFLICT.
+  rpc CreatePool(CreatePoolRequest) returns (CreatePoolResponse);
+  // AdjustPool sets a pool's cap conditionally on its revision; a cap below
+  // the allocated amount fences new allocations only.
+  rpc AdjustPool(AdjustPoolRequest) returns (AdjustPoolResponse);
+  rpc GetPool(GetPoolRequest) returns (GetPoolResponse);
+  // SetCostCap creates or changes a cost cap (conditionally on its
+  // revision when one is named); lowering it fences the next admission.
+  rpc SetCostCap(SetCostCapRequest) returns (SetCostCapResponse);
+  rpc GetCostCap(GetCostCapRequest) returns (GetCostCapResponse);
+}
+
+message CreatePoolRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  BudgetLevel level = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string tenant_id = 4 [(buf.validate.field).string = {max_len: 128}];
+  string actor_id = 5 [(buf.validate.field).string = {max_len: 128}];
+  google.protobuf.Timestamp period_start = 6 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp period_end = 7 [(buf.validate.field).required = true];
+  Money cap = 8 [(buf.validate.field).required = true];
+}
+
+message CreatePoolResponse {
+  BudgetPool pool = 1;
+  bool existing = 2;
+}
+
+message AdjustPoolRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string pool_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  Money cap = 5 [(buf.validate.field).required = true];
+}
+
+message AdjustPoolResponse {
+  BudgetPool pool = 1;
+}
+
+message GetPoolRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string pool_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetPoolResponse {
+  BudgetPool pool = 1;
+}
+
+message SetCostCapRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  CostCapLevel level = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string tenant_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string project_id = 5 [(buf.validate.field).string = {max_len: 128}];
+  Money cap = 6 [(buf.validate.field).required = true];
+  optional string expected_revision = 7 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+}
+
+message SetCostCapResponse {
+  CostCap cap = 1;
+}
+
+message GetCostCapRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  CostCapLevel level = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string tenant_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string project_id = 4 [(buf.validate.field).string = {max_len: 128}];
+  string currency = 5 [(buf.validate.field).string.pattern = "^[A-Z]{3}$"];
+}
+
+message GetCostCapResponse {
+  CostCap cap = 1;
+}

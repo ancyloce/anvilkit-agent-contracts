@@ -108,6 +108,11 @@ message Preparation {
   string max_rounds = 9;
   string max_questions = 10;
   string wait_seconds = 11;
+  // The verified actor and project the operation was accepted for (P2.2):
+  // the scope the Workflow's content-digest read of the references runs
+  // under, so only sources that user can read are ever frozen.
+  string actor_id = 12;
+  string project_id = 13;
 }
 
 service PreparationService {

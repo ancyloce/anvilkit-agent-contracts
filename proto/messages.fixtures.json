@@ -396,6 +396,42 @@
     {"name": "a recovery run without the operator's scope is rejected", "message": "anvilkit.control.v1.BeginRecoveryRequest", "valid": false, "instance": {"command": {"tenantId": "tenant_a", "commandId": "cmd_rec_1", "actorId": "operator_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"}, "scopeKey": "tenant_a", "windowStart": "2026-10-08T10:00:00Z", "windowEnd": "2026-10-08T12:00:00Z", "clockUncertainty": "5s", "reason": "drill"}},
     {"name": "a frozen brief records the identity it allocates", "message": "anvilkit.control.v1.RecordBriefRequest", "valid": true, "instance": {"command": {"tenantId": "tenant_a", "commandId": "cmd_brief_1", "actorId": "anvilkit-agent-workflow", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"}, "operationId": "op_1", "brief": {"transferId": "trf_1", "digest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3"}, "requirementsDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3", "component": {"componentId": "cmp_0123456789abcdef01234567", "puckType": "Hero", "packageName": "@anvilkit/hero"}}},
     {"name": "a component identity whose Puck type is not a type name is rejected", "message": "anvilkit.control.v1.ComponentIdentity", "valid": false, "instance": {"componentId": "cmp_hero", "puckType": "hero", "packageName": "@anvilkit/hero"}},
-    {"name": "a component identity without its package name is rejected", "message": "anvilkit.control.v1.ComponentIdentity", "valid": false, "instance": {"componentId": "cmp_hero", "puckType": "Hero", "packageName": ""}}
+    {"name": "a component identity without its package name is rejected", "message": "anvilkit.control.v1.ComponentIdentity", "valid": false, "instance": {"componentId": "cmp_hero", "puckType": "Hero", "packageName": ""}},
+    {
+      "name": "price revision publication with decimal-string unit prices",
+      "message": "anvilkit.control.v1.PublishPriceRevisionRequest",
+      "valid": true,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_price_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "price": { "revision": "deepseek-chat-2026-10", "kind": "model", "route": "deepseek-chat", "provider": "deepseek", "model": "deepseek-chat", "currency": "USD", "effectiveFrom": "2026-10-01T00:00:00Z", "effectiveUntil": "2027-01-01T00:00:00Z", "perMillion": { "inputUnits": "270000", "outputUnits": "1100000", "reasoningUnits": "1100000", "cachedInputUnits": "70000" }, "maxExposure": "200000" } }
+    },
+    {
+      "name": "price revision with a fractional unit price is rejected",
+      "message": "anvilkit.control.v1.PublishPriceRevisionRequest",
+      "valid": false,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_price_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "price": { "revision": "deepseek-chat-2026-10", "kind": "model", "route": "deepseek-chat", "provider": "deepseek", "model": "deepseek-chat", "currency": "USD", "effectiveFrom": "2026-10-01T00:00:00Z", "effectiveUntil": "2027-01-01T00:00:00Z", "perMillion": { "inputUnits": "0.27", "outputUnits": "1100000", "reasoningUnits": "1100000", "cachedInputUnits": "70000" }, "maxExposure": "200000" } }
+    },
+    {
+      "name": "price revision without an exposure bound is rejected",
+      "message": "anvilkit.control.v1.PublishPriceRevisionRequest",
+      "valid": false,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_price_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "price": { "revision": "deepseek-chat-2026-10", "kind": "model", "route": "deepseek-chat", "provider": "deepseek", "model": "deepseek-chat", "currency": "USD", "effectiveFrom": "2026-10-01T00:00:00Z", "effectiveUntil": "2027-01-01T00:00:00Z", "perMillion": { "inputUnits": "270000", "outputUnits": "1100000", "reasoningUnits": "1100000", "cachedInputUnits": "70000" }, "maxExposure": "0" } }
+    },
+    {
+      "name": "project cost cap",
+      "message": "anvilkit.control.v1.SetCostCapRequest",
+      "valid": true,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_price_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "level": "COST_CAP_LEVEL_PROJECT", "tenantId": "tenant_a", "projectId": "project_a", "cap": { "currency": "USD", "amount": "5000000" } }
+    },
+    {
+      "name": "cost cap without a level is rejected",
+      "message": "anvilkit.control.v1.SetCostCapRequest",
+      "valid": false,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_price_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "tenantId": "tenant_a", "cap": { "currency": "USD", "amount": "5000000" } }
+    },
+    {
+      "name": "tenant pool funding",
+      "message": "anvilkit.control.v1.CreatePoolRequest",
+      "valid": true,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_price_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "level": "BUDGET_LEVEL_TENANT", "tenantId": "tenant_a", "periodStart": "2026-10-01T00:00:00Z", "periodEnd": "2026-11-01T00:00:00Z", "cap": { "currency": "USD", "amount": "100000000" } }
+    }
   ]
 }

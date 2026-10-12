@@ -736,6 +736,12 @@ message GetInstanceResponse {
   // attempt's, ends it while the instance row stays the historical record
   // of physical ownership).
   OperationView operation = 5;
+  // P2.4 (TEAM-03): the operation's unreserved budget as of the same read —
+  // the smallest amount − reserved − consumed over its allocations — so a
+  // harness can size its concurrent sends before the first one; absent for
+  // an unfunded operation. A preflight, never a reservation: admission
+  // still decides each send.
+  optional Money budget_headroom = 6;
 }
 
 message CloseAttemptRequest {

@@ -1244,7 +1244,17 @@ export interface GetInstanceResponse {
    * attempt's, ends it while the instance row stays the historical record
    * of physical ownership).
    */
-  operation: OperationView | undefined;
+  operation:
+    | OperationView
+    | undefined;
+  /**
+   * P2.4 (TEAM-03): the operation's unreserved budget as of the same read —
+   * the smallest amount − reserved − consumed over its allocations — so a
+   * harness can size its concurrent sends before the first one; absent for
+   * an unfunded operation. A preflight, never a reservation: admission
+   * still decides each send.
+   */
+  budgetHeadroom?: Money | undefined;
 }
 
 export interface CloseAttemptRequest {
@@ -7930,6 +7940,7 @@ function createBaseGetInstanceResponse(): GetInstanceResponse {
     tenantId: "",
     recoveryEpoch: "",
     operation: undefined,
+    budgetHeadroom: undefined,
   };
 }
 
@@ -7951,6 +7962,9 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
     }
     if (message.operation !== undefined) {
       OperationView.encode(message.operation, writer.uint32(42).fork()).join();
+    }
+    if (message.budgetHeadroom !== undefined) {
+      Money.encode(message.budgetHeadroom, writer.uint32(50).fork()).join();
     }
     return writer;
   },
@@ -8008,6 +8022,14 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
             message.operation = OperationView.decode(reader, reader.uint32());
             continue;
           }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.budgetHeadroom = Money.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -8036,6 +8058,11 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
         ? globalThis.String(object.recovery_epoch)
         : "",
       operation: isSet(object.operation) ? OperationView.fromJSON(object.operation) : undefined,
+      budgetHeadroom: isSet(object.budgetHeadroom)
+        ? Money.fromJSON(object.budgetHeadroom)
+        : isSet(object.budget_headroom)
+        ? Money.fromJSON(object.budget_headroom)
+        : undefined,
     };
   },
 
@@ -8056,6 +8083,9 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
     if (message.operation !== undefined) {
       obj.operation = OperationView.toJSON(message.operation);
     }
+    if (message.budgetHeadroom !== undefined) {
+      obj.budgetHeadroom = Money.toJSON(message.budgetHeadroom);
+    }
     return obj;
   },
 
@@ -8074,6 +8104,9 @@ export const GetInstanceResponse: MessageFns<GetInstanceResponse, "anvilkit.cont
     message.recoveryEpoch = object.recoveryEpoch ?? "";
     message.operation = (object.operation !== undefined && object.operation !== null)
       ? OperationView.fromPartial(object.operation)
+      : undefined;
+    message.budgetHeadroom = (object.budgetHeadroom !== undefined && object.budgetHeadroom !== null)
+      ? Money.fromPartial(object.budgetHeadroom)
       : undefined;
     return message;
   },

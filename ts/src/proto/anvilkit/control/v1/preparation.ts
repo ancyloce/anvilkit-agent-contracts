@@ -260,6 +260,13 @@ export interface Preparation {
   maxRounds: string;
   maxQuestions: string;
   waitSeconds: string;
+  /**
+   * The verified actor and project the operation was accepted for (P2.2):
+   * the scope the Workflow's content-digest read of the references runs
+   * under, so only sources that user can read are ever frozen.
+   */
+  actorId: string;
+  projectId: string;
 }
 
 export interface GetPreparationRequest {
@@ -1277,6 +1284,8 @@ function createBasePreparation(): Preparation {
     maxRounds: "",
     maxQuestions: "",
     waitSeconds: "",
+    actorId: "",
+    projectId: "",
   };
 }
 
@@ -1316,6 +1325,12 @@ export const Preparation: MessageFns<Preparation, "anvilkit.control.v1.Preparati
     }
     if (message.waitSeconds !== "") {
       writer.uint32(90).string(message.waitSeconds);
+    }
+    if (message.actorId !== "") {
+      writer.uint32(98).string(message.actorId);
+    }
+    if (message.projectId !== "") {
+      writer.uint32(106).string(message.projectId);
     }
     return writer;
   },
@@ -1421,6 +1436,22 @@ export const Preparation: MessageFns<Preparation, "anvilkit.control.v1.Preparati
             message.waitSeconds = reader.string();
             continue;
           }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.actorId = reader.string();
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.projectId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1483,6 +1514,16 @@ export const Preparation: MessageFns<Preparation, "anvilkit.control.v1.Preparati
         : isSet(object.wait_seconds)
         ? globalThis.String(object.wait_seconds)
         : "",
+      actorId: isSet(object.actorId)
+        ? globalThis.String(object.actorId)
+        : isSet(object.actor_id)
+        ? globalThis.String(object.actor_id)
+        : "",
+      projectId: isSet(object.projectId)
+        ? globalThis.String(object.projectId)
+        : isSet(object.project_id)
+        ? globalThis.String(object.project_id)
+        : "",
     };
   },
 
@@ -1521,6 +1562,12 @@ export const Preparation: MessageFns<Preparation, "anvilkit.control.v1.Preparati
     if (message.waitSeconds !== "") {
       obj.waitSeconds = message.waitSeconds;
     }
+    if (message.actorId !== "") {
+      obj.actorId = message.actorId;
+    }
+    if (message.projectId !== "") {
+      obj.projectId = message.projectId;
+    }
     return obj;
   },
 
@@ -1542,6 +1589,8 @@ export const Preparation: MessageFns<Preparation, "anvilkit.control.v1.Preparati
     message.maxRounds = object.maxRounds ?? "";
     message.maxQuestions = object.maxQuestions ?? "";
     message.waitSeconds = object.waitSeconds ?? "";
+    message.actorId = object.actorId ?? "";
+    message.projectId = object.projectId ?? "";
     return message;
   },
 };

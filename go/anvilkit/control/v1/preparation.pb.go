@@ -628,9 +628,14 @@ type Preparation struct {
 	Brief           *Brief                 `protobuf:"bytes,8,opt,name=brief,proto3,oneof" json:"brief,omitempty"`
 	// The reviewed clarification bounds of the profile: rounds, questions per
 	// round and the absolute wait per round.
-	MaxRounds     string `protobuf:"bytes,9,opt,name=max_rounds,json=maxRounds,proto3" json:"max_rounds,omitempty"`
-	MaxQuestions  string `protobuf:"bytes,10,opt,name=max_questions,json=maxQuestions,proto3" json:"max_questions,omitempty"`
-	WaitSeconds   string `protobuf:"bytes,11,opt,name=wait_seconds,json=waitSeconds,proto3" json:"wait_seconds,omitempty"`
+	MaxRounds    string `protobuf:"bytes,9,opt,name=max_rounds,json=maxRounds,proto3" json:"max_rounds,omitempty"`
+	MaxQuestions string `protobuf:"bytes,10,opt,name=max_questions,json=maxQuestions,proto3" json:"max_questions,omitempty"`
+	WaitSeconds  string `protobuf:"bytes,11,opt,name=wait_seconds,json=waitSeconds,proto3" json:"wait_seconds,omitempty"`
+	// The verified actor and project the operation was accepted for (P2.2):
+	// the scope the Workflow's content-digest read of the references runs
+	// under, so only sources that user can read are ever frozen.
+	ActorId       string `protobuf:"bytes,12,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	ProjectId     string `protobuf:"bytes,13,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -738,6 +743,20 @@ func (x *Preparation) GetMaxQuestions() string {
 func (x *Preparation) GetWaitSeconds() string {
 	if x != nil {
 		return x.WaitSeconds
+	}
+	return ""
+}
+
+func (x *Preparation) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *Preparation) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
 	}
 	return ""
 }
@@ -1612,7 +1631,7 @@ const file_anvilkit_control_v1_preparation_proto_rawDesc = "" +
 	"\tfrozen_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\bfrozenAt\x12I\n" +
 	"\tcomponent\x18\r \x01(\v2&.anvilkit.control.v1.ComponentIdentityH\x00R\tcomponent\x88\x01\x01B\f\n" +
 	"\n" +
-	"_component\"\xc1\x04\n" +
+	"_component\"\xfb\x04\n" +
 	"\vPreparation\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12<\n" +
@@ -1626,7 +1645,10 @@ const file_anvilkit_control_v1_preparation_proto_rawDesc = "" +
 	"max_rounds\x18\t \x01(\tR\tmaxRounds\x12#\n" +
 	"\rmax_questions\x18\n" +
 	" \x01(\tR\fmaxQuestions\x12!\n" +
-	"\fwait_seconds\x18\v \x01(\tR\vwaitSecondsB\b\n" +
+	"\fwait_seconds\x18\v \x01(\tR\vwaitSeconds\x12\x19\n" +
+	"\bactor_id\x18\f \x01(\tR\aactorId\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\r \x01(\tR\tprojectIdB\b\n" +
 	"\x06_brief\"o\n" +
 	"\x15GetPreparationRequest\x12'\n" +
 	"\ttenant_id\x18\x01 \x01(\tB\n" +

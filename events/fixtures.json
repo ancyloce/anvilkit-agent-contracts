@@ -14,17 +14,6 @@
       }
     },
     {
-      "name": "attempt.result-accepted with payloadRef",
-      "ref": "#/$defs/envelope",
-      "valid": true,
-      "instance": {
-        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5c", "eventType": "attempt.result-accepted", "schemaVersion": 1,
-        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.attempt.result-accepted", "tenantId": "tenant_a",
-        "aggregateType": "attempt", "aggregateId": "att_01J9", "aggregateRevision": "2", "occurredAt": "2026-09-14T12:00:01Z",
-        "correlationId": "req_01J9", "payloadRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
-      }
-    },
-    {
       "name": "envelope with both payload and payloadRef is rejected",
       "ref": "#/$defs/envelope",
       "valid": false,
@@ -82,30 +71,6 @@
       }
     },
     {
-      "name": "memory.fact-revoked after the reviewed expiry rule",
-      "ref": "#/$defs/envelope",
-      "valid": true,
-      "instance": {
-        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b01", "eventType": "memory.fact-revoked", "schemaVersion": 1,
-        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.memory.fact-revoked", "tenantId": "tenant_a",
-        "aggregateType": "memory_fact", "aggregateId": "mem-0123", "aggregateRevision": "3", "occurredAt": "2026-09-29T12:00:00Z",
-        "correlationId": "memory-expiry-v1",
-        "payload": { "kind": "memory.fact-revoked", "factId": "mem-0123", "revision": "3", "state": "expired" }
-      }
-    },
-    {
-      "name": "memory.fact-revoked with an unknown removal state is rejected",
-      "ref": "#/$defs/envelope",
-      "valid": false,
-      "instance": {
-        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b02", "eventType": "memory.fact-revoked", "schemaVersion": 1,
-        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.memory.fact-revoked", "tenantId": "tenant_a",
-        "aggregateType": "memory_fact", "aggregateId": "mem-0123", "aggregateRevision": "3", "occurredAt": "2026-09-29T12:00:00Z",
-        "correlationId": "cmd_1",
-        "payload": { "kind": "memory.fact-revoked", "factId": "mem-0123", "revision": "3", "state": "forgotten" }
-      }
-    },
-    {
       "name": "background.requested with a stable queue kind",
       "ref": "#/$defs/envelope",
       "valid": true,
@@ -142,15 +107,133 @@
       }
     },
     {
-      "name": "background.completed with an accepted result digest",
+      "name": "operation.changed with payloadRef",
       "ref": "#/$defs/envelope",
       "valid": true,
       "instance": {
-        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5f", "eventType": "background.completed", "schemaVersion": 1,
-        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.background.completed", "tenantId": "tenant_a",
-        "aggregateType": "background_request", "aggregateId": "task_01J9", "aggregateRevision": "4", "occurredAt": "2026-09-17T12:00:03Z",
-        "correlationId": "req_01J9",
-        "payload": { "kind": "background.completed", "taskId": "task_01J9", "generation": "1", "state": "accepted", "resultDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444" }
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4a5c", "eventType": "operation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.operation.changed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "5",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "req_01J9", "payloadRef": "sha256:abababababababababababababababababababababababababababababababab"
+      }
+    },
+    {
+      "name": "mcp.catalog-reviewed disabling an approved descriptor revision (aggregateRevision is the aggregate's event sequence, the payload carries the descriptor revision)",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b10", "eventType": "mcp.catalog-reviewed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.mcp.mcp.catalog-reviewed", "tenantId": "tenant_a",
+        "aggregateType": "descriptor", "aggregateId": "srv_01J9", "aggregateRevision": "3",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "disable_01J9",
+        "payload": { "kind": "mcp.catalog-reviewed", "serverId": "srv_01J9", "revision": "2", "state": "disabled" }
+      }
+    },
+    {
+      "name": "mcp.grant-revoked when the revocation barrier converged",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b11", "eventType": "mcp.grant-revoked", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.mcp.mcp.grant-revoked", "tenantId": "tenant_a",
+        "aggregateType": "grant", "aggregateId": "grant_01J9", "aggregateRevision": "2",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "revoke_01J9",
+        "payload": { "kind": "mcp.grant-revoked", "grantId": "grant_01J9", "revision": "1", "state": "revoked" }
+      }
+    },
+    {
+      "name": "operation.changed carrying another type's payload is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b12", "eventType": "operation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.operation.changed", "tenantId": "tenant_a",
+        "aggregateType": "operation", "aggregateId": "op_01J9", "aggregateRevision": "4",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "req_01J9",
+        "payload": { "kind": "mcp.catalog-reviewed", "serverId": "srv_01J9", "revision": "2", "state": "disabled" }
+      }
+    },
+    {
+      "name": "mcp.grant-revoked carrying a catalog payload is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b13", "eventType": "mcp.grant-revoked", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.mcp.mcp.grant-revoked", "tenantId": "tenant_a",
+        "aggregateType": "grant", "aggregateId": "grant_01J9", "aggregateRevision": "2",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "revoke_01J9",
+        "payload": { "kind": "mcp.catalog-reviewed", "serverId": "srv_01J9", "revision": "2", "state": "disabled" }
+      }
+    },
+    {
+      "name": "mcp.grant-revoked under the descriptor aggregate is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b14", "eventType": "mcp.grant-revoked", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.mcp.mcp.grant-revoked", "tenantId": "tenant_a",
+        "aggregateType": "descriptor", "aggregateId": "grant_01J9", "aggregateRevision": "2",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "revoke_01J9",
+        "payload": { "kind": "mcp.grant-revoked", "grantId": "grant_01J9", "revision": "1", "state": "revoked" }
+      }
+    },
+    {
+      "name": "mcp.catalog-reviewed from another producer is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b15", "eventType": "mcp.catalog-reviewed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.mcp.mcp.catalog-reviewed", "tenantId": "tenant_a",
+        "aggregateType": "descriptor", "aggregateId": "srv_01J9", "aggregateRevision": "3",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "disable_01J9",
+        "payload": { "kind": "mcp.catalog-reviewed", "serverId": "srv_01J9", "revision": "2", "state": "disabled" }
+      }
+    },
+    {
+      "name": "background.requested from the MCP owner on the Knowledge subject is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b16", "eventType": "background.requested", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.knowledge.background.requested", "tenantId": "tenant_a",
+        "aggregateType": "background_request", "aggregateId": "task_01JA", "aggregateRevision": "1",
+        "occurredAt": "2026-09-17T12:00:02Z", "correlationId": "req_01JA",
+        "payload": { "kind": "background.requested", "taskId": "task_01JA", "generation": "1", "taskKind": "local-check", "inputDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" }
+      }
+    },
+    {
+      "name": "attempt.result-accepted, removed from the catalog (P2.8), is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b17", "eventType": "attempt.result-accepted", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.attempt.result-accepted", "tenantId": "tenant_a",
+        "aggregateType": "attempt", "aggregateId": "att_01J9", "aggregateRevision": "4",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "req_01J9", "payloadRef": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+      }
+    },
+    {
+      "name": "background.completed, removed from the catalog (P2.8), is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b18", "eventType": "background.completed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-mcp", "subject": "anvilkit.mcp.background.completed", "tenantId": "tenant_a",
+        "aggregateType": "background_request", "aggregateId": "task_01JA", "aggregateRevision": "1",
+        "occurredAt": "2026-09-17T12:00:02Z", "correlationId": "req_01JA",
+        "payload": { "kind": "background.completed", "taskId": "task_01JA", "generation": "1", "state": "accepted" }
+      }
+    },
+    {
+      "name": "memory.fact-confirmed, removed from the catalog (P2.8), is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b19", "eventType": "memory.fact-confirmed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.knowledge.memory.fact-confirmed", "tenantId": "tenant_a",
+        "aggregateType": "memory_fact", "aggregateId": "mem-0123", "aggregateRevision": "4",
+        "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "req_01J9",
+        "payload": { "kind": "memory.fact-confirmed", "factId": "mem-0123", "revision": "2", "state": "confirmed" }
       }
     }
   ]

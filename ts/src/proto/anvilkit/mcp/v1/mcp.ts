@@ -264,6 +264,53 @@ export function callStateToJSON(object: CallState): string {
   }
 }
 
+export enum RefreshState {
+  REFRESH_STATE_UNSPECIFIED = 0,
+  /**
+   * REFRESH_STATE_COMPLETED - The live read is recorded: result_ref and result_digest are what
+   * SubmitTaskResult must carry (drift or not).
+   */
+  REFRESH_STATE_COMPLETED = 1,
+  /**
+   * REFRESH_STATE_FAILED - No live read (the server or the connection layer could not be asked):
+   * the claimant reports failure_code as a failed attempt.
+   */
+  REFRESH_STATE_FAILED = 2,
+  UNRECOGNIZED = -1,
+}
+
+export function refreshStateFromJSON(object: any): RefreshState {
+  switch (object) {
+    case 0:
+    case "REFRESH_STATE_UNSPECIFIED":
+      return RefreshState.REFRESH_STATE_UNSPECIFIED;
+    case 1:
+    case "REFRESH_STATE_COMPLETED":
+      return RefreshState.REFRESH_STATE_COMPLETED;
+    case 2:
+    case "REFRESH_STATE_FAILED":
+      return RefreshState.REFRESH_STATE_FAILED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return RefreshState.UNRECOGNIZED;
+  }
+}
+
+export function refreshStateToJSON(object: RefreshState): string {
+  switch (object) {
+    case RefreshState.REFRESH_STATE_UNSPECIFIED:
+      return "REFRESH_STATE_UNSPECIFIED";
+    case RefreshState.REFRESH_STATE_COMPLETED:
+      return "REFRESH_STATE_COMPLETED";
+    case RefreshState.REFRESH_STATE_FAILED:
+      return "REFRESH_STATE_FAILED";
+    case RefreshState.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 export enum TaskState {
   TASK_STATE_UNSPECIFIED = 0,
   TASK_STATE_PENDING = 1,
@@ -735,6 +782,33 @@ export interface GetCallRequest {
 export interface GetCallResponse {
   $type: "anvilkit.mcp.v1.GetCallResponse";
   call: ToolCall | undefined;
+}
+
+export interface ReconcileCallRequest {
+  $type: "anvilkit.mcp.v1.ReconcileCallRequest";
+  scope: Scope | undefined;
+  callId: string;
+}
+
+export interface ReconcileCallResponse {
+  $type: "anvilkit.mcp.v1.ReconcileCallResponse";
+  call: ToolCall | undefined;
+}
+
+export interface AdvanceRefreshRequest {
+  $type: "anvilkit.mcp.v1.AdvanceRefreshRequest";
+  taskId: string;
+  generation: string;
+  workerId: string;
+  inputDigest: string;
+}
+
+export interface AdvanceRefreshResponse {
+  $type: "anvilkit.mcp.v1.AdvanceRefreshResponse";
+  state: RefreshState;
+  resultRef: string;
+  resultDigest: string;
+  failureCode?: string | undefined;
 }
 
 export interface BackgroundTask {
@@ -6160,6 +6234,448 @@ export const GetCallResponse: MessageFns<GetCallResponse, "anvilkit.mcp.v1.GetCa
 
 messageTypeRegistry.set(GetCallResponse.$type, GetCallResponse);
 
+function createBaseReconcileCallRequest(): ReconcileCallRequest {
+  return { $type: "anvilkit.mcp.v1.ReconcileCallRequest", scope: undefined, callId: "" };
+}
+
+export const ReconcileCallRequest: MessageFns<ReconcileCallRequest, "anvilkit.mcp.v1.ReconcileCallRequest"> = {
+  $type: "anvilkit.mcp.v1.ReconcileCallRequest" as const,
+
+  encode(message: ReconcileCallRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.callId !== "") {
+      writer.uint32(18).string(message.callId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReconcileCallRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReconcileCallRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.callId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ReconcileCallRequest {
+    return {
+      $type: ReconcileCallRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      callId: isSet(object.callId)
+        ? globalThis.String(object.callId)
+        : isSet(object.call_id)
+        ? globalThis.String(object.call_id)
+        : "",
+    };
+  },
+
+  toJSON(message: ReconcileCallRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.callId !== "") {
+      obj.callId = message.callId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReconcileCallRequest>, I>>(base?: I): ReconcileCallRequest {
+    return ReconcileCallRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReconcileCallRequest>, I>>(object: I): ReconcileCallRequest {
+    const message = createBaseReconcileCallRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.callId = object.callId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ReconcileCallRequest.$type, ReconcileCallRequest);
+
+function createBaseReconcileCallResponse(): ReconcileCallResponse {
+  return { $type: "anvilkit.mcp.v1.ReconcileCallResponse", call: undefined };
+}
+
+export const ReconcileCallResponse: MessageFns<ReconcileCallResponse, "anvilkit.mcp.v1.ReconcileCallResponse"> = {
+  $type: "anvilkit.mcp.v1.ReconcileCallResponse" as const,
+
+  encode(message: ReconcileCallResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.call !== undefined) {
+      ToolCall.encode(message.call, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReconcileCallResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReconcileCallResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.call = ToolCall.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ReconcileCallResponse {
+    return {
+      $type: ReconcileCallResponse.$type,
+      call: isSet(object.call) ? ToolCall.fromJSON(object.call) : undefined,
+    };
+  },
+
+  toJSON(message: ReconcileCallResponse): unknown {
+    const obj: any = {};
+    if (message.call !== undefined) {
+      obj.call = ToolCall.toJSON(message.call);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReconcileCallResponse>, I>>(base?: I): ReconcileCallResponse {
+    return ReconcileCallResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReconcileCallResponse>, I>>(object: I): ReconcileCallResponse {
+    const message = createBaseReconcileCallResponse();
+    message.call = (object.call !== undefined && object.call !== null) ? ToolCall.fromPartial(object.call) : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ReconcileCallResponse.$type, ReconcileCallResponse);
+
+function createBaseAdvanceRefreshRequest(): AdvanceRefreshRequest {
+  return { $type: "anvilkit.mcp.v1.AdvanceRefreshRequest", taskId: "", generation: "", workerId: "", inputDigest: "" };
+}
+
+export const AdvanceRefreshRequest: MessageFns<AdvanceRefreshRequest, "anvilkit.mcp.v1.AdvanceRefreshRequest"> = {
+  $type: "anvilkit.mcp.v1.AdvanceRefreshRequest" as const,
+
+  encode(message: AdvanceRefreshRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.taskId !== "") {
+      writer.uint32(10).string(message.taskId);
+    }
+    if (message.generation !== "") {
+      writer.uint32(18).string(message.generation);
+    }
+    if (message.workerId !== "") {
+      writer.uint32(26).string(message.workerId);
+    }
+    if (message.inputDigest !== "") {
+      writer.uint32(34).string(message.inputDigest);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceRefreshRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceRefreshRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.taskId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.generation = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.workerId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.inputDigest = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceRefreshRequest {
+    return {
+      $type: AdvanceRefreshRequest.$type,
+      taskId: isSet(object.taskId)
+        ? globalThis.String(object.taskId)
+        : isSet(object.task_id)
+        ? globalThis.String(object.task_id)
+        : "",
+      generation: isSet(object.generation) ? globalThis.String(object.generation) : "",
+      workerId: isSet(object.workerId)
+        ? globalThis.String(object.workerId)
+        : isSet(object.worker_id)
+        ? globalThis.String(object.worker_id)
+        : "",
+      inputDigest: isSet(object.inputDigest)
+        ? globalThis.String(object.inputDigest)
+        : isSet(object.input_digest)
+        ? globalThis.String(object.input_digest)
+        : "",
+    };
+  },
+
+  toJSON(message: AdvanceRefreshRequest): unknown {
+    const obj: any = {};
+    if (message.taskId !== "") {
+      obj.taskId = message.taskId;
+    }
+    if (message.generation !== "") {
+      obj.generation = message.generation;
+    }
+    if (message.workerId !== "") {
+      obj.workerId = message.workerId;
+    }
+    if (message.inputDigest !== "") {
+      obj.inputDigest = message.inputDigest;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceRefreshRequest>, I>>(base?: I): AdvanceRefreshRequest {
+    return AdvanceRefreshRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceRefreshRequest>, I>>(object: I): AdvanceRefreshRequest {
+    const message = createBaseAdvanceRefreshRequest();
+    message.taskId = object.taskId ?? "";
+    message.generation = object.generation ?? "";
+    message.workerId = object.workerId ?? "";
+    message.inputDigest = object.inputDigest ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceRefreshRequest.$type, AdvanceRefreshRequest);
+
+function createBaseAdvanceRefreshResponse(): AdvanceRefreshResponse {
+  return {
+    $type: "anvilkit.mcp.v1.AdvanceRefreshResponse",
+    state: 0,
+    resultRef: "",
+    resultDigest: "",
+    failureCode: undefined,
+  };
+}
+
+export const AdvanceRefreshResponse: MessageFns<AdvanceRefreshResponse, "anvilkit.mcp.v1.AdvanceRefreshResponse"> = {
+  $type: "anvilkit.mcp.v1.AdvanceRefreshResponse" as const,
+
+  encode(message: AdvanceRefreshResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.state !== 0) {
+      writer.uint32(8).int32(message.state);
+    }
+    if (message.resultRef !== "") {
+      writer.uint32(18).string(message.resultRef);
+    }
+    if (message.resultDigest !== "") {
+      writer.uint32(26).string(message.resultDigest);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(34).string(message.failureCode);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceRefreshResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceRefreshResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.state = reader.int32() as any;
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.resultRef = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.resultDigest = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceRefreshResponse {
+    return {
+      $type: AdvanceRefreshResponse.$type,
+      state: isSet(object.state) ? refreshStateFromJSON(object.state) : 0,
+      resultRef: isSet(object.resultRef)
+        ? globalThis.String(object.resultRef)
+        : isSet(object.result_ref)
+        ? globalThis.String(object.result_ref)
+        : "",
+      resultDigest: isSet(object.resultDigest)
+        ? globalThis.String(object.resultDigest)
+        : isSet(object.result_digest)
+        ? globalThis.String(object.result_digest)
+        : "",
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
+    };
+  },
+
+  toJSON(message: AdvanceRefreshResponse): unknown {
+    const obj: any = {};
+    if (message.state !== 0) {
+      obj.state = refreshStateToJSON(message.state);
+    }
+    if (message.resultRef !== "") {
+      obj.resultRef = message.resultRef;
+    }
+    if (message.resultDigest !== "") {
+      obj.resultDigest = message.resultDigest;
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceRefreshResponse>, I>>(base?: I): AdvanceRefreshResponse {
+    return AdvanceRefreshResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceRefreshResponse>, I>>(object: I): AdvanceRefreshResponse {
+    const message = createBaseAdvanceRefreshResponse();
+    message.state = object.state ?? 0;
+    message.resultRef = object.resultRef ?? "";
+    message.resultDigest = object.resultDigest ?? "";
+    message.failureCode = object.failureCode ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdvanceRefreshResponse.$type, AdvanceRefreshResponse);
+
 function createBaseBackgroundTask(): BackgroundTask {
   return {
     $type: "anvilkit.mcp.v1.BackgroundTask",
@@ -7654,6 +8170,25 @@ export const CallServiceService = {
     responseSerialize: (value: GetCallResponse): Buffer => Buffer.from(GetCallResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetCallResponse => GetCallResponse.decode(value),
   },
+  /**
+   * The operator reconciliation of P1.2 (P2.5, through the API's operator
+   * role): advances one open call now under its original identity from
+   * Control's record — an UNKNOWN call is resolved only from Control's
+   * dispatch record, an admitted call without a send marker is canceled, a
+   * marked call without an outcome is recorded UNKNOWN — and returns its
+   * state. It never sends anything upstream. Needs the call-operator role in
+   * the call's tenant.
+   */
+  reconcileCall: {
+    path: "/anvilkit.mcp.v1.CallService/ReconcileCall" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ReconcileCallRequest): Buffer => Buffer.from(ReconcileCallRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReconcileCallRequest => ReconcileCallRequest.decode(value),
+    responseSerialize: (value: ReconcileCallResponse): Buffer =>
+      Buffer.from(ReconcileCallResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ReconcileCallResponse => ReconcileCallResponse.decode(value),
+  },
 } as const;
 
 export interface CallServiceServer extends UntypedServiceImplementation {
@@ -7664,6 +8199,16 @@ export interface CallServiceServer extends UntypedServiceImplementation {
   createCall: handleUnaryCall<CreateCallRequest, CreateCallResponse>;
   /** Querying a call never sends again. */
   getCall: handleUnaryCall<GetCallRequest, GetCallResponse>;
+  /**
+   * The operator reconciliation of P1.2 (P2.5, through the API's operator
+   * role): advances one open call now under its original identity from
+   * Control's record — an UNKNOWN call is resolved only from Control's
+   * dispatch record, an admitted call without a send marker is canceled, a
+   * marked call without an outcome is recorded UNKNOWN — and returns its
+   * state. It never sends anything upstream. Needs the call-operator role in
+   * the call's tenant.
+   */
+  reconcileCall: handleUnaryCall<ReconcileCallRequest, ReconcileCallResponse>;
 }
 
 export interface CallServiceClient extends Client {
@@ -7702,6 +8247,30 @@ export interface CallServiceClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetCallResponse) => void,
   ): ClientUnaryCall;
+  /**
+   * The operator reconciliation of P1.2 (P2.5, through the API's operator
+   * role): advances one open call now under its original identity from
+   * Control's record — an UNKNOWN call is resolved only from Control's
+   * dispatch record, an admitted call without a send marker is canceled, a
+   * marked call without an outcome is recorded UNKNOWN — and returns its
+   * state. It never sends anything upstream. Needs the call-operator role in
+   * the call's tenant.
+   */
+  reconcileCall(
+    request: ReconcileCallRequest,
+    callback: (error: ServiceError | null, response: ReconcileCallResponse) => void,
+  ): ClientUnaryCall;
+  reconcileCall(
+    request: ReconcileCallRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ReconcileCallResponse) => void,
+  ): ClientUnaryCall;
+  reconcileCall(
+    request: ReconcileCallRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ReconcileCallResponse) => void,
+  ): ClientUnaryCall;
 }
 
 export const CallServiceClient = makeGenericClientConstructor(
@@ -7710,6 +8279,52 @@ export const CallServiceClient = makeGenericClientConstructor(
 ) as unknown as {
   new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): CallServiceClient;
   service: typeof CallServiceService;
+  serviceName: string;
+};
+
+export type CatalogRefreshServiceService = typeof CatalogRefreshServiceService;
+export const CatalogRefreshServiceService = {
+  advanceRefresh: {
+    path: "/anvilkit.mcp.v1.CatalogRefreshService/AdvanceRefresh" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AdvanceRefreshRequest): Buffer =>
+      Buffer.from(AdvanceRefreshRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AdvanceRefreshRequest => AdvanceRefreshRequest.decode(value),
+    responseSerialize: (value: AdvanceRefreshResponse): Buffer =>
+      Buffer.from(AdvanceRefreshResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AdvanceRefreshResponse => AdvanceRefreshResponse.decode(value),
+  },
+} as const;
+
+export interface CatalogRefreshServiceServer extends UntypedServiceImplementation {
+  advanceRefresh: handleUnaryCall<AdvanceRefreshRequest, AdvanceRefreshResponse>;
+}
+
+export interface CatalogRefreshServiceClient extends Client {
+  advanceRefresh(
+    request: AdvanceRefreshRequest,
+    callback: (error: ServiceError | null, response: AdvanceRefreshResponse) => void,
+  ): ClientUnaryCall;
+  advanceRefresh(
+    request: AdvanceRefreshRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AdvanceRefreshResponse) => void,
+  ): ClientUnaryCall;
+  advanceRefresh(
+    request: AdvanceRefreshRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AdvanceRefreshResponse) => void,
+  ): ClientUnaryCall;
+}
+
+export const CatalogRefreshServiceClient = makeGenericClientConstructor(
+  CatalogRefreshServiceService,
+  "anvilkit.mcp.v1.CatalogRefreshService",
+) as unknown as {
+  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): CatalogRefreshServiceClient;
+  service: typeof CatalogRefreshServiceService;
   serviceName: string;
 };
 

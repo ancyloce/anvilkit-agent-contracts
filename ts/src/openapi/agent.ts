@@ -251,6 +251,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/knowledge/sources/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** API-08 a single-use upload capability for one document (P2.6) */
+        post: operations["beginSourceUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/knowledge/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** API-08 freeze exact source revisions for retrieval (P2.6) */
+        post: operations["createSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/knowledge/snapshots/{snapshotId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** API-08 read a snapshot (P2.6) */
+        get: operations["getSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/knowledge/searches": {
         parameters: {
             query?: never;
@@ -280,6 +331,23 @@ export interface paths {
         put?: never;
         /** API-09 propose a memory fact; models never confirm */
         post: operations["proposeMemory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memories/recalls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** API-09 recall confirmed facts under current authorization (P2.6) */
+        post: operations["recallMemories"];
         delete?: never;
         options?: never;
         head?: never;
@@ -451,6 +519,26 @@ export interface paths {
         get: operations["getToolCall"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mcp/calls/{callId}/reconciliations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * API-11 operator reconciliation of one call (P1.2, P2.5)
+         * @description Advances one open call now under its original identity from Control's record (an UNKNOWN call is resolved only from Control's dispatch record) and returns its state. Never sends anything upstream. Needs the call-operator role in the call's tenant.
+         */
+        post: operations["reconcileToolCall"];
         delete?: never;
         options?: never;
         head?: never;
@@ -661,17 +749,54 @@ export interface components {
             acceptedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
-        SourceKind: "document" | "url" | "repository" | "brand";
+        SourceKind: "document";
+        SourceRef: string;
+        BeginSourceUploadRequest: {
+            commandId: components["schemas"]["Id"];
+            contentDigest: components["schemas"]["Digest"];
+            sizeBytes: components["schemas"]["Sequence"];
+            mediaType: string;
+        };
+        SourceUpload: {
+            uploadId: components["schemas"]["Id"];
+            /** @description The single-use capability; a trusted caller performs the PUT with exactly uploadHeaders before expiresAt. */
+            uploadUrl: string;
+            /** @enum {string} */
+            uploadMethod: "PUT";
+            uploadHeaders: {
+                [key: string]: string;
+            };
+            expiresAt: components["schemas"]["Timestamp"];
+        };
+        CreateSnapshotRequest: {
+            commandId: components["schemas"]["Id"];
+            sourceIds: components["schemas"]["Id"][];
+        };
+        Snapshot: {
+            snapshotId: components["schemas"]["Id"];
+            tenantId: components["schemas"]["Id"];
+            projectId?: components["schemas"]["Id"];
+            indexGeneration: components["schemas"]["Sequence"];
+            sourceRevisions: components["schemas"]["SourceRef"][];
+            contentDigest: components["schemas"]["Digest"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
         /** @enum {string} */
         IngestState: "pending" | "parsing" | "indexing" | "indexed" | "failed" | "stale";
         AccessEntry: {
             /** @enum {string} */
             principalType: "tenant" | "project" | "actor" | "role";
             principalId: components["schemas"]["Id"];
+            /**
+             * @description P2.7 read (the default) or manage (read, replace the access list, delete); the registering actor owns the source.
+             * @enum {string}
+             */
+            permission?: "read" | "manage";
         };
         RegisterSourceRequest: {
             commandId: components["schemas"]["Id"];
             kind: components["schemas"]["SourceKind"];
+            /** @description A document names its upload, "upload:<uploadId>" of beginSourceUpload (P2.6). */
             locator: string;
             contentDigest: components["schemas"]["Digest"];
             mediaType: string;
@@ -733,7 +858,7 @@ export interface components {
             subjectType: string;
             subjectId: components["schemas"]["Id"];
             content: string;
-            sourceRefs?: components["schemas"]["Id"][];
+            sourceRefs?: components["schemas"]["SourceRef"][];
             expiresAt?: components["schemas"]["Timestamp"];
         };
         MemoryDecisionRequest: {
@@ -754,10 +879,20 @@ export interface components {
             revision: components["schemas"]["Revision"];
             proposer: components["schemas"]["Id"];
             confirmer?: components["schemas"]["Id"];
-            sourceRefs?: components["schemas"]["Id"][];
+            sourceRefs?: components["schemas"]["SourceRef"][];
             expiresAt?: components["schemas"]["Timestamp"];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
+        };
+        RecallMemoriesRequest: {
+            query: string;
+            maxFacts?: number;
+            retrievalProfileId: components["schemas"]["Id"];
+        };
+        RecallMemoriesResponse: {
+            facts: components["schemas"]["MemoryFact"][];
+            noAnswer: boolean;
+            indexGeneration: components["schemas"]["Sequence"];
         };
         /** @enum {string} */
         CatalogState: "discovered" | "review_pending" | "approved" | "rejected" | "disabled";
@@ -1595,6 +1730,91 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    beginSourceUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeginSourceUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description The capability; registerSource with locator upload:<uploadId> consumes it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceUpload"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description Snapshot; authorization is rechecked on every read. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshotId: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     search: {
         parameters: {
             query?: never;
@@ -1680,6 +1900,34 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    recallMemories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecallMemoriesRequest"];
+            };
+        };
+        responses: {
+            /** @description Recallable facts; no unauthorized counts or content. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecallMemoriesResponse"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             503: components["responses"]["Unavailable"];
         };
     };
@@ -1987,6 +2235,32 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Call. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolCall"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    reconcileToolCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                callId: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The call after reconciliation. */
             200: {
                 headers: {
                     [name: string]: unknown;

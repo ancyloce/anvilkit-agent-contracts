@@ -30,11 +30,20 @@ export const protobufPackage = "anvilkit.knowledge.v1";
  * Knowledge applies its own domain authorization on every read and send.
  */
 
+/**
+ * P2.6: document is the only implemented kind (an uploaded file, parsed by
+ * the parser Job). The other values stay reserved on the wire (FILE-level
+ * compatibility) but are deprecated, absent from the public API and refused
+ * by RegisterSourceRequest's validation until a reader exists.
+ */
 export enum SourceKind {
   SOURCE_KIND_UNSPECIFIED = 0,
   SOURCE_KIND_DOCUMENT = 1,
+  /** @deprecated */
   SOURCE_KIND_URL = 2,
+  /** @deprecated */
   SOURCE_KIND_REPOSITORY = 3,
+  /** @deprecated */
   SOURCE_KIND_BRAND = 4,
   UNRECOGNIZED = -1,
 }
@@ -519,6 +528,12 @@ export interface AccessEntry {
   $type: "anvilkit.knowledge.v1.AccessEntry";
   principalType: string;
   principalId: string;
+  /**
+   * P2.7: read (empty is read), or manage: read, replace the ACL and delete.
+   * The registering actor owns the source and manages it without an entry;
+   * a role entry is held only through roles the API verified.
+   */
+  permission: string;
 }
 
 export interface Source {
@@ -538,11 +553,46 @@ export interface Source {
   updatedAt: Date | undefined;
 }
 
+export interface BeginUploadRequest {
+  $type: "anvilkit.knowledge.v1.BeginUploadRequest";
+  command: CommandIdentity | undefined;
+  scope: Scope | undefined;
+  contentDigest: string;
+  sizeBytes: string;
+  mediaType: string;
+}
+
+export interface BeginUploadResponse {
+  $type: "anvilkit.knowledge.v1.BeginUploadResponse";
+  uploadId: string;
+  /**
+   * The capability itself: whoever holds it may write the declared bytes
+   * once before expires_at. It never reaches a browser through the API's
+   * own pages; a trusted caller performs the PUT.
+   */
+  uploadUrl: string;
+  uploadMethod: string;
+  /** Every header the PUT must carry exactly (they are signed). */
+  uploadHeaders: { [key: string]: string };
+  expiresAt: Date | undefined;
+  existing: boolean;
+}
+
+export interface BeginUploadResponse_UploadHeadersEntry {
+  $type: "anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntry";
+  key: string;
+  value: string;
+}
+
 export interface RegisterSourceRequest {
   $type: "anvilkit.knowledge.v1.RegisterSourceRequest";
   command: CommandIdentity | undefined;
-  scope: Scope | undefined;
+  scope:
+    | Scope
+    | undefined;
+  /** P2.6: only SOURCE_KIND_DOCUMENT is registered. */
   kind: SourceKind;
+  /** A document names its upload: "upload:<upload_id>" of BeginUpload. */
   locator: string;
   contentDigest: string;
   mediaType: string;
@@ -1210,7 +1260,7 @@ export const Scope: MessageFns<Scope, "anvilkit.knowledge.v1.Scope"> = {
 messageTypeRegistry.set(Scope.$type, Scope);
 
 function createBaseAccessEntry(): AccessEntry {
-  return { $type: "anvilkit.knowledge.v1.AccessEntry", principalType: "", principalId: "" };
+  return { $type: "anvilkit.knowledge.v1.AccessEntry", principalType: "", principalId: "", permission: "" };
 }
 
 export const AccessEntry: MessageFns<AccessEntry, "anvilkit.knowledge.v1.AccessEntry"> = {
@@ -1222,6 +1272,9 @@ export const AccessEntry: MessageFns<AccessEntry, "anvilkit.knowledge.v1.AccessE
     }
     if (message.principalId !== "") {
       writer.uint32(18).string(message.principalId);
+    }
+    if (message.permission !== "") {
+      writer.uint32(26).string(message.permission);
     }
     return writer;
   },
@@ -1255,6 +1308,14 @@ export const AccessEntry: MessageFns<AccessEntry, "anvilkit.knowledge.v1.AccessE
             message.principalId = reader.string();
             continue;
           }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.permission = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1280,6 +1341,7 @@ export const AccessEntry: MessageFns<AccessEntry, "anvilkit.knowledge.v1.AccessE
         : isSet(object.principal_id)
         ? globalThis.String(object.principal_id)
         : "",
+      permission: isSet(object.permission) ? globalThis.String(object.permission) : "",
     };
   },
 
@@ -1291,6 +1353,9 @@ export const AccessEntry: MessageFns<AccessEntry, "anvilkit.knowledge.v1.AccessE
     if (message.principalId !== "") {
       obj.principalId = message.principalId;
     }
+    if (message.permission !== "") {
+      obj.permission = message.permission;
+    }
     return obj;
   },
 
@@ -1301,6 +1366,7 @@ export const AccessEntry: MessageFns<AccessEntry, "anvilkit.knowledge.v1.AccessE
     const message = createBaseAccessEntry();
     message.principalType = object.principalType ?? "";
     message.principalId = object.principalId ?? "";
+    message.permission = object.permission ?? "";
     return message;
   },
 };
@@ -1621,6 +1687,487 @@ export const Source: MessageFns<Source, "anvilkit.knowledge.v1.Source"> = {
 };
 
 messageTypeRegistry.set(Source.$type, Source);
+
+function createBaseBeginUploadRequest(): BeginUploadRequest {
+  return {
+    $type: "anvilkit.knowledge.v1.BeginUploadRequest",
+    command: undefined,
+    scope: undefined,
+    contentDigest: "",
+    sizeBytes: "",
+    mediaType: "",
+  };
+}
+
+export const BeginUploadRequest: MessageFns<BeginUploadRequest, "anvilkit.knowledge.v1.BeginUploadRequest"> = {
+  $type: "anvilkit.knowledge.v1.BeginUploadRequest" as const,
+
+  encode(message: BeginUploadRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(18).fork()).join();
+    }
+    if (message.contentDigest !== "") {
+      writer.uint32(26).string(message.contentDigest);
+    }
+    if (message.sizeBytes !== "") {
+      writer.uint32(34).string(message.sizeBytes);
+    }
+    if (message.mediaType !== "") {
+      writer.uint32(42).string(message.mediaType);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BeginUploadRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseBeginUploadRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.contentDigest = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.sizeBytes = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.mediaType = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): BeginUploadRequest {
+    return {
+      $type: BeginUploadRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      contentDigest: isSet(object.contentDigest)
+        ? globalThis.String(object.contentDigest)
+        : isSet(object.content_digest)
+        ? globalThis.String(object.content_digest)
+        : "",
+      sizeBytes: isSet(object.sizeBytes)
+        ? globalThis.String(object.sizeBytes)
+        : isSet(object.size_bytes)
+        ? globalThis.String(object.size_bytes)
+        : "",
+      mediaType: isSet(object.mediaType)
+        ? globalThis.String(object.mediaType)
+        : isSet(object.media_type)
+        ? globalThis.String(object.media_type)
+        : "",
+    };
+  },
+
+  toJSON(message: BeginUploadRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.contentDigest !== "") {
+      obj.contentDigest = message.contentDigest;
+    }
+    if (message.sizeBytes !== "") {
+      obj.sizeBytes = message.sizeBytes;
+    }
+    if (message.mediaType !== "") {
+      obj.mediaType = message.mediaType;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<BeginUploadRequest>, I>>(base?: I): BeginUploadRequest {
+    return BeginUploadRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<BeginUploadRequest>, I>>(object: I): BeginUploadRequest {
+    const message = createBaseBeginUploadRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.contentDigest = object.contentDigest ?? "";
+    message.sizeBytes = object.sizeBytes ?? "";
+    message.mediaType = object.mediaType ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(BeginUploadRequest.$type, BeginUploadRequest);
+
+function createBaseBeginUploadResponse(): BeginUploadResponse {
+  return {
+    $type: "anvilkit.knowledge.v1.BeginUploadResponse",
+    uploadId: "",
+    uploadUrl: "",
+    uploadMethod: "",
+    uploadHeaders: {},
+    expiresAt: undefined,
+    existing: false,
+  };
+}
+
+export const BeginUploadResponse: MessageFns<BeginUploadResponse, "anvilkit.knowledge.v1.BeginUploadResponse"> = {
+  $type: "anvilkit.knowledge.v1.BeginUploadResponse" as const,
+
+  encode(message: BeginUploadResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.uploadId !== "") {
+      writer.uint32(10).string(message.uploadId);
+    }
+    if (message.uploadUrl !== "") {
+      writer.uint32(18).string(message.uploadUrl);
+    }
+    if (message.uploadMethod !== "") {
+      writer.uint32(26).string(message.uploadMethod);
+    }
+    globalThis.Object.entries(message.uploadHeaders).forEach(([key, value]: [string, string]) => {
+      BeginUploadResponse_UploadHeadersEntry.encode({
+        $type: "anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntry",
+        key: key as any,
+        value,
+      }, writer.uint32(34).fork()).join();
+    });
+    if (message.expiresAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(42).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(48).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BeginUploadResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseBeginUploadResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.uploadId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.uploadUrl = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.uploadMethod = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            const entry4 = BeginUploadResponse_UploadHeadersEntry.decode(reader, reader.uint32());
+            if (entry4.value !== undefined) {
+              message.uploadHeaders[entry4.key] = entry4.value;
+            }
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): BeginUploadResponse {
+    return {
+      $type: BeginUploadResponse.$type,
+      uploadId: isSet(object.uploadId)
+        ? globalThis.String(object.uploadId)
+        : isSet(object.upload_id)
+        ? globalThis.String(object.upload_id)
+        : "",
+      uploadUrl: isSet(object.uploadUrl)
+        ? globalThis.String(object.uploadUrl)
+        : isSet(object.upload_url)
+        ? globalThis.String(object.upload_url)
+        : "",
+      uploadMethod: isSet(object.uploadMethod)
+        ? globalThis.String(object.uploadMethod)
+        : isSet(object.upload_method)
+        ? globalThis.String(object.upload_method)
+        : "",
+      uploadHeaders: isObject(object.uploadHeaders)
+        ? (globalThis.Object.entries(object.uploadHeaders) as [string, any][]).reduce(
+          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+            globalThis.Object.defineProperty(acc, key, {
+              value: globalThis.String(value),
+              enumerable: true,
+              configurable: true,
+              writable: true,
+            });
+            return acc;
+          },
+          {},
+        )
+        : isObject(object.upload_headers)
+        ? (globalThis.Object.entries(object.upload_headers) as [string, any][]).reduce(
+          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+            globalThis.Object.defineProperty(acc, key, {
+              value: globalThis.String(value),
+              enumerable: true,
+              configurable: true,
+              writable: true,
+            });
+            return acc;
+          },
+          {},
+        )
+        : {},
+      expiresAt: isSet(object.expiresAt)
+        ? fromJsonTimestamp(object.expiresAt)
+        : isSet(object.expires_at)
+        ? fromJsonTimestamp(object.expires_at)
+        : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: BeginUploadResponse): unknown {
+    const obj: any = {};
+    if (message.uploadId !== "") {
+      obj.uploadId = message.uploadId;
+    }
+    if (message.uploadUrl !== "") {
+      obj.uploadUrl = message.uploadUrl;
+    }
+    if (message.uploadMethod !== "") {
+      obj.uploadMethod = message.uploadMethod;
+    }
+    if (message.uploadHeaders) {
+      const entries = globalThis.Object.entries(message.uploadHeaders) as [string, string][];
+      if (entries.length > 0) {
+        obj.uploadHeaders = {};
+        entries.forEach(([k, v]) => {
+          obj.uploadHeaders[k] = v;
+        });
+      }
+    }
+    if (message.expiresAt !== undefined) {
+      obj.expiresAt = message.expiresAt.toISOString();
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<BeginUploadResponse>, I>>(base?: I): BeginUploadResponse {
+    return BeginUploadResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<BeginUploadResponse>, I>>(object: I): BeginUploadResponse {
+    const message = createBaseBeginUploadResponse();
+    message.uploadId = object.uploadId ?? "";
+    message.uploadUrl = object.uploadUrl ?? "";
+    message.uploadMethod = object.uploadMethod ?? "";
+    message.uploadHeaders = (globalThis.Object.entries(object.uploadHeaders ?? {}) as [string, string][]).reduce(
+      (acc: { [key: string]: string }, [key, value]: [string, string]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
+    message.expiresAt = object.expiresAt ?? undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(BeginUploadResponse.$type, BeginUploadResponse);
+
+function createBaseBeginUploadResponse_UploadHeadersEntry(): BeginUploadResponse_UploadHeadersEntry {
+  return { $type: "anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntry", key: "", value: "" };
+}
+
+export const BeginUploadResponse_UploadHeadersEntry: MessageFns<
+  BeginUploadResponse_UploadHeadersEntry,
+  "anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntry"
+> = {
+  $type: "anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntry" as const,
+
+  encode(message: BeginUploadResponse_UploadHeadersEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BeginUploadResponse_UploadHeadersEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseBeginUploadResponse_UploadHeadersEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): BeginUploadResponse_UploadHeadersEntry {
+    return {
+      $type: BeginUploadResponse_UploadHeadersEntry.$type,
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: BeginUploadResponse_UploadHeadersEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<BeginUploadResponse_UploadHeadersEntry>, I>>(
+    base?: I,
+  ): BeginUploadResponse_UploadHeadersEntry {
+    return BeginUploadResponse_UploadHeadersEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<BeginUploadResponse_UploadHeadersEntry>, I>>(
+    object: I,
+  ): BeginUploadResponse_UploadHeadersEntry {
+    const message = createBaseBeginUploadResponse_UploadHeadersEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(BeginUploadResponse_UploadHeadersEntry.$type, BeginUploadResponse_UploadHeadersEntry);
 
 function createBaseRegisterSourceRequest(): RegisterSourceRequest {
   return {
@@ -7996,6 +8543,23 @@ export const SourceServiceService = {
       Buffer.from(DeleteSourceResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): DeleteSourceResponse => DeleteSourceResponse.decode(value),
   },
+  /**
+   * P2.6: a single-use upload capability for one document: a presigned PUT
+   * of uploads/<tenant>/<upload_id> whose signed headers bind the declared
+   * size, media type and SHA-256, valid until expires_at. RegisterSource
+   * with locator "upload:<upload_id>" consumes it: only the same actor of
+   * the same tenant, before expires_at, once, with the same declaration; the
+   * uploaded bytes are verified again. Same command/digest is idempotent.
+   */
+  beginUpload: {
+    path: "/anvilkit.knowledge.v1.SourceService/BeginUpload" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: BeginUploadRequest): Buffer => Buffer.from(BeginUploadRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): BeginUploadRequest => BeginUploadRequest.decode(value),
+    responseSerialize: (value: BeginUploadResponse): Buffer => Buffer.from(BeginUploadResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): BeginUploadResponse => BeginUploadResponse.decode(value),
+  },
 } as const;
 
 export interface SourceServiceServer extends UntypedServiceImplementation {
@@ -8013,6 +8577,15 @@ export interface SourceServiceServer extends UntypedServiceImplementation {
   updateSourceAccess: handleUnaryCall<UpdateSourceAccessRequest, UpdateSourceAccessResponse>;
   /** Blocks readability synchronously; projections are cleared asynchronously. */
   deleteSource: handleUnaryCall<DeleteSourceRequest, DeleteSourceResponse>;
+  /**
+   * P2.6: a single-use upload capability for one document: a presigned PUT
+   * of uploads/<tenant>/<upload_id> whose signed headers bind the declared
+   * size, media type and SHA-256, valid until expires_at. RegisterSource
+   * with locator "upload:<upload_id>" consumes it: only the same actor of
+   * the same tenant, before expires_at, once, with the same declaration; the
+   * uploaded bytes are verified again. Same command/digest is idempotent.
+   */
+  beginUpload: handleUnaryCall<BeginUploadRequest, BeginUploadResponse>;
 }
 
 export interface SourceServiceClient extends Client {
@@ -8099,6 +8672,29 @@ export interface SourceServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: DeleteSourceResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * P2.6: a single-use upload capability for one document: a presigned PUT
+   * of uploads/<tenant>/<upload_id> whose signed headers bind the declared
+   * size, media type and SHA-256, valid until expires_at. RegisterSource
+   * with locator "upload:<upload_id>" consumes it: only the same actor of
+   * the same tenant, before expires_at, once, with the same declaration; the
+   * uploaded bytes are verified again. Same command/digest is idempotent.
+   */
+  beginUpload(
+    request: BeginUploadRequest,
+    callback: (error: ServiceError | null, response: BeginUploadResponse) => void,
+  ): ClientUnaryCall;
+  beginUpload(
+    request: BeginUploadRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: BeginUploadResponse) => void,
+  ): ClientUnaryCall;
+  beginUpload(
+    request: BeginUploadRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: BeginUploadResponse) => void,
   ): ClientUnaryCall;
 }
 
@@ -8781,6 +9377,10 @@ function fromJsonTimestamp(o: any): Date {
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
   }
+}
+
+function isObject(value: any): boolean {
+  return typeof value === "object" && value !== null;
 }
 
 function isSet(value: any): boolean {

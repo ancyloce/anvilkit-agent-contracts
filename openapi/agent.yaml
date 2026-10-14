@@ -379,6 +379,69 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /knowledge/sources/uploads:
+    post:
+      tags: [knowledge]
+      operationId: beginSourceUpload
+      summary: API-08 a single-use upload capability for one document (P2.6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BeginSourceUploadRequest" }
+      responses:
+        "201":
+          description: The capability; registerSource with locator upload:<uploadId> consumes it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceUpload" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /knowledge/snapshots:
+    post:
+      tags: [knowledge]
+      operationId: createSnapshot
+      summary: API-08 freeze exact source revisions for retrieval (P2.6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateSnapshotRequest" }
+      responses:
+        "201":
+          description: Snapshot; authorization is rechecked on every read.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Snapshot" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /knowledge/snapshots/{snapshotId}:
+    get:
+      tags: [knowledge]
+      operationId: getSnapshot
+      summary: API-08 read a snapshot (P2.6)
+      parameters:
+        - name: snapshotId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "200":
+          description: Snapshot.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Snapshot" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /knowledge/searches:
     post:
       tags: [knowledge]
@@ -452,6 +515,26 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /memories/recalls:
+    post:
+      tags: [memories]
+      operationId: recallMemories
+      summary: API-09 recall confirmed facts under current authorization (P2.6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecallMemoriesRequest" }
+      responses:
+        "200":
+          description: Recallable facts; no unauthorized counts or content.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecallMemoriesResponse" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "503": { $ref: "#/components/responses/Unavailable" }
   /memories/{factId}/decisions:
     post:
@@ -686,6 +769,31 @@ paths:
       responses:
         "200":
           description: Call.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolCall" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /mcp/calls/{callId}/reconciliations:
+    post:
+      tags: [mcp]
+      operationId: reconcileToolCall
+      summary: API-11 operator reconciliation of one call (P1.2, P2.5)
+      description: >-
+        Advances one open call now under its original identity from Control's
+        record (an UNKNOWN call is resolved only from Control's dispatch
+        record) and returns its state. Never sends anything upstream. Needs
+        the call-operator role in the call's tenant.
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/Id" }
+      responses:
+        "200":
+          description: The call after reconciliation.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ToolCall" }
@@ -1140,8 +1248,72 @@ components:
 
     # ---- knowledge ----
     SourceKind:
+      # P2.6: the implemented kinds only (an uploaded document).
       type: string
-      enum: [document, url, repository, brand]
+      enum: [document]
+    # P2.6 (CON-02): exact provenance <sourceId>@<revision>, the same pattern
+    # as anvilkit.knowledge.v1 (ProposeFactRequest.source_refs).
+    SourceRef:
+      type: string
+      maxLength: 148
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}@[1-9][0-9]{0,18}$"
+    BeginSourceUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, contentDigest, sizeBytes, mediaType]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        contentDigest: { $ref: "#/components/schemas/Digest" }
+        sizeBytes: { $ref: "#/components/schemas/Sequence" }
+        mediaType:
+          type: string
+          minLength: 1
+          maxLength: 128
+    SourceUpload:
+      type: object
+      additionalProperties: false
+      required: [uploadId, uploadUrl, uploadMethod, uploadHeaders, expiresAt]
+      properties:
+        uploadId: { $ref: "#/components/schemas/Id" }
+        uploadUrl:
+          description: The single-use capability; a trusted caller performs the PUT with exactly uploadHeaders before expiresAt.
+          type: string
+          maxLength: 4096
+        uploadMethod:
+          type: string
+          enum: [PUT]
+        uploadHeaders:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 512
+        expiresAt: { $ref: "#/components/schemas/Timestamp" }
+    CreateSnapshotRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, sourceIds]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        sourceIds:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: { $ref: "#/components/schemas/Id" }
+    Snapshot:
+      type: object
+      additionalProperties: false
+      required: [snapshotId, tenantId, indexGeneration, sourceRevisions, contentDigest, createdAt]
+      properties:
+        snapshotId: { $ref: "#/components/schemas/Id" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        projectId: { $ref: "#/components/schemas/Id" }
+        indexGeneration: { $ref: "#/components/schemas/Sequence" }
+        sourceRevisions:
+          type: array
+          maxItems: 256
+          items: { $ref: "#/components/schemas/SourceRef" }
+        contentDigest: { $ref: "#/components/schemas/Digest" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
     IngestState:
       type: string
       enum: [pending, parsing, indexing, indexed, failed, stale]
@@ -1154,6 +1326,10 @@ components:
           type: string
           enum: [tenant, project, actor, role]
         principalId: { $ref: "#/components/schemas/Id" }
+        permission:
+          description: P2.7 read (the default) or manage (read, replace the access list, delete); the registering actor owns the source.
+          type: string
+          enum: [read, manage]
     RegisterSourceRequest:
       type: object
       additionalProperties: false
@@ -1162,6 +1338,7 @@ components:
         commandId: { $ref: "#/components/schemas/Id" }
         kind: { $ref: "#/components/schemas/SourceKind" }
         locator:
+          description: A document names its upload, "upload:<uploadId>" of beginSourceUpload (P2.6).
           type: string
           minLength: 1
           maxLength: 2048
@@ -1289,7 +1466,7 @@ components:
         sourceRefs:
           type: array
           maxItems: 32
-          items: { $ref: "#/components/schemas/Id" }
+          items: { $ref: "#/components/schemas/SourceRef" }
         expiresAt: { $ref: "#/components/schemas/Timestamp" }
     MemoryDecisionRequest:
       type: object
@@ -1325,10 +1502,38 @@ components:
         confirmer: { $ref: "#/components/schemas/Id" }
         sourceRefs:
           type: array
-          items: { $ref: "#/components/schemas/Id" }
+          items: { $ref: "#/components/schemas/SourceRef" }
         expiresAt: { $ref: "#/components/schemas/Timestamp" }
         createdAt: { $ref: "#/components/schemas/Timestamp" }
         updatedAt: { $ref: "#/components/schemas/Timestamp" }
+    # P2.6: recall of the caller's confirmed facts (RecallFacts), after
+    # Control's commercial authorization of the disclosure.
+    RecallMemoriesRequest:
+      type: object
+      additionalProperties: false
+      required: [query, retrievalProfileId]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 8192
+        maxFacts:
+          type: integer
+          minimum: 1
+          maximum: 32
+        retrievalProfileId: { $ref: "#/components/schemas/Id" }
+    RecallMemoriesResponse:
+      type: object
+      additionalProperties: false
+      required: [facts, noAnswer, indexGeneration]
+      properties:
+        facts:
+          type: array
+          maxItems: 32
+          items: { $ref: "#/components/schemas/MemoryFact" }
+        noAnswer:
+          type: boolean
+        indexGeneration: { $ref: "#/components/schemas/Sequence" }
 
     # ---- mcp ----
     CatalogState:

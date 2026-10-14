@@ -55,12 +55,16 @@ message Scope {
 // Sources, ACL and ingestion
 // ---------------------------------------------------------------------------
 
+// P2.6: document is the only implemented kind (an uploaded file, parsed by
+// the parser Job). The other values stay reserved on the wire (FILE-level
+// compatibility) but are deprecated, absent from the public API and refused
+// by RegisterSourceRequest's validation until a reader exists.
 enum SourceKind {
   SOURCE_KIND_UNSPECIFIED = 0;
   SOURCE_KIND_DOCUMENT = 1;
-  SOURCE_KIND_URL = 2;
-  SOURCE_KIND_REPOSITORY = 3;
-  SOURCE_KIND_BRAND = 4;
+  SOURCE_KIND_URL = 2 [deprecated = true];
+  SOURCE_KIND_REPOSITORY = 3 [deprecated = true];
+  SOURCE_KIND_BRAND = 4 [deprecated = true];
 }
 
 enum IngestState {
@@ -87,6 +91,16 @@ message AccessEntry {
   string principal_id = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 128
+  }];
+  // P2.7: read (empty is read), or manage: read, replace the ACL and delete.
+  // The registering actor owns the source and manages it without an entry;
+  // a role entry is held only through roles the API verified.
+  string permission = 3 [(buf.validate.field).string = {
+    in: [
+      "",
+      "read",
+      "manage"
+    ]
   }];
 }
 
@@ -117,15 +131,48 @@ service SourceService {
   rpc UpdateSourceAccess(UpdateSourceAccessRequest) returns (UpdateSourceAccessResponse);
   // Blocks readability synchronously; projections are cleared asynchronously.
   rpc DeleteSource(DeleteSourceRequest) returns (DeleteSourceResponse);
+  // P2.6: a single-use upload capability for one document: a presigned PUT
+  // of uploads/<tenant>/<upload_id> whose signed headers bind the declared
+  // size, media type and SHA-256, valid until expires_at. RegisterSource
+  // with locator "upload:<upload_id>" consumes it: only the same actor of
+  // the same tenant, before expires_at, once, with the same declaration; the
+  // uploaded bytes are verified again. Same command/digest is idempotent.
+  rpc BeginUpload(BeginUploadRequest) returns (BeginUploadResponse);
+}
+
+message BeginUploadRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string content_digest = 3 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  string size_bytes = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string media_type = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message BeginUploadResponse {
+  string upload_id = 1;
+  // The capability itself: whoever holds it may write the declared bytes
+  // once before expires_at. It never reaches a browser through the API's
+  // own pages; a trusted caller performs the PUT.
+  string upload_url = 2;
+  string upload_method = 3;
+  // Every header the PUT must carry exactly (they are signed).
+  map<string, string> upload_headers = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  bool existing = 6;
 }
 
 message RegisterSourceRequest {
   CommandIdentity command = 1 [(buf.validate.field).required = true];
   Scope scope = 2 [(buf.validate.field).required = true];
+  // P2.6: only SOURCE_KIND_DOCUMENT is registered.
   SourceKind kind = 3 [(buf.validate.field).enum = {
     defined_only: true
-    not_in: [0]
+    in: [1]
   }];
+  // A document names its upload: "upload:<upload_id>" of BeginUpload.
   string locator = 4 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048

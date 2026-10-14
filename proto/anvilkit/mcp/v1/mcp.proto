@@ -493,6 +493,14 @@ service CallService {
   rpc CreateCall(CreateCallRequest) returns (CreateCallResponse);
   // Querying a call never sends again.
   rpc GetCall(GetCallRequest) returns (GetCallResponse);
+  // The operator reconciliation of P1.2 (P2.5, through the API's operator
+  // role): advances one open call now under its original identity from
+  // Control's record — an UNKNOWN call is resolved only from Control's
+  // dispatch record, an admitted call without a send marker is canceled, a
+  // marked call without an outcome is recorded UNKNOWN — and returns its
+  // state. It never sends anything upstream. Needs the call-operator role in
+  // the call's tenant.
+  rpc ReconcileCall(ReconcileCallRequest) returns (ReconcileCallResponse);
 }
 
 message CreateCallRequest {
@@ -540,6 +548,66 @@ message GetCallRequest {
 
 message GetCallResponse {
   ToolCall call = 1;
+}
+
+message ReconcileCallRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string call_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message ReconcileCallResponse {
+  ToolCall call = 1;
+}
+
+// ---------------------------------------------------------------------------
+// CatalogRefreshService (P2.5): the refresh step of a claimed
+// mcp-catalog-refresh task. MCP owns the live read: the Background Worker
+// claimant asks, MCP re-reads the approved revision's server through its own
+// connection layer (ContextForge, or its guarded egress with the reviewed
+// credential), rebuilds the descriptor from the reviewed declaration and
+// records whether the live server still digests as the approved revision.
+// result_ref and result_digest bind that recorded observation; acceptance
+// compares the submission with it, and an accepted drift disables the
+// revision (its grants begin revocation) before any call meets the drift.
+// Idempotent per (task, generation, worker); a superseded, expired or
+// foreign claimant is refused; nothing about the server crosses.
+// ---------------------------------------------------------------------------
+
+enum RefreshState {
+  REFRESH_STATE_UNSPECIFIED = 0;
+  // The live read is recorded: result_ref and result_digest are what
+  // SubmitTaskResult must carry (drift or not).
+  REFRESH_STATE_COMPLETED = 1;
+  // No live read (the server or the connection layer could not be asked):
+  // the claimant reports failure_code as a failed attempt.
+  REFRESH_STATE_FAILED = 2;
+}
+
+service CatalogRefreshService {
+  rpc AdvanceRefresh(AdvanceRefreshRequest) returns (AdvanceRefreshResponse);
+}
+
+message AdvanceRefreshRequest {
+  string task_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string generation = 2 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string worker_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string input_digest = 4 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message AdvanceRefreshResponse {
+  RefreshState state = 1;
+  string result_ref = 2;
+  string result_digest = 3;
+  optional string failure_code = 4;
 }
 
 // ---------------------------------------------------------------------------

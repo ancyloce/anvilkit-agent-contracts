@@ -29,6 +29,7 @@ const (
 	SourceService_ListSources_FullMethodName        = "/anvilkit.knowledge.v1.SourceService/ListSources"
 	SourceService_UpdateSourceAccess_FullMethodName = "/anvilkit.knowledge.v1.SourceService/UpdateSourceAccess"
 	SourceService_DeleteSource_FullMethodName       = "/anvilkit.knowledge.v1.SourceService/DeleteSource"
+	SourceService_BeginUpload_FullMethodName        = "/anvilkit.knowledge.v1.SourceService/BeginUpload"
 )
 
 // SourceServiceClient is the client API for SourceService service.
@@ -45,6 +46,13 @@ type SourceServiceClient interface {
 	UpdateSourceAccess(ctx context.Context, in *UpdateSourceAccessRequest, opts ...grpc.CallOption) (*UpdateSourceAccessResponse, error)
 	// Blocks readability synchronously; projections are cleared asynchronously.
 	DeleteSource(ctx context.Context, in *DeleteSourceRequest, opts ...grpc.CallOption) (*DeleteSourceResponse, error)
+	// P2.6: a single-use upload capability for one document: a presigned PUT
+	// of uploads/<tenant>/<upload_id> whose signed headers bind the declared
+	// size, media type and SHA-256, valid until expires_at. RegisterSource
+	// with locator "upload:<upload_id>" consumes it: only the same actor of
+	// the same tenant, before expires_at, once, with the same declaration; the
+	// uploaded bytes are verified again. Same command/digest is idempotent.
+	BeginUpload(ctx context.Context, in *BeginUploadRequest, opts ...grpc.CallOption) (*BeginUploadResponse, error)
 }
 
 type sourceServiceClient struct {
@@ -105,6 +113,16 @@ func (c *sourceServiceClient) DeleteSource(ctx context.Context, in *DeleteSource
 	return out, nil
 }
 
+func (c *sourceServiceClient) BeginUpload(ctx context.Context, in *BeginUploadRequest, opts ...grpc.CallOption) (*BeginUploadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BeginUploadResponse)
+	err := c.cc.Invoke(ctx, SourceService_BeginUpload_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SourceServiceServer is the server API for SourceService service.
 // All implementations must embed UnimplementedSourceServiceServer
 // for forward compatibility.
@@ -119,6 +137,13 @@ type SourceServiceServer interface {
 	UpdateSourceAccess(context.Context, *UpdateSourceAccessRequest) (*UpdateSourceAccessResponse, error)
 	// Blocks readability synchronously; projections are cleared asynchronously.
 	DeleteSource(context.Context, *DeleteSourceRequest) (*DeleteSourceResponse, error)
+	// P2.6: a single-use upload capability for one document: a presigned PUT
+	// of uploads/<tenant>/<upload_id> whose signed headers bind the declared
+	// size, media type and SHA-256, valid until expires_at. RegisterSource
+	// with locator "upload:<upload_id>" consumes it: only the same actor of
+	// the same tenant, before expires_at, once, with the same declaration; the
+	// uploaded bytes are verified again. Same command/digest is idempotent.
+	BeginUpload(context.Context, *BeginUploadRequest) (*BeginUploadResponse, error)
 	mustEmbedUnimplementedSourceServiceServer()
 }
 
@@ -143,6 +168,9 @@ func (UnimplementedSourceServiceServer) UpdateSourceAccess(context.Context, *Upd
 }
 func (UnimplementedSourceServiceServer) DeleteSource(context.Context, *DeleteSourceRequest) (*DeleteSourceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteSource not implemented")
+}
+func (UnimplementedSourceServiceServer) BeginUpload(context.Context, *BeginUploadRequest) (*BeginUploadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BeginUpload not implemented")
 }
 func (UnimplementedSourceServiceServer) mustEmbedUnimplementedSourceServiceServer() {}
 func (UnimplementedSourceServiceServer) testEmbeddedByValue()                       {}
@@ -255,6 +283,24 @@ func _SourceService_DeleteSource_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SourceService_BeginUpload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BeginUploadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SourceServiceServer).BeginUpload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SourceService_BeginUpload_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SourceServiceServer).BeginUpload(ctx, req.(*BeginUploadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SourceService_ServiceDesc is the grpc.ServiceDesc for SourceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -281,6 +327,10 @@ var SourceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteSource",
 			Handler:    _SourceService_DeleteSource_Handler,
+		},
+		{
+			MethodName: "BeginUpload",
+			Handler:    _SourceService_BeginUpload_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

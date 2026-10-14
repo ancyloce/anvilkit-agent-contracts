@@ -550,8 +550,9 @@ var GrantService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	CallService_CreateCall_FullMethodName = "/anvilkit.mcp.v1.CallService/CreateCall"
-	CallService_GetCall_FullMethodName    = "/anvilkit.mcp.v1.CallService/GetCall"
+	CallService_CreateCall_FullMethodName    = "/anvilkit.mcp.v1.CallService/CreateCall"
+	CallService_GetCall_FullMethodName       = "/anvilkit.mcp.v1.CallService/GetCall"
+	CallService_ReconcileCall_FullMethodName = "/anvilkit.mcp.v1.CallService/ReconcileCall"
 )
 
 // CallServiceClient is the client API for CallService service.
@@ -563,6 +564,14 @@ type CallServiceClient interface {
 	CreateCall(ctx context.Context, in *CreateCallRequest, opts ...grpc.CallOption) (*CreateCallResponse, error)
 	// Querying a call never sends again.
 	GetCall(ctx context.Context, in *GetCallRequest, opts ...grpc.CallOption) (*GetCallResponse, error)
+	// The operator reconciliation of P1.2 (P2.5, through the API's operator
+	// role): advances one open call now under its original identity from
+	// Control's record — an UNKNOWN call is resolved only from Control's
+	// dispatch record, an admitted call without a send marker is canceled, a
+	// marked call without an outcome is recorded UNKNOWN — and returns its
+	// state. It never sends anything upstream. Needs the call-operator role in
+	// the call's tenant.
+	ReconcileCall(ctx context.Context, in *ReconcileCallRequest, opts ...grpc.CallOption) (*ReconcileCallResponse, error)
 }
 
 type callServiceClient struct {
@@ -593,6 +602,16 @@ func (c *callServiceClient) GetCall(ctx context.Context, in *GetCallRequest, opt
 	return out, nil
 }
 
+func (c *callServiceClient) ReconcileCall(ctx context.Context, in *ReconcileCallRequest, opts ...grpc.CallOption) (*ReconcileCallResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReconcileCallResponse)
+	err := c.cc.Invoke(ctx, CallService_ReconcileCall_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CallServiceServer is the server API for CallService service.
 // All implementations must embed UnimplementedCallServiceServer
 // for forward compatibility.
@@ -602,6 +621,14 @@ type CallServiceServer interface {
 	CreateCall(context.Context, *CreateCallRequest) (*CreateCallResponse, error)
 	// Querying a call never sends again.
 	GetCall(context.Context, *GetCallRequest) (*GetCallResponse, error)
+	// The operator reconciliation of P1.2 (P2.5, through the API's operator
+	// role): advances one open call now under its original identity from
+	// Control's record — an UNKNOWN call is resolved only from Control's
+	// dispatch record, an admitted call without a send marker is canceled, a
+	// marked call without an outcome is recorded UNKNOWN — and returns its
+	// state. It never sends anything upstream. Needs the call-operator role in
+	// the call's tenant.
+	ReconcileCall(context.Context, *ReconcileCallRequest) (*ReconcileCallResponse, error)
 	mustEmbedUnimplementedCallServiceServer()
 }
 
@@ -617,6 +644,9 @@ func (UnimplementedCallServiceServer) CreateCall(context.Context, *CreateCallReq
 }
 func (UnimplementedCallServiceServer) GetCall(context.Context, *GetCallRequest) (*GetCallResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetCall not implemented")
+}
+func (UnimplementedCallServiceServer) ReconcileCall(context.Context, *ReconcileCallRequest) (*ReconcileCallResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReconcileCall not implemented")
 }
 func (UnimplementedCallServiceServer) mustEmbedUnimplementedCallServiceServer() {}
 func (UnimplementedCallServiceServer) testEmbeddedByValue()                     {}
@@ -675,6 +705,24 @@ func _CallService_GetCall_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CallService_ReconcileCall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReconcileCallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CallServiceServer).ReconcileCall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CallService_ReconcileCall_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CallServiceServer).ReconcileCall(ctx, req.(*ReconcileCallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CallService_ServiceDesc is the grpc.ServiceDesc for CallService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -689,6 +737,112 @@ var CallService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCall",
 			Handler:    _CallService_GetCall_Handler,
+		},
+		{
+			MethodName: "ReconcileCall",
+			Handler:    _CallService_ReconcileCall_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "anvilkit/mcp/v1/mcp.proto",
+}
+
+const (
+	CatalogRefreshService_AdvanceRefresh_FullMethodName = "/anvilkit.mcp.v1.CatalogRefreshService/AdvanceRefresh"
+)
+
+// CatalogRefreshServiceClient is the client API for CatalogRefreshService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CatalogRefreshServiceClient interface {
+	AdvanceRefresh(ctx context.Context, in *AdvanceRefreshRequest, opts ...grpc.CallOption) (*AdvanceRefreshResponse, error)
+}
+
+type catalogRefreshServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCatalogRefreshServiceClient(cc grpc.ClientConnInterface) CatalogRefreshServiceClient {
+	return &catalogRefreshServiceClient{cc}
+}
+
+func (c *catalogRefreshServiceClient) AdvanceRefresh(ctx context.Context, in *AdvanceRefreshRequest, opts ...grpc.CallOption) (*AdvanceRefreshResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdvanceRefreshResponse)
+	err := c.cc.Invoke(ctx, CatalogRefreshService_AdvanceRefresh_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CatalogRefreshServiceServer is the server API for CatalogRefreshService service.
+// All implementations must embed UnimplementedCatalogRefreshServiceServer
+// for forward compatibility.
+type CatalogRefreshServiceServer interface {
+	AdvanceRefresh(context.Context, *AdvanceRefreshRequest) (*AdvanceRefreshResponse, error)
+	mustEmbedUnimplementedCatalogRefreshServiceServer()
+}
+
+// UnimplementedCatalogRefreshServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCatalogRefreshServiceServer struct{}
+
+func (UnimplementedCatalogRefreshServiceServer) AdvanceRefresh(context.Context, *AdvanceRefreshRequest) (*AdvanceRefreshResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdvanceRefresh not implemented")
+}
+func (UnimplementedCatalogRefreshServiceServer) mustEmbedUnimplementedCatalogRefreshServiceServer() {}
+func (UnimplementedCatalogRefreshServiceServer) testEmbeddedByValue()                               {}
+
+// UnsafeCatalogRefreshServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CatalogRefreshServiceServer will
+// result in compilation errors.
+type UnsafeCatalogRefreshServiceServer interface {
+	mustEmbedUnimplementedCatalogRefreshServiceServer()
+}
+
+func RegisterCatalogRefreshServiceServer(s grpc.ServiceRegistrar, srv CatalogRefreshServiceServer) {
+	// If the following call panics, it indicates UnimplementedCatalogRefreshServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CatalogRefreshService_ServiceDesc, srv)
+}
+
+func _CatalogRefreshService_AdvanceRefresh_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdvanceRefreshRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogRefreshServiceServer).AdvanceRefresh(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogRefreshService_AdvanceRefresh_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogRefreshServiceServer).AdvanceRefresh(ctx, req.(*AdvanceRefreshRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CatalogRefreshService_ServiceDesc is the grpc.ServiceDesc for CatalogRefreshService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CatalogRefreshService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "anvilkit.mcp.v1.CatalogRefreshService",
+	HandlerType: (*CatalogRefreshServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "AdvanceRefresh",
+			Handler:    _CatalogRefreshService_AdvanceRefresh_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

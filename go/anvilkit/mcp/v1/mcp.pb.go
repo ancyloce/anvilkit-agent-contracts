@@ -263,6 +263,59 @@ func (CallState) EnumDescriptor() ([]byte, []int) {
 	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{3}
 }
 
+type RefreshState int32
+
+const (
+	RefreshState_REFRESH_STATE_UNSPECIFIED RefreshState = 0
+	// The live read is recorded: result_ref and result_digest are what
+	// SubmitTaskResult must carry (drift or not).
+	RefreshState_REFRESH_STATE_COMPLETED RefreshState = 1
+	// No live read (the server or the connection layer could not be asked):
+	// the claimant reports failure_code as a failed attempt.
+	RefreshState_REFRESH_STATE_FAILED RefreshState = 2
+)
+
+// Enum value maps for RefreshState.
+var (
+	RefreshState_name = map[int32]string{
+		0: "REFRESH_STATE_UNSPECIFIED",
+		1: "REFRESH_STATE_COMPLETED",
+		2: "REFRESH_STATE_FAILED",
+	}
+	RefreshState_value = map[string]int32{
+		"REFRESH_STATE_UNSPECIFIED": 0,
+		"REFRESH_STATE_COMPLETED":   1,
+		"REFRESH_STATE_FAILED":      2,
+	}
+)
+
+func (x RefreshState) Enum() *RefreshState {
+	p := new(RefreshState)
+	*p = x
+	return p
+}
+
+func (x RefreshState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RefreshState) Descriptor() protoreflect.EnumDescriptor {
+	return file_anvilkit_mcp_v1_mcp_proto_enumTypes[4].Descriptor()
+}
+
+func (RefreshState) Type() protoreflect.EnumType {
+	return &file_anvilkit_mcp_v1_mcp_proto_enumTypes[4]
+}
+
+func (x RefreshState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RefreshState.Descriptor instead.
+func (RefreshState) EnumDescriptor() ([]byte, []int) {
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{4}
+}
+
 type TaskState int32
 
 const (
@@ -314,11 +367,11 @@ func (x TaskState) String() string {
 }
 
 func (TaskState) Descriptor() protoreflect.EnumDescriptor {
-	return file_anvilkit_mcp_v1_mcp_proto_enumTypes[4].Descriptor()
+	return file_anvilkit_mcp_v1_mcp_proto_enumTypes[5].Descriptor()
 }
 
 func (TaskState) Type() protoreflect.EnumType {
-	return &file_anvilkit_mcp_v1_mcp_proto_enumTypes[4]
+	return &file_anvilkit_mcp_v1_mcp_proto_enumTypes[5]
 }
 
 func (x TaskState) Number() protoreflect.EnumNumber {
@@ -327,7 +380,7 @@ func (x TaskState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TaskState.Descriptor instead.
 func (TaskState) EnumDescriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{4}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{5}
 }
 
 type CommandIdentity struct {
@@ -2955,6 +3008,238 @@ func (x *GetCallResponse) GetCall() *ToolCall {
 	return nil
 }
 
+type ReconcileCallRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Scope         *Scope                 `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	CallId        string                 `protobuf:"bytes,2,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReconcileCallRequest) Reset() {
+	*x = ReconcileCallRequest{}
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReconcileCallRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReconcileCallRequest) ProtoMessage() {}
+
+func (x *ReconcileCallRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReconcileCallRequest.ProtoReflect.Descriptor instead.
+func (*ReconcileCallRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ReconcileCallRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *ReconcileCallRequest) GetCallId() string {
+	if x != nil {
+		return x.CallId
+	}
+	return ""
+}
+
+type ReconcileCallResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Call          *ToolCall              `protobuf:"bytes,1,opt,name=call,proto3" json:"call,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReconcileCallResponse) Reset() {
+	*x = ReconcileCallResponse{}
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReconcileCallResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReconcileCallResponse) ProtoMessage() {}
+
+func (x *ReconcileCallResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReconcileCallResponse.ProtoReflect.Descriptor instead.
+func (*ReconcileCallResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *ReconcileCallResponse) GetCall() *ToolCall {
+	if x != nil {
+		return x.Call
+	}
+	return nil
+}
+
+type AdvanceRefreshRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Generation    string                 `protobuf:"bytes,2,opt,name=generation,proto3" json:"generation,omitempty"`
+	WorkerId      string                 `protobuf:"bytes,3,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	InputDigest   string                 `protobuf:"bytes,4,opt,name=input_digest,json=inputDigest,proto3" json:"input_digest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdvanceRefreshRequest) Reset() {
+	*x = AdvanceRefreshRequest{}
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvanceRefreshRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvanceRefreshRequest) ProtoMessage() {}
+
+func (x *AdvanceRefreshRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvanceRefreshRequest.ProtoReflect.Descriptor instead.
+func (*AdvanceRefreshRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *AdvanceRefreshRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *AdvanceRefreshRequest) GetGeneration() string {
+	if x != nil {
+		return x.Generation
+	}
+	return ""
+}
+
+func (x *AdvanceRefreshRequest) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+func (x *AdvanceRefreshRequest) GetInputDigest() string {
+	if x != nil {
+		return x.InputDigest
+	}
+	return ""
+}
+
+type AdvanceRefreshResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         RefreshState           `protobuf:"varint,1,opt,name=state,proto3,enum=anvilkit.mcp.v1.RefreshState" json:"state,omitempty"`
+	ResultRef     string                 `protobuf:"bytes,2,opt,name=result_ref,json=resultRef,proto3" json:"result_ref,omitempty"`
+	ResultDigest  string                 `protobuf:"bytes,3,opt,name=result_digest,json=resultDigest,proto3" json:"result_digest,omitempty"`
+	FailureCode   *string                `protobuf:"bytes,4,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdvanceRefreshResponse) Reset() {
+	*x = AdvanceRefreshResponse{}
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvanceRefreshResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvanceRefreshResponse) ProtoMessage() {}
+
+func (x *AdvanceRefreshResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvanceRefreshResponse.ProtoReflect.Descriptor instead.
+func (*AdvanceRefreshResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *AdvanceRefreshResponse) GetState() RefreshState {
+	if x != nil {
+		return x.State
+	}
+	return RefreshState_REFRESH_STATE_UNSPECIFIED
+}
+
+func (x *AdvanceRefreshResponse) GetResultRef() string {
+	if x != nil {
+		return x.ResultRef
+	}
+	return ""
+}
+
+func (x *AdvanceRefreshResponse) GetResultDigest() string {
+	if x != nil {
+		return x.ResultDigest
+	}
+	return ""
+}
+
+func (x *AdvanceRefreshResponse) GetFailureCode() string {
+	if x != nil && x.FailureCode != nil {
+		return *x.FailureCode
+	}
+	return ""
+}
+
 type BackgroundTask struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
@@ -2971,7 +3256,7 @@ type BackgroundTask struct {
 
 func (x *BackgroundTask) Reset() {
 	*x = BackgroundTask{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[31]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2983,7 +3268,7 @@ func (x *BackgroundTask) String() string {
 func (*BackgroundTask) ProtoMessage() {}
 
 func (x *BackgroundTask) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[31]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2996,7 +3281,7 @@ func (x *BackgroundTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackgroundTask.ProtoReflect.Descriptor instead.
 func (*BackgroundTask) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{31}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *BackgroundTask) GetTaskId() string {
@@ -3067,7 +3352,7 @@ type ClaimTaskRequest struct {
 
 func (x *ClaimTaskRequest) Reset() {
 	*x = ClaimTaskRequest{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[32]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3079,7 +3364,7 @@ func (x *ClaimTaskRequest) String() string {
 func (*ClaimTaskRequest) ProtoMessage() {}
 
 func (x *ClaimTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[32]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3092,7 +3377,7 @@ func (x *ClaimTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimTaskRequest.ProtoReflect.Descriptor instead.
 func (*ClaimTaskRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{32}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ClaimTaskRequest) GetTaskId() string {
@@ -3133,7 +3418,7 @@ type ClaimTaskResponse struct {
 
 func (x *ClaimTaskResponse) Reset() {
 	*x = ClaimTaskResponse{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[33]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3145,7 +3430,7 @@ func (x *ClaimTaskResponse) String() string {
 func (*ClaimTaskResponse) ProtoMessage() {}
 
 func (x *ClaimTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[33]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3158,7 +3443,7 @@ func (x *ClaimTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimTaskResponse.ProtoReflect.Descriptor instead.
 func (*ClaimTaskResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{33}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ClaimTaskResponse) GetTask() *BackgroundTask {
@@ -3186,7 +3471,7 @@ type HeartbeatTaskRequest struct {
 
 func (x *HeartbeatTaskRequest) Reset() {
 	*x = HeartbeatTaskRequest{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[34]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3198,7 +3483,7 @@ func (x *HeartbeatTaskRequest) String() string {
 func (*HeartbeatTaskRequest) ProtoMessage() {}
 
 func (x *HeartbeatTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[34]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3211,7 +3496,7 @@ func (x *HeartbeatTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatTaskRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatTaskRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{34}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *HeartbeatTaskRequest) GetTaskId() string {
@@ -3244,7 +3529,7 @@ type HeartbeatTaskResponse struct {
 
 func (x *HeartbeatTaskResponse) Reset() {
 	*x = HeartbeatTaskResponse{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[35]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3256,7 +3541,7 @@ func (x *HeartbeatTaskResponse) String() string {
 func (*HeartbeatTaskResponse) ProtoMessage() {}
 
 func (x *HeartbeatTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[35]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3269,7 +3554,7 @@ func (x *HeartbeatTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatTaskResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatTaskResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{35}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *HeartbeatTaskResponse) GetTask() *BackgroundTask {
@@ -3295,7 +3580,7 @@ type SubmitTaskResultRequest struct {
 
 func (x *SubmitTaskResultRequest) Reset() {
 	*x = SubmitTaskResultRequest{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[36]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3307,7 +3592,7 @@ func (x *SubmitTaskResultRequest) String() string {
 func (*SubmitTaskResultRequest) ProtoMessage() {}
 
 func (x *SubmitTaskResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[36]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3320,7 +3605,7 @@ func (x *SubmitTaskResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitTaskResultRequest.ProtoReflect.Descriptor instead.
 func (*SubmitTaskResultRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{36}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *SubmitTaskResultRequest) GetTaskId() string {
@@ -3390,7 +3675,7 @@ type SubmitTaskResultResponse struct {
 
 func (x *SubmitTaskResultResponse) Reset() {
 	*x = SubmitTaskResultResponse{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[37]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3402,7 +3687,7 @@ func (x *SubmitTaskResultResponse) String() string {
 func (*SubmitTaskResultResponse) ProtoMessage() {}
 
 func (x *SubmitTaskResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[37]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3415,7 +3700,7 @@ func (x *SubmitTaskResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitTaskResultResponse.ProtoReflect.Descriptor instead.
 func (*SubmitTaskResultResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{37}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *SubmitTaskResultResponse) GetTask() *BackgroundTask {
@@ -3448,7 +3733,7 @@ type GetTaskRequest struct {
 
 func (x *GetTaskRequest) Reset() {
 	*x = GetTaskRequest{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[38]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3460,7 +3745,7 @@ func (x *GetTaskRequest) String() string {
 func (*GetTaskRequest) ProtoMessage() {}
 
 func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[38]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3473,7 +3758,7 @@ func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{38}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *GetTaskRequest) GetTaskId() string {
@@ -3492,7 +3777,7 @@ type GetTaskResponse struct {
 
 func (x *GetTaskResponse) Reset() {
 	*x = GetTaskResponse{}
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[39]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3504,7 +3789,7 @@ func (x *GetTaskResponse) String() string {
 func (*GetTaskResponse) ProtoMessage() {}
 
 func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[39]
+	mi := &file_anvilkit_mcp_v1_mcp_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3517,7 +3802,7 @@ func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{39}
+	return file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetTaskResponse) GetTask() *BackgroundTask {
@@ -3833,7 +4118,29 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\acall_id\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06callId\"@\n" +
 	"\x0fGetCallResponse\x12-\n" +
-	"\x04call\x18\x01 \x01(\v2\x19.anvilkit.mcp.v1.ToolCallR\x04call\"\xe2\x02\n" +
+	"\x04call\x18\x01 \x01(\v2\x19.anvilkit.mcp.v1.ToolCallR\x04call\"q\n" +
+	"\x14ReconcileCallRequest\x124\n" +
+	"\x05scope\x18\x01 \x01(\v2\x16.anvilkit.mcp.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12#\n" +
+	"\acall_id\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06callId\"F\n" +
+	"\x15ReconcileCallResponse\x12-\n" +
+	"\x04call\x18\x01 \x01(\v2\x19.anvilkit.mcp.v1.ToolCallR\x04call\"\xe5\x01\n" +
+	"\x15AdvanceRefreshRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06taskId\x12=\n" +
+	"\n" +
+	"generation\x18\x02 \x01(\tB\x1d\xbaH\x1ar\x182\x16^(0|[1-9][0-9]{0,19})$R\n" +
+	"generation\x12'\n" +
+	"\tworker_id\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\bworkerId\x12?\n" +
+	"\finput_digest\x18\x04 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\vinputDigest\"\xca\x01\n" +
+	"\x16AdvanceRefreshResponse\x123\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x1d.anvilkit.mcp.v1.RefreshStateR\x05state\x12\x1d\n" +
+	"\n" +
+	"result_ref\x18\x02 \x01(\tR\tresultRef\x12#\n" +
+	"\rresult_digest\x18\x03 \x01(\tR\fresultDigest\x12&\n" +
+	"\ffailure_code\x18\x04 \x01(\tH\x00R\vfailureCode\x88\x01\x01B\x0f\n" +
+	"\r_failure_code\"\xe2\x02\n" +
 	"\x0eBackgroundTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1e\n" +
 	"\n" +
@@ -3925,7 +4232,11 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\x11CALL_STATE_FAILED\x10\x05\x12\x15\n" +
 	"\x11CALL_STATE_DENIED\x10\x06\x12\x16\n" +
 	"\x12CALL_STATE_UNKNOWN\x10\a\x12\x17\n" +
-	"\x13CALL_STATE_CANCELED\x10\b*\xf4\x01\n" +
+	"\x13CALL_STATE_CANCELED\x10\b*d\n" +
+	"\fRefreshState\x12\x1d\n" +
+	"\x19REFRESH_STATE_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17REFRESH_STATE_COMPLETED\x10\x01\x12\x18\n" +
+	"\x14REFRESH_STATE_FAILED\x10\x02*\xf4\x01\n" +
 	"\tTaskState\x12\x1a\n" +
 	"\x16TASK_STATE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12TASK_STATE_PENDING\x10\x01\x12\x15\n" +
@@ -3948,11 +4259,14 @@ const file_anvilkit_mcp_v1_mcp_proto_rawDesc = "" +
 	"\n" +
 	"ListGrants\x12\".anvilkit.mcp.v1.ListGrantsRequest\x1a#.anvilkit.mcp.v1.ListGrantsResponse\x12X\n" +
 	"\vRevokeGrant\x12#.anvilkit.mcp.v1.RevokeGrantRequest\x1a$.anvilkit.mcp.v1.RevokeGrantResponse\x12v\n" +
-	"\x15GetRevocationProgress\x12-.anvilkit.mcp.v1.GetRevocationProgressRequest\x1a..anvilkit.mcp.v1.GetRevocationProgressResponse2\xb2\x01\n" +
+	"\x15GetRevocationProgress\x12-.anvilkit.mcp.v1.GetRevocationProgressRequest\x1a..anvilkit.mcp.v1.GetRevocationProgressResponse2\x92\x02\n" +
 	"\vCallService\x12U\n" +
 	"\n" +
 	"CreateCall\x12\".anvilkit.mcp.v1.CreateCallRequest\x1a#.anvilkit.mcp.v1.CreateCallResponse\x12L\n" +
-	"\aGetCall\x12\x1f.anvilkit.mcp.v1.GetCallRequest\x1a .anvilkit.mcp.v1.GetCallResponse2\x82\x03\n" +
+	"\aGetCall\x12\x1f.anvilkit.mcp.v1.GetCallRequest\x1a .anvilkit.mcp.v1.GetCallResponse\x12^\n" +
+	"\rReconcileCall\x12%.anvilkit.mcp.v1.ReconcileCallRequest\x1a&.anvilkit.mcp.v1.ReconcileCallResponse2z\n" +
+	"\x15CatalogRefreshService\x12a\n" +
+	"\x0eAdvanceRefresh\x12&.anvilkit.mcp.v1.AdvanceRefreshRequest\x1a'.anvilkit.mcp.v1.AdvanceRefreshResponse2\x82\x03\n" +
 	"\x15BackgroundTaskService\x12R\n" +
 	"\tClaimTask\x12!.anvilkit.mcp.v1.ClaimTaskRequest\x1a\".anvilkit.mcp.v1.ClaimTaskResponse\x12^\n" +
 	"\rHeartbeatTask\x12%.anvilkit.mcp.v1.HeartbeatTaskRequest\x1a&.anvilkit.mcp.v1.HeartbeatTaskResponse\x12g\n" +
@@ -3972,150 +4286,162 @@ func file_anvilkit_mcp_v1_mcp_proto_rawDescGZIP() []byte {
 	return file_anvilkit_mcp_v1_mcp_proto_rawDescData
 }
 
-var file_anvilkit_mcp_v1_mcp_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_anvilkit_mcp_v1_mcp_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_anvilkit_mcp_v1_mcp_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_anvilkit_mcp_v1_mcp_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_anvilkit_mcp_v1_mcp_proto_goTypes = []any{
 	(CatalogState)(0),                     // 0: anvilkit.mcp.v1.CatalogState
 	(ReviewDecision)(0),                   // 1: anvilkit.mcp.v1.ReviewDecision
 	(GrantState)(0),                       // 2: anvilkit.mcp.v1.GrantState
 	(CallState)(0),                        // 3: anvilkit.mcp.v1.CallState
-	(TaskState)(0),                        // 4: anvilkit.mcp.v1.TaskState
-	(*CommandIdentity)(nil),               // 5: anvilkit.mcp.v1.CommandIdentity
-	(*Scope)(nil),                         // 6: anvilkit.mcp.v1.Scope
-	(*Money)(nil),                         // 7: anvilkit.mcp.v1.Money
-	(*ToolSchema)(nil),                    // 8: anvilkit.mcp.v1.ToolSchema
-	(*Descriptor)(nil),                    // 9: anvilkit.mcp.v1.Descriptor
-	(*ListCatalogRequest)(nil),            // 10: anvilkit.mcp.v1.ListCatalogRequest
-	(*ListCatalogResponse)(nil),           // 11: anvilkit.mcp.v1.ListCatalogResponse
-	(*GetDescriptorRequest)(nil),          // 12: anvilkit.mcp.v1.GetDescriptorRequest
-	(*GetDescriptorResponse)(nil),         // 13: anvilkit.mcp.v1.GetDescriptorResponse
-	(*DiscoverServerRequest)(nil),         // 14: anvilkit.mcp.v1.DiscoverServerRequest
-	(*DiscoverServerResponse)(nil),        // 15: anvilkit.mcp.v1.DiscoverServerResponse
-	(*ReviewDescriptorRequest)(nil),       // 16: anvilkit.mcp.v1.ReviewDescriptorRequest
-	(*ReviewDescriptorResponse)(nil),      // 17: anvilkit.mcp.v1.ReviewDescriptorResponse
-	(*DisableDescriptorRequest)(nil),      // 18: anvilkit.mcp.v1.DisableDescriptorRequest
-	(*DisableDescriptorResponse)(nil),     // 19: anvilkit.mcp.v1.DisableDescriptorResponse
-	(*Grant)(nil),                         // 20: anvilkit.mcp.v1.Grant
-	(*CreateGrantRequest)(nil),            // 21: anvilkit.mcp.v1.CreateGrantRequest
-	(*CreateGrantResponse)(nil),           // 22: anvilkit.mcp.v1.CreateGrantResponse
-	(*GetGrantRequest)(nil),               // 23: anvilkit.mcp.v1.GetGrantRequest
-	(*GetGrantResponse)(nil),              // 24: anvilkit.mcp.v1.GetGrantResponse
-	(*ListGrantsRequest)(nil),             // 25: anvilkit.mcp.v1.ListGrantsRequest
-	(*ListGrantsResponse)(nil),            // 26: anvilkit.mcp.v1.ListGrantsResponse
-	(*RevokeGrantRequest)(nil),            // 27: anvilkit.mcp.v1.RevokeGrantRequest
-	(*RevokeGrantResponse)(nil),           // 28: anvilkit.mcp.v1.RevokeGrantResponse
-	(*GetRevocationProgressRequest)(nil),  // 29: anvilkit.mcp.v1.GetRevocationProgressRequest
-	(*GetRevocationProgressResponse)(nil), // 30: anvilkit.mcp.v1.GetRevocationProgressResponse
-	(*ToolCall)(nil),                      // 31: anvilkit.mcp.v1.ToolCall
-	(*CreateCallRequest)(nil),             // 32: anvilkit.mcp.v1.CreateCallRequest
-	(*CreateCallResponse)(nil),            // 33: anvilkit.mcp.v1.CreateCallResponse
-	(*GetCallRequest)(nil),                // 34: anvilkit.mcp.v1.GetCallRequest
-	(*GetCallResponse)(nil),               // 35: anvilkit.mcp.v1.GetCallResponse
-	(*BackgroundTask)(nil),                // 36: anvilkit.mcp.v1.BackgroundTask
-	(*ClaimTaskRequest)(nil),              // 37: anvilkit.mcp.v1.ClaimTaskRequest
-	(*ClaimTaskResponse)(nil),             // 38: anvilkit.mcp.v1.ClaimTaskResponse
-	(*HeartbeatTaskRequest)(nil),          // 39: anvilkit.mcp.v1.HeartbeatTaskRequest
-	(*HeartbeatTaskResponse)(nil),         // 40: anvilkit.mcp.v1.HeartbeatTaskResponse
-	(*SubmitTaskResultRequest)(nil),       // 41: anvilkit.mcp.v1.SubmitTaskResultRequest
-	(*SubmitTaskResultResponse)(nil),      // 42: anvilkit.mcp.v1.SubmitTaskResultResponse
-	(*GetTaskRequest)(nil),                // 43: anvilkit.mcp.v1.GetTaskRequest
-	(*GetTaskResponse)(nil),               // 44: anvilkit.mcp.v1.GetTaskResponse
-	(*timestamppb.Timestamp)(nil),         // 45: google.protobuf.Timestamp
+	(RefreshState)(0),                     // 4: anvilkit.mcp.v1.RefreshState
+	(TaskState)(0),                        // 5: anvilkit.mcp.v1.TaskState
+	(*CommandIdentity)(nil),               // 6: anvilkit.mcp.v1.CommandIdentity
+	(*Scope)(nil),                         // 7: anvilkit.mcp.v1.Scope
+	(*Money)(nil),                         // 8: anvilkit.mcp.v1.Money
+	(*ToolSchema)(nil),                    // 9: anvilkit.mcp.v1.ToolSchema
+	(*Descriptor)(nil),                    // 10: anvilkit.mcp.v1.Descriptor
+	(*ListCatalogRequest)(nil),            // 11: anvilkit.mcp.v1.ListCatalogRequest
+	(*ListCatalogResponse)(nil),           // 12: anvilkit.mcp.v1.ListCatalogResponse
+	(*GetDescriptorRequest)(nil),          // 13: anvilkit.mcp.v1.GetDescriptorRequest
+	(*GetDescriptorResponse)(nil),         // 14: anvilkit.mcp.v1.GetDescriptorResponse
+	(*DiscoverServerRequest)(nil),         // 15: anvilkit.mcp.v1.DiscoverServerRequest
+	(*DiscoverServerResponse)(nil),        // 16: anvilkit.mcp.v1.DiscoverServerResponse
+	(*ReviewDescriptorRequest)(nil),       // 17: anvilkit.mcp.v1.ReviewDescriptorRequest
+	(*ReviewDescriptorResponse)(nil),      // 18: anvilkit.mcp.v1.ReviewDescriptorResponse
+	(*DisableDescriptorRequest)(nil),      // 19: anvilkit.mcp.v1.DisableDescriptorRequest
+	(*DisableDescriptorResponse)(nil),     // 20: anvilkit.mcp.v1.DisableDescriptorResponse
+	(*Grant)(nil),                         // 21: anvilkit.mcp.v1.Grant
+	(*CreateGrantRequest)(nil),            // 22: anvilkit.mcp.v1.CreateGrantRequest
+	(*CreateGrantResponse)(nil),           // 23: anvilkit.mcp.v1.CreateGrantResponse
+	(*GetGrantRequest)(nil),               // 24: anvilkit.mcp.v1.GetGrantRequest
+	(*GetGrantResponse)(nil),              // 25: anvilkit.mcp.v1.GetGrantResponse
+	(*ListGrantsRequest)(nil),             // 26: anvilkit.mcp.v1.ListGrantsRequest
+	(*ListGrantsResponse)(nil),            // 27: anvilkit.mcp.v1.ListGrantsResponse
+	(*RevokeGrantRequest)(nil),            // 28: anvilkit.mcp.v1.RevokeGrantRequest
+	(*RevokeGrantResponse)(nil),           // 29: anvilkit.mcp.v1.RevokeGrantResponse
+	(*GetRevocationProgressRequest)(nil),  // 30: anvilkit.mcp.v1.GetRevocationProgressRequest
+	(*GetRevocationProgressResponse)(nil), // 31: anvilkit.mcp.v1.GetRevocationProgressResponse
+	(*ToolCall)(nil),                      // 32: anvilkit.mcp.v1.ToolCall
+	(*CreateCallRequest)(nil),             // 33: anvilkit.mcp.v1.CreateCallRequest
+	(*CreateCallResponse)(nil),            // 34: anvilkit.mcp.v1.CreateCallResponse
+	(*GetCallRequest)(nil),                // 35: anvilkit.mcp.v1.GetCallRequest
+	(*GetCallResponse)(nil),               // 36: anvilkit.mcp.v1.GetCallResponse
+	(*ReconcileCallRequest)(nil),          // 37: anvilkit.mcp.v1.ReconcileCallRequest
+	(*ReconcileCallResponse)(nil),         // 38: anvilkit.mcp.v1.ReconcileCallResponse
+	(*AdvanceRefreshRequest)(nil),         // 39: anvilkit.mcp.v1.AdvanceRefreshRequest
+	(*AdvanceRefreshResponse)(nil),        // 40: anvilkit.mcp.v1.AdvanceRefreshResponse
+	(*BackgroundTask)(nil),                // 41: anvilkit.mcp.v1.BackgroundTask
+	(*ClaimTaskRequest)(nil),              // 42: anvilkit.mcp.v1.ClaimTaskRequest
+	(*ClaimTaskResponse)(nil),             // 43: anvilkit.mcp.v1.ClaimTaskResponse
+	(*HeartbeatTaskRequest)(nil),          // 44: anvilkit.mcp.v1.HeartbeatTaskRequest
+	(*HeartbeatTaskResponse)(nil),         // 45: anvilkit.mcp.v1.HeartbeatTaskResponse
+	(*SubmitTaskResultRequest)(nil),       // 46: anvilkit.mcp.v1.SubmitTaskResultRequest
+	(*SubmitTaskResultResponse)(nil),      // 47: anvilkit.mcp.v1.SubmitTaskResultResponse
+	(*GetTaskRequest)(nil),                // 48: anvilkit.mcp.v1.GetTaskRequest
+	(*GetTaskResponse)(nil),               // 49: anvilkit.mcp.v1.GetTaskResponse
+	(*timestamppb.Timestamp)(nil),         // 50: google.protobuf.Timestamp
 }
 var file_anvilkit_mcp_v1_mcp_proto_depIdxs = []int32{
-	7,  // 0: anvilkit.mcp.v1.ToolSchema.unit_price:type_name -> anvilkit.mcp.v1.Money
-	8,  // 1: anvilkit.mcp.v1.Descriptor.tools:type_name -> anvilkit.mcp.v1.ToolSchema
+	8,  // 0: anvilkit.mcp.v1.ToolSchema.unit_price:type_name -> anvilkit.mcp.v1.Money
+	9,  // 1: anvilkit.mcp.v1.Descriptor.tools:type_name -> anvilkit.mcp.v1.ToolSchema
 	0,  // 2: anvilkit.mcp.v1.Descriptor.state:type_name -> anvilkit.mcp.v1.CatalogState
-	45, // 3: anvilkit.mcp.v1.Descriptor.created_at:type_name -> google.protobuf.Timestamp
-	45, // 4: anvilkit.mcp.v1.Descriptor.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 5: anvilkit.mcp.v1.ListCatalogRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	50, // 3: anvilkit.mcp.v1.Descriptor.created_at:type_name -> google.protobuf.Timestamp
+	50, // 4: anvilkit.mcp.v1.Descriptor.updated_at:type_name -> google.protobuf.Timestamp
+	7,  // 5: anvilkit.mcp.v1.ListCatalogRequest.scope:type_name -> anvilkit.mcp.v1.Scope
 	0,  // 6: anvilkit.mcp.v1.ListCatalogRequest.state:type_name -> anvilkit.mcp.v1.CatalogState
-	9,  // 7: anvilkit.mcp.v1.ListCatalogResponse.descriptors:type_name -> anvilkit.mcp.v1.Descriptor
-	6,  // 8: anvilkit.mcp.v1.GetDescriptorRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	9,  // 9: anvilkit.mcp.v1.GetDescriptorResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
-	5,  // 10: anvilkit.mcp.v1.DiscoverServerRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
-	6,  // 11: anvilkit.mcp.v1.DiscoverServerRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	8,  // 12: anvilkit.mcp.v1.DiscoverServerRequest.tools:type_name -> anvilkit.mcp.v1.ToolSchema
-	9,  // 13: anvilkit.mcp.v1.DiscoverServerResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
-	5,  // 14: anvilkit.mcp.v1.ReviewDescriptorRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
-	6,  // 15: anvilkit.mcp.v1.ReviewDescriptorRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	10, // 7: anvilkit.mcp.v1.ListCatalogResponse.descriptors:type_name -> anvilkit.mcp.v1.Descriptor
+	7,  // 8: anvilkit.mcp.v1.GetDescriptorRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	10, // 9: anvilkit.mcp.v1.GetDescriptorResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
+	6,  // 10: anvilkit.mcp.v1.DiscoverServerRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
+	7,  // 11: anvilkit.mcp.v1.DiscoverServerRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	9,  // 12: anvilkit.mcp.v1.DiscoverServerRequest.tools:type_name -> anvilkit.mcp.v1.ToolSchema
+	10, // 13: anvilkit.mcp.v1.DiscoverServerResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
+	6,  // 14: anvilkit.mcp.v1.ReviewDescriptorRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
+	7,  // 15: anvilkit.mcp.v1.ReviewDescriptorRequest.scope:type_name -> anvilkit.mcp.v1.Scope
 	1,  // 16: anvilkit.mcp.v1.ReviewDescriptorRequest.decision:type_name -> anvilkit.mcp.v1.ReviewDecision
-	9,  // 17: anvilkit.mcp.v1.ReviewDescriptorResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
-	5,  // 18: anvilkit.mcp.v1.DisableDescriptorRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
-	6,  // 19: anvilkit.mcp.v1.DisableDescriptorRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	9,  // 20: anvilkit.mcp.v1.DisableDescriptorResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
-	7,  // 21: anvilkit.mcp.v1.Grant.cost_cap:type_name -> anvilkit.mcp.v1.Money
+	10, // 17: anvilkit.mcp.v1.ReviewDescriptorResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
+	6,  // 18: anvilkit.mcp.v1.DisableDescriptorRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
+	7,  // 19: anvilkit.mcp.v1.DisableDescriptorRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	10, // 20: anvilkit.mcp.v1.DisableDescriptorResponse.descriptor:type_name -> anvilkit.mcp.v1.Descriptor
+	8,  // 21: anvilkit.mcp.v1.Grant.cost_cap:type_name -> anvilkit.mcp.v1.Money
 	2,  // 22: anvilkit.mcp.v1.Grant.state:type_name -> anvilkit.mcp.v1.GrantState
-	45, // 23: anvilkit.mcp.v1.Grant.expires_at:type_name -> google.protobuf.Timestamp
-	45, // 24: anvilkit.mcp.v1.Grant.created_at:type_name -> google.protobuf.Timestamp
-	45, // 25: anvilkit.mcp.v1.Grant.updated_at:type_name -> google.protobuf.Timestamp
-	5,  // 26: anvilkit.mcp.v1.CreateGrantRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
-	6,  // 27: anvilkit.mcp.v1.CreateGrantRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	7,  // 28: anvilkit.mcp.v1.CreateGrantRequest.cost_cap:type_name -> anvilkit.mcp.v1.Money
-	45, // 29: anvilkit.mcp.v1.CreateGrantRequest.expires_at:type_name -> google.protobuf.Timestamp
-	20, // 30: anvilkit.mcp.v1.CreateGrantResponse.grant:type_name -> anvilkit.mcp.v1.Grant
-	6,  // 31: anvilkit.mcp.v1.GetGrantRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	20, // 32: anvilkit.mcp.v1.GetGrantResponse.grant:type_name -> anvilkit.mcp.v1.Grant
-	6,  // 33: anvilkit.mcp.v1.ListGrantsRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	50, // 23: anvilkit.mcp.v1.Grant.expires_at:type_name -> google.protobuf.Timestamp
+	50, // 24: anvilkit.mcp.v1.Grant.created_at:type_name -> google.protobuf.Timestamp
+	50, // 25: anvilkit.mcp.v1.Grant.updated_at:type_name -> google.protobuf.Timestamp
+	6,  // 26: anvilkit.mcp.v1.CreateGrantRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
+	7,  // 27: anvilkit.mcp.v1.CreateGrantRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	8,  // 28: anvilkit.mcp.v1.CreateGrantRequest.cost_cap:type_name -> anvilkit.mcp.v1.Money
+	50, // 29: anvilkit.mcp.v1.CreateGrantRequest.expires_at:type_name -> google.protobuf.Timestamp
+	21, // 30: anvilkit.mcp.v1.CreateGrantResponse.grant:type_name -> anvilkit.mcp.v1.Grant
+	7,  // 31: anvilkit.mcp.v1.GetGrantRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	21, // 32: anvilkit.mcp.v1.GetGrantResponse.grant:type_name -> anvilkit.mcp.v1.Grant
+	7,  // 33: anvilkit.mcp.v1.ListGrantsRequest.scope:type_name -> anvilkit.mcp.v1.Scope
 	2,  // 34: anvilkit.mcp.v1.ListGrantsRequest.state:type_name -> anvilkit.mcp.v1.GrantState
-	20, // 35: anvilkit.mcp.v1.ListGrantsResponse.grants:type_name -> anvilkit.mcp.v1.Grant
-	5,  // 36: anvilkit.mcp.v1.RevokeGrantRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
-	6,  // 37: anvilkit.mcp.v1.RevokeGrantRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	20, // 38: anvilkit.mcp.v1.RevokeGrantResponse.grant:type_name -> anvilkit.mcp.v1.Grant
-	6,  // 39: anvilkit.mcp.v1.GetRevocationProgressRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	20, // 40: anvilkit.mcp.v1.GetRevocationProgressResponse.grant:type_name -> anvilkit.mcp.v1.Grant
+	21, // 35: anvilkit.mcp.v1.ListGrantsResponse.grants:type_name -> anvilkit.mcp.v1.Grant
+	6,  // 36: anvilkit.mcp.v1.RevokeGrantRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
+	7,  // 37: anvilkit.mcp.v1.RevokeGrantRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	21, // 38: anvilkit.mcp.v1.RevokeGrantResponse.grant:type_name -> anvilkit.mcp.v1.Grant
+	7,  // 39: anvilkit.mcp.v1.GetRevocationProgressRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	21, // 40: anvilkit.mcp.v1.GetRevocationProgressResponse.grant:type_name -> anvilkit.mcp.v1.Grant
 	3,  // 41: anvilkit.mcp.v1.ToolCall.state:type_name -> anvilkit.mcp.v1.CallState
-	45, // 42: anvilkit.mcp.v1.ToolCall.created_at:type_name -> google.protobuf.Timestamp
-	45, // 43: anvilkit.mcp.v1.ToolCall.updated_at:type_name -> google.protobuf.Timestamp
-	5,  // 44: anvilkit.mcp.v1.CreateCallRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
-	6,  // 45: anvilkit.mcp.v1.CreateCallRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	45, // 46: anvilkit.mcp.v1.CreateCallRequest.deadline:type_name -> google.protobuf.Timestamp
-	31, // 47: anvilkit.mcp.v1.CreateCallResponse.call:type_name -> anvilkit.mcp.v1.ToolCall
-	6,  // 48: anvilkit.mcp.v1.GetCallRequest.scope:type_name -> anvilkit.mcp.v1.Scope
-	31, // 49: anvilkit.mcp.v1.GetCallResponse.call:type_name -> anvilkit.mcp.v1.ToolCall
-	4,  // 50: anvilkit.mcp.v1.BackgroundTask.state:type_name -> anvilkit.mcp.v1.TaskState
-	45, // 51: anvilkit.mcp.v1.BackgroundTask.lease_until:type_name -> google.protobuf.Timestamp
-	36, // 52: anvilkit.mcp.v1.ClaimTaskResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
-	36, // 53: anvilkit.mcp.v1.HeartbeatTaskResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
-	36, // 54: anvilkit.mcp.v1.SubmitTaskResultResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
-	36, // 55: anvilkit.mcp.v1.GetTaskResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
-	10, // 56: anvilkit.mcp.v1.CatalogService.ListCatalog:input_type -> anvilkit.mcp.v1.ListCatalogRequest
-	12, // 57: anvilkit.mcp.v1.CatalogService.GetDescriptor:input_type -> anvilkit.mcp.v1.GetDescriptorRequest
-	14, // 58: anvilkit.mcp.v1.CatalogService.DiscoverServer:input_type -> anvilkit.mcp.v1.DiscoverServerRequest
-	16, // 59: anvilkit.mcp.v1.CatalogService.ReviewDescriptor:input_type -> anvilkit.mcp.v1.ReviewDescriptorRequest
-	18, // 60: anvilkit.mcp.v1.CatalogService.DisableDescriptor:input_type -> anvilkit.mcp.v1.DisableDescriptorRequest
-	21, // 61: anvilkit.mcp.v1.GrantService.CreateGrant:input_type -> anvilkit.mcp.v1.CreateGrantRequest
-	23, // 62: anvilkit.mcp.v1.GrantService.GetGrant:input_type -> anvilkit.mcp.v1.GetGrantRequest
-	25, // 63: anvilkit.mcp.v1.GrantService.ListGrants:input_type -> anvilkit.mcp.v1.ListGrantsRequest
-	27, // 64: anvilkit.mcp.v1.GrantService.RevokeGrant:input_type -> anvilkit.mcp.v1.RevokeGrantRequest
-	29, // 65: anvilkit.mcp.v1.GrantService.GetRevocationProgress:input_type -> anvilkit.mcp.v1.GetRevocationProgressRequest
-	32, // 66: anvilkit.mcp.v1.CallService.CreateCall:input_type -> anvilkit.mcp.v1.CreateCallRequest
-	34, // 67: anvilkit.mcp.v1.CallService.GetCall:input_type -> anvilkit.mcp.v1.GetCallRequest
-	37, // 68: anvilkit.mcp.v1.BackgroundTaskService.ClaimTask:input_type -> anvilkit.mcp.v1.ClaimTaskRequest
-	39, // 69: anvilkit.mcp.v1.BackgroundTaskService.HeartbeatTask:input_type -> anvilkit.mcp.v1.HeartbeatTaskRequest
-	41, // 70: anvilkit.mcp.v1.BackgroundTaskService.SubmitTaskResult:input_type -> anvilkit.mcp.v1.SubmitTaskResultRequest
-	43, // 71: anvilkit.mcp.v1.BackgroundTaskService.GetTask:input_type -> anvilkit.mcp.v1.GetTaskRequest
-	11, // 72: anvilkit.mcp.v1.CatalogService.ListCatalog:output_type -> anvilkit.mcp.v1.ListCatalogResponse
-	13, // 73: anvilkit.mcp.v1.CatalogService.GetDescriptor:output_type -> anvilkit.mcp.v1.GetDescriptorResponse
-	15, // 74: anvilkit.mcp.v1.CatalogService.DiscoverServer:output_type -> anvilkit.mcp.v1.DiscoverServerResponse
-	17, // 75: anvilkit.mcp.v1.CatalogService.ReviewDescriptor:output_type -> anvilkit.mcp.v1.ReviewDescriptorResponse
-	19, // 76: anvilkit.mcp.v1.CatalogService.DisableDescriptor:output_type -> anvilkit.mcp.v1.DisableDescriptorResponse
-	22, // 77: anvilkit.mcp.v1.GrantService.CreateGrant:output_type -> anvilkit.mcp.v1.CreateGrantResponse
-	24, // 78: anvilkit.mcp.v1.GrantService.GetGrant:output_type -> anvilkit.mcp.v1.GetGrantResponse
-	26, // 79: anvilkit.mcp.v1.GrantService.ListGrants:output_type -> anvilkit.mcp.v1.ListGrantsResponse
-	28, // 80: anvilkit.mcp.v1.GrantService.RevokeGrant:output_type -> anvilkit.mcp.v1.RevokeGrantResponse
-	30, // 81: anvilkit.mcp.v1.GrantService.GetRevocationProgress:output_type -> anvilkit.mcp.v1.GetRevocationProgressResponse
-	33, // 82: anvilkit.mcp.v1.CallService.CreateCall:output_type -> anvilkit.mcp.v1.CreateCallResponse
-	35, // 83: anvilkit.mcp.v1.CallService.GetCall:output_type -> anvilkit.mcp.v1.GetCallResponse
-	38, // 84: anvilkit.mcp.v1.BackgroundTaskService.ClaimTask:output_type -> anvilkit.mcp.v1.ClaimTaskResponse
-	40, // 85: anvilkit.mcp.v1.BackgroundTaskService.HeartbeatTask:output_type -> anvilkit.mcp.v1.HeartbeatTaskResponse
-	42, // 86: anvilkit.mcp.v1.BackgroundTaskService.SubmitTaskResult:output_type -> anvilkit.mcp.v1.SubmitTaskResultResponse
-	44, // 87: anvilkit.mcp.v1.BackgroundTaskService.GetTask:output_type -> anvilkit.mcp.v1.GetTaskResponse
-	72, // [72:88] is the sub-list for method output_type
-	56, // [56:72] is the sub-list for method input_type
-	56, // [56:56] is the sub-list for extension type_name
-	56, // [56:56] is the sub-list for extension extendee
-	0,  // [0:56] is the sub-list for field type_name
+	50, // 42: anvilkit.mcp.v1.ToolCall.created_at:type_name -> google.protobuf.Timestamp
+	50, // 43: anvilkit.mcp.v1.ToolCall.updated_at:type_name -> google.protobuf.Timestamp
+	6,  // 44: anvilkit.mcp.v1.CreateCallRequest.command:type_name -> anvilkit.mcp.v1.CommandIdentity
+	7,  // 45: anvilkit.mcp.v1.CreateCallRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	50, // 46: anvilkit.mcp.v1.CreateCallRequest.deadline:type_name -> google.protobuf.Timestamp
+	32, // 47: anvilkit.mcp.v1.CreateCallResponse.call:type_name -> anvilkit.mcp.v1.ToolCall
+	7,  // 48: anvilkit.mcp.v1.GetCallRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	32, // 49: anvilkit.mcp.v1.GetCallResponse.call:type_name -> anvilkit.mcp.v1.ToolCall
+	7,  // 50: anvilkit.mcp.v1.ReconcileCallRequest.scope:type_name -> anvilkit.mcp.v1.Scope
+	32, // 51: anvilkit.mcp.v1.ReconcileCallResponse.call:type_name -> anvilkit.mcp.v1.ToolCall
+	4,  // 52: anvilkit.mcp.v1.AdvanceRefreshResponse.state:type_name -> anvilkit.mcp.v1.RefreshState
+	5,  // 53: anvilkit.mcp.v1.BackgroundTask.state:type_name -> anvilkit.mcp.v1.TaskState
+	50, // 54: anvilkit.mcp.v1.BackgroundTask.lease_until:type_name -> google.protobuf.Timestamp
+	41, // 55: anvilkit.mcp.v1.ClaimTaskResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
+	41, // 56: anvilkit.mcp.v1.HeartbeatTaskResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
+	41, // 57: anvilkit.mcp.v1.SubmitTaskResultResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
+	41, // 58: anvilkit.mcp.v1.GetTaskResponse.task:type_name -> anvilkit.mcp.v1.BackgroundTask
+	11, // 59: anvilkit.mcp.v1.CatalogService.ListCatalog:input_type -> anvilkit.mcp.v1.ListCatalogRequest
+	13, // 60: anvilkit.mcp.v1.CatalogService.GetDescriptor:input_type -> anvilkit.mcp.v1.GetDescriptorRequest
+	15, // 61: anvilkit.mcp.v1.CatalogService.DiscoverServer:input_type -> anvilkit.mcp.v1.DiscoverServerRequest
+	17, // 62: anvilkit.mcp.v1.CatalogService.ReviewDescriptor:input_type -> anvilkit.mcp.v1.ReviewDescriptorRequest
+	19, // 63: anvilkit.mcp.v1.CatalogService.DisableDescriptor:input_type -> anvilkit.mcp.v1.DisableDescriptorRequest
+	22, // 64: anvilkit.mcp.v1.GrantService.CreateGrant:input_type -> anvilkit.mcp.v1.CreateGrantRequest
+	24, // 65: anvilkit.mcp.v1.GrantService.GetGrant:input_type -> anvilkit.mcp.v1.GetGrantRequest
+	26, // 66: anvilkit.mcp.v1.GrantService.ListGrants:input_type -> anvilkit.mcp.v1.ListGrantsRequest
+	28, // 67: anvilkit.mcp.v1.GrantService.RevokeGrant:input_type -> anvilkit.mcp.v1.RevokeGrantRequest
+	30, // 68: anvilkit.mcp.v1.GrantService.GetRevocationProgress:input_type -> anvilkit.mcp.v1.GetRevocationProgressRequest
+	33, // 69: anvilkit.mcp.v1.CallService.CreateCall:input_type -> anvilkit.mcp.v1.CreateCallRequest
+	35, // 70: anvilkit.mcp.v1.CallService.GetCall:input_type -> anvilkit.mcp.v1.GetCallRequest
+	37, // 71: anvilkit.mcp.v1.CallService.ReconcileCall:input_type -> anvilkit.mcp.v1.ReconcileCallRequest
+	39, // 72: anvilkit.mcp.v1.CatalogRefreshService.AdvanceRefresh:input_type -> anvilkit.mcp.v1.AdvanceRefreshRequest
+	42, // 73: anvilkit.mcp.v1.BackgroundTaskService.ClaimTask:input_type -> anvilkit.mcp.v1.ClaimTaskRequest
+	44, // 74: anvilkit.mcp.v1.BackgroundTaskService.HeartbeatTask:input_type -> anvilkit.mcp.v1.HeartbeatTaskRequest
+	46, // 75: anvilkit.mcp.v1.BackgroundTaskService.SubmitTaskResult:input_type -> anvilkit.mcp.v1.SubmitTaskResultRequest
+	48, // 76: anvilkit.mcp.v1.BackgroundTaskService.GetTask:input_type -> anvilkit.mcp.v1.GetTaskRequest
+	12, // 77: anvilkit.mcp.v1.CatalogService.ListCatalog:output_type -> anvilkit.mcp.v1.ListCatalogResponse
+	14, // 78: anvilkit.mcp.v1.CatalogService.GetDescriptor:output_type -> anvilkit.mcp.v1.GetDescriptorResponse
+	16, // 79: anvilkit.mcp.v1.CatalogService.DiscoverServer:output_type -> anvilkit.mcp.v1.DiscoverServerResponse
+	18, // 80: anvilkit.mcp.v1.CatalogService.ReviewDescriptor:output_type -> anvilkit.mcp.v1.ReviewDescriptorResponse
+	20, // 81: anvilkit.mcp.v1.CatalogService.DisableDescriptor:output_type -> anvilkit.mcp.v1.DisableDescriptorResponse
+	23, // 82: anvilkit.mcp.v1.GrantService.CreateGrant:output_type -> anvilkit.mcp.v1.CreateGrantResponse
+	25, // 83: anvilkit.mcp.v1.GrantService.GetGrant:output_type -> anvilkit.mcp.v1.GetGrantResponse
+	27, // 84: anvilkit.mcp.v1.GrantService.ListGrants:output_type -> anvilkit.mcp.v1.ListGrantsResponse
+	29, // 85: anvilkit.mcp.v1.GrantService.RevokeGrant:output_type -> anvilkit.mcp.v1.RevokeGrantResponse
+	31, // 86: anvilkit.mcp.v1.GrantService.GetRevocationProgress:output_type -> anvilkit.mcp.v1.GetRevocationProgressResponse
+	34, // 87: anvilkit.mcp.v1.CallService.CreateCall:output_type -> anvilkit.mcp.v1.CreateCallResponse
+	36, // 88: anvilkit.mcp.v1.CallService.GetCall:output_type -> anvilkit.mcp.v1.GetCallResponse
+	38, // 89: anvilkit.mcp.v1.CallService.ReconcileCall:output_type -> anvilkit.mcp.v1.ReconcileCallResponse
+	40, // 90: anvilkit.mcp.v1.CatalogRefreshService.AdvanceRefresh:output_type -> anvilkit.mcp.v1.AdvanceRefreshResponse
+	43, // 91: anvilkit.mcp.v1.BackgroundTaskService.ClaimTask:output_type -> anvilkit.mcp.v1.ClaimTaskResponse
+	45, // 92: anvilkit.mcp.v1.BackgroundTaskService.HeartbeatTask:output_type -> anvilkit.mcp.v1.HeartbeatTaskResponse
+	47, // 93: anvilkit.mcp.v1.BackgroundTaskService.SubmitTaskResult:output_type -> anvilkit.mcp.v1.SubmitTaskResultResponse
+	49, // 94: anvilkit.mcp.v1.BackgroundTaskService.GetTask:output_type -> anvilkit.mcp.v1.GetTaskResponse
+	77, // [77:95] is the sub-list for method output_type
+	59, // [59:77] is the sub-list for method input_type
+	59, // [59:59] is the sub-list for extension type_name
+	59, // [59:59] is the sub-list for extension extendee
+	0,  // [0:59] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_mcp_v1_mcp_proto_init() }
@@ -4130,17 +4456,18 @@ func file_anvilkit_mcp_v1_mcp_proto_init() {
 	file_anvilkit_mcp_v1_mcp_proto_msgTypes[16].OneofWrappers = []any{}
 	file_anvilkit_mcp_v1_mcp_proto_msgTypes[22].OneofWrappers = []any{}
 	file_anvilkit_mcp_v1_mcp_proto_msgTypes[26].OneofWrappers = []any{}
-	file_anvilkit_mcp_v1_mcp_proto_msgTypes[31].OneofWrappers = []any{}
-	file_anvilkit_mcp_v1_mcp_proto_msgTypes[36].OneofWrappers = []any{}
+	file_anvilkit_mcp_v1_mcp_proto_msgTypes[34].OneofWrappers = []any{}
+	file_anvilkit_mcp_v1_mcp_proto_msgTypes[35].OneofWrappers = []any{}
+	file_anvilkit_mcp_v1_mcp_proto_msgTypes[40].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_anvilkit_mcp_v1_mcp_proto_rawDesc), len(file_anvilkit_mcp_v1_mcp_proto_rawDesc)),
-			NumEnums:      5,
-			NumMessages:   40,
+			NumEnums:      6,
+			NumMessages:   44,
 			NumExtensions: 0,
-			NumServices:   4,
+			NumServices:   5,
 		},
 		GoTypes:           file_anvilkit_mcp_v1_mcp_proto_goTypes,
 		DependencyIndexes: file_anvilkit_mcp_v1_mcp_proto_depIdxs,

@@ -28,14 +28,21 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// P2.6: document is the only implemented kind (an uploaded file, parsed by
+// the parser Job). The other values stay reserved on the wire (FILE-level
+// compatibility) but are deprecated, absent from the public API and refused
+// by RegisterSourceRequest's validation until a reader exists.
 type SourceKind int32
 
 const (
 	SourceKind_SOURCE_KIND_UNSPECIFIED SourceKind = 0
 	SourceKind_SOURCE_KIND_DOCUMENT    SourceKind = 1
-	SourceKind_SOURCE_KIND_URL         SourceKind = 2
-	SourceKind_SOURCE_KIND_REPOSITORY  SourceKind = 3
-	SourceKind_SOURCE_KIND_BRAND       SourceKind = 4
+	// Deprecated: Marked as deprecated in anvilkit/knowledge/v1/knowledge.proto.
+	SourceKind_SOURCE_KIND_URL SourceKind = 2
+	// Deprecated: Marked as deprecated in anvilkit/knowledge/v1/knowledge.proto.
+	SourceKind_SOURCE_KIND_REPOSITORY SourceKind = 3
+	// Deprecated: Marked as deprecated in anvilkit/knowledge/v1/knowledge.proto.
+	SourceKind_SOURCE_KIND_BRAND SourceKind = 4
 )
 
 // Enum value maps for SourceKind.
@@ -643,6 +650,10 @@ type AccessEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PrincipalType string                 `protobuf:"bytes,1,opt,name=principal_type,json=principalType,proto3" json:"principal_type,omitempty"`
 	PrincipalId   string                 `protobuf:"bytes,2,opt,name=principal_id,json=principalId,proto3" json:"principal_id,omitempty"`
+	// P2.7: read (empty is read), or manage: read, replace the ACL and delete.
+	// The registering actor owns the source and manages it without an entry;
+	// a role entry is held only through roles the API verified.
+	Permission    string `protobuf:"bytes,3,opt,name=permission,proto3" json:"permission,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -687,6 +698,13 @@ func (x *AccessEntry) GetPrincipalType() string {
 func (x *AccessEntry) GetPrincipalId() string {
 	if x != nil {
 		return x.PrincipalId
+	}
+	return ""
+}
+
+func (x *AccessEntry) GetPermission() string {
+	if x != nil {
+		return x.Permission
 	}
 	return ""
 }
@@ -831,23 +849,189 @@ func (x *Source) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-type RegisterSourceRequest struct {
+type BeginUploadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
 	Scope         *Scope                 `protobuf:"bytes,2,opt,name=scope,proto3" json:"scope,omitempty"`
-	Kind          SourceKind             `protobuf:"varint,3,opt,name=kind,proto3,enum=anvilkit.knowledge.v1.SourceKind" json:"kind,omitempty"`
-	Locator       string                 `protobuf:"bytes,4,opt,name=locator,proto3" json:"locator,omitempty"`
-	ContentDigest string                 `protobuf:"bytes,5,opt,name=content_digest,json=contentDigest,proto3" json:"content_digest,omitempty"`
-	MediaType     string                 `protobuf:"bytes,6,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
-	SizeBytes     string                 `protobuf:"bytes,7,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	Access        []*AccessEntry         `protobuf:"bytes,8,rep,name=access,proto3" json:"access,omitempty"`
+	ContentDigest string                 `protobuf:"bytes,3,opt,name=content_digest,json=contentDigest,proto3" json:"content_digest,omitempty"`
+	SizeBytes     string                 `protobuf:"bytes,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	MediaType     string                 `protobuf:"bytes,5,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BeginUploadRequest) Reset() {
+	*x = BeginUploadRequest{}
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeginUploadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeginUploadRequest) ProtoMessage() {}
+
+func (x *BeginUploadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeginUploadRequest.ProtoReflect.Descriptor instead.
+func (*BeginUploadRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *BeginUploadRequest) GetCommand() *CommandIdentity {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *BeginUploadRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *BeginUploadRequest) GetContentDigest() string {
+	if x != nil {
+		return x.ContentDigest
+	}
+	return ""
+}
+
+func (x *BeginUploadRequest) GetSizeBytes() string {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return ""
+}
+
+func (x *BeginUploadRequest) GetMediaType() string {
+	if x != nil {
+		return x.MediaType
+	}
+	return ""
+}
+
+type BeginUploadResponse struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	UploadId string                 `protobuf:"bytes,1,opt,name=upload_id,json=uploadId,proto3" json:"upload_id,omitempty"`
+	// The capability itself: whoever holds it may write the declared bytes
+	// once before expires_at. It never reaches a browser through the API's
+	// own pages; a trusted caller performs the PUT.
+	UploadUrl    string `protobuf:"bytes,2,opt,name=upload_url,json=uploadUrl,proto3" json:"upload_url,omitempty"`
+	UploadMethod string `protobuf:"bytes,3,opt,name=upload_method,json=uploadMethod,proto3" json:"upload_method,omitempty"`
+	// Every header the PUT must carry exactly (they are signed).
+	UploadHeaders map[string]string      `protobuf:"bytes,4,rep,name=upload_headers,json=uploadHeaders,proto3" json:"upload_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Existing      bool                   `protobuf:"varint,6,opt,name=existing,proto3" json:"existing,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BeginUploadResponse) Reset() {
+	*x = BeginUploadResponse{}
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeginUploadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeginUploadResponse) ProtoMessage() {}
+
+func (x *BeginUploadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeginUploadResponse.ProtoReflect.Descriptor instead.
+func (*BeginUploadResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *BeginUploadResponse) GetUploadId() string {
+	if x != nil {
+		return x.UploadId
+	}
+	return ""
+}
+
+func (x *BeginUploadResponse) GetUploadUrl() string {
+	if x != nil {
+		return x.UploadUrl
+	}
+	return ""
+}
+
+func (x *BeginUploadResponse) GetUploadMethod() string {
+	if x != nil {
+		return x.UploadMethod
+	}
+	return ""
+}
+
+func (x *BeginUploadResponse) GetUploadHeaders() map[string]string {
+	if x != nil {
+		return x.UploadHeaders
+	}
+	return nil
+}
+
+func (x *BeginUploadResponse) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *BeginUploadResponse) GetExisting() bool {
+	if x != nil {
+		return x.Existing
+	}
+	return false
+}
+
+type RegisterSourceRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Command *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+	Scope   *Scope                 `protobuf:"bytes,2,opt,name=scope,proto3" json:"scope,omitempty"`
+	// P2.6: only SOURCE_KIND_DOCUMENT is registered.
+	Kind SourceKind `protobuf:"varint,3,opt,name=kind,proto3,enum=anvilkit.knowledge.v1.SourceKind" json:"kind,omitempty"`
+	// A document names its upload: "upload:<upload_id>" of BeginUpload.
+	Locator       string         `protobuf:"bytes,4,opt,name=locator,proto3" json:"locator,omitempty"`
+	ContentDigest string         `protobuf:"bytes,5,opt,name=content_digest,json=contentDigest,proto3" json:"content_digest,omitempty"`
+	MediaType     string         `protobuf:"bytes,6,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	SizeBytes     string         `protobuf:"bytes,7,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	Access        []*AccessEntry `protobuf:"bytes,8,rep,name=access,proto3" json:"access,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterSourceRequest) Reset() {
 	*x = RegisterSourceRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[4]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -859,7 +1043,7 @@ func (x *RegisterSourceRequest) String() string {
 func (*RegisterSourceRequest) ProtoMessage() {}
 
 func (x *RegisterSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[4]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -872,7 +1056,7 @@ func (x *RegisterSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterSourceRequest.ProtoReflect.Descriptor instead.
 func (*RegisterSourceRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{4}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RegisterSourceRequest) GetCommand() *CommandIdentity {
@@ -942,7 +1126,7 @@ type RegisterSourceResponse struct {
 
 func (x *RegisterSourceResponse) Reset() {
 	*x = RegisterSourceResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[5]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -954,7 +1138,7 @@ func (x *RegisterSourceResponse) String() string {
 func (*RegisterSourceResponse) ProtoMessage() {}
 
 func (x *RegisterSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[5]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -967,7 +1151,7 @@ func (x *RegisterSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterSourceResponse.ProtoReflect.Descriptor instead.
 func (*RegisterSourceResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{5}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RegisterSourceResponse) GetSource() *Source {
@@ -1001,7 +1185,7 @@ type GetSourceRequest struct {
 
 func (x *GetSourceRequest) Reset() {
 	*x = GetSourceRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[6]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1013,7 +1197,7 @@ func (x *GetSourceRequest) String() string {
 func (*GetSourceRequest) ProtoMessage() {}
 
 func (x *GetSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[6]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1026,7 +1210,7 @@ func (x *GetSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSourceRequest.ProtoReflect.Descriptor instead.
 func (*GetSourceRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{6}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetSourceRequest) GetScope() *Scope {
@@ -1052,7 +1236,7 @@ type GetSourceResponse struct {
 
 func (x *GetSourceResponse) Reset() {
 	*x = GetSourceResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[7]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1064,7 +1248,7 @@ func (x *GetSourceResponse) String() string {
 func (*GetSourceResponse) ProtoMessage() {}
 
 func (x *GetSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[7]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1077,7 +1261,7 @@ func (x *GetSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSourceResponse.ProtoReflect.Descriptor instead.
 func (*GetSourceResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{7}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetSourceResponse) GetSource() *Source {
@@ -1098,7 +1282,7 @@ type ListSourcesRequest struct {
 
 func (x *ListSourcesRequest) Reset() {
 	*x = ListSourcesRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[8]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1294,7 @@ func (x *ListSourcesRequest) String() string {
 func (*ListSourcesRequest) ProtoMessage() {}
 
 func (x *ListSourcesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[8]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1307,7 @@ func (x *ListSourcesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSourcesRequest.ProtoReflect.Descriptor instead.
 func (*ListSourcesRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{8}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListSourcesRequest) GetScope() *Scope {
@@ -1157,7 +1341,7 @@ type ListSourcesResponse struct {
 
 func (x *ListSourcesResponse) Reset() {
 	*x = ListSourcesResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[9]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1169,7 +1353,7 @@ func (x *ListSourcesResponse) String() string {
 func (*ListSourcesResponse) ProtoMessage() {}
 
 func (x *ListSourcesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[9]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1182,7 +1366,7 @@ func (x *ListSourcesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSourcesResponse.ProtoReflect.Descriptor instead.
 func (*ListSourcesResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{9}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListSourcesResponse) GetSources() []*Source {
@@ -1212,7 +1396,7 @@ type UpdateSourceAccessRequest struct {
 
 func (x *UpdateSourceAccessRequest) Reset() {
 	*x = UpdateSourceAccessRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[10]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1224,7 +1408,7 @@ func (x *UpdateSourceAccessRequest) String() string {
 func (*UpdateSourceAccessRequest) ProtoMessage() {}
 
 func (x *UpdateSourceAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[10]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1237,7 +1421,7 @@ func (x *UpdateSourceAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSourceAccessRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSourceAccessRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{10}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateSourceAccessRequest) GetCommand() *CommandIdentity {
@@ -1285,7 +1469,7 @@ type UpdateSourceAccessResponse struct {
 
 func (x *UpdateSourceAccessResponse) Reset() {
 	*x = UpdateSourceAccessResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[11]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1297,7 +1481,7 @@ func (x *UpdateSourceAccessResponse) String() string {
 func (*UpdateSourceAccessResponse) ProtoMessage() {}
 
 func (x *UpdateSourceAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[11]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1310,7 +1494,7 @@ func (x *UpdateSourceAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSourceAccessResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSourceAccessResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{11}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateSourceAccessResponse) GetSource() *Source {
@@ -1339,7 +1523,7 @@ type DeleteSourceRequest struct {
 
 func (x *DeleteSourceRequest) Reset() {
 	*x = DeleteSourceRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[12]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1351,7 +1535,7 @@ func (x *DeleteSourceRequest) String() string {
 func (*DeleteSourceRequest) ProtoMessage() {}
 
 func (x *DeleteSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[12]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1364,7 +1548,7 @@ func (x *DeleteSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSourceRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSourceRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{12}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteSourceRequest) GetCommand() *CommandIdentity {
@@ -1405,7 +1589,7 @@ type DeleteSourceResponse struct {
 
 func (x *DeleteSourceResponse) Reset() {
 	*x = DeleteSourceResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[13]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1417,7 +1601,7 @@ func (x *DeleteSourceResponse) String() string {
 func (*DeleteSourceResponse) ProtoMessage() {}
 
 func (x *DeleteSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[13]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1430,7 +1614,7 @@ func (x *DeleteSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSourceResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSourceResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{13}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeleteSourceResponse) GetSource() *Source {
@@ -1462,7 +1646,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[14]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1474,7 +1658,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[14]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1487,7 +1671,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{14}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Snapshot) GetSnapshotId() string {
@@ -1550,7 +1734,7 @@ type CreateSnapshotRequest struct {
 
 func (x *CreateSnapshotRequest) Reset() {
 	*x = CreateSnapshotRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[15]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1562,7 +1746,7 @@ func (x *CreateSnapshotRequest) String() string {
 func (*CreateSnapshotRequest) ProtoMessage() {}
 
 func (x *CreateSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[15]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1575,7 +1759,7 @@ func (x *CreateSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*CreateSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{15}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CreateSnapshotRequest) GetCommand() *CommandIdentity {
@@ -1609,7 +1793,7 @@ type CreateSnapshotResponse struct {
 
 func (x *CreateSnapshotResponse) Reset() {
 	*x = CreateSnapshotResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[16]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1621,7 +1805,7 @@ func (x *CreateSnapshotResponse) String() string {
 func (*CreateSnapshotResponse) ProtoMessage() {}
 
 func (x *CreateSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[16]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1634,7 +1818,7 @@ func (x *CreateSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*CreateSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{16}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreateSnapshotResponse) GetSnapshot() *Snapshot {
@@ -1661,7 +1845,7 @@ type GetSnapshotRequest struct {
 
 func (x *GetSnapshotRequest) Reset() {
 	*x = GetSnapshotRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[17]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1673,7 +1857,7 @@ func (x *GetSnapshotRequest) String() string {
 func (*GetSnapshotRequest) ProtoMessage() {}
 
 func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[17]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1686,7 +1870,7 @@ func (x *GetSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{17}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetSnapshotRequest) GetScope() *Scope {
@@ -1712,7 +1896,7 @@ type GetSnapshotResponse struct {
 
 func (x *GetSnapshotResponse) Reset() {
 	*x = GetSnapshotResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[18]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1724,7 +1908,7 @@ func (x *GetSnapshotResponse) String() string {
 func (*GetSnapshotResponse) ProtoMessage() {}
 
 func (x *GetSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[18]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1737,7 +1921,7 @@ func (x *GetSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*GetSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{18}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetSnapshotResponse) GetSnapshot() *Snapshot {
@@ -1762,7 +1946,7 @@ type Citation struct {
 
 func (x *Citation) Reset() {
 	*x = Citation{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[19]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1774,7 +1958,7 @@ func (x *Citation) String() string {
 func (*Citation) ProtoMessage() {}
 
 func (x *Citation) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[19]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1787,7 +1971,7 @@ func (x *Citation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Citation.ProtoReflect.Descriptor instead.
 func (*Citation) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{19}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *Citation) GetOrdinal() string {
@@ -1849,7 +2033,7 @@ type ContextItem struct {
 
 func (x *ContextItem) Reset() {
 	*x = ContextItem{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[20]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1861,7 +2045,7 @@ func (x *ContextItem) String() string {
 func (*ContextItem) ProtoMessage() {}
 
 func (x *ContextItem) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[20]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1874,7 +2058,7 @@ func (x *ContextItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContextItem.ProtoReflect.Descriptor instead.
 func (*ContextItem) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{20}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ContextItem) GetCitation() *Citation {
@@ -1905,7 +2089,7 @@ type SearchRequest struct {
 
 func (x *SearchRequest) Reset() {
 	*x = SearchRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[21]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1917,7 +2101,7 @@ func (x *SearchRequest) String() string {
 func (*SearchRequest) ProtoMessage() {}
 
 func (x *SearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[21]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1930,7 +2114,7 @@ func (x *SearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchRequest.ProtoReflect.Descriptor instead.
 func (*SearchRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{21}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SearchRequest) GetScope() *Scope {
@@ -1987,7 +2171,7 @@ type SearchResponse struct {
 
 func (x *SearchResponse) Reset() {
 	*x = SearchResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[22]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1999,7 +2183,7 @@ func (x *SearchResponse) String() string {
 func (*SearchResponse) ProtoMessage() {}
 
 func (x *SearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[22]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2012,7 +2196,7 @@ func (x *SearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResponse.ProtoReflect.Descriptor instead.
 func (*SearchResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{22}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SearchResponse) GetItems() []*ContextItem {
@@ -2070,7 +2254,7 @@ type MemoryFact struct {
 
 func (x *MemoryFact) Reset() {
 	*x = MemoryFact{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[23]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2082,7 +2266,7 @@ func (x *MemoryFact) String() string {
 func (*MemoryFact) ProtoMessage() {}
 
 func (x *MemoryFact) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[23]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2095,7 +2279,7 @@ func (x *MemoryFact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryFact.ProtoReflect.Descriptor instead.
 func (*MemoryFact) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{23}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *MemoryFact) GetFactId() string {
@@ -2234,7 +2418,7 @@ type ProposeFactRequest struct {
 
 func (x *ProposeFactRequest) Reset() {
 	*x = ProposeFactRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[24]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2246,7 +2430,7 @@ func (x *ProposeFactRequest) String() string {
 func (*ProposeFactRequest) ProtoMessage() {}
 
 func (x *ProposeFactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[24]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2259,7 +2443,7 @@ func (x *ProposeFactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProposeFactRequest.ProtoReflect.Descriptor instead.
 func (*ProposeFactRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{24}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ProposeFactRequest) GetCommand() *CommandIdentity {
@@ -2328,7 +2512,7 @@ type ProposeFactResponse struct {
 
 func (x *ProposeFactResponse) Reset() {
 	*x = ProposeFactResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[25]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2340,7 +2524,7 @@ func (x *ProposeFactResponse) String() string {
 func (*ProposeFactResponse) ProtoMessage() {}
 
 func (x *ProposeFactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[25]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2353,7 +2537,7 @@ func (x *ProposeFactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProposeFactResponse.ProtoReflect.Descriptor instead.
 func (*ProposeFactResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{25}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ProposeFactResponse) GetFact() *MemoryFact {
@@ -2386,7 +2570,7 @@ type DecideFactRequest struct {
 
 func (x *DecideFactRequest) Reset() {
 	*x = DecideFactRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[26]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2398,7 +2582,7 @@ func (x *DecideFactRequest) String() string {
 func (*DecideFactRequest) ProtoMessage() {}
 
 func (x *DecideFactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[26]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2411,7 +2595,7 @@ func (x *DecideFactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideFactRequest.ProtoReflect.Descriptor instead.
 func (*DecideFactRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{26}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DecideFactRequest) GetCommand() *CommandIdentity {
@@ -2473,7 +2657,7 @@ type DecideFactResponse struct {
 
 func (x *DecideFactResponse) Reset() {
 	*x = DecideFactResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[27]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2485,7 +2669,7 @@ func (x *DecideFactResponse) String() string {
 func (*DecideFactResponse) ProtoMessage() {}
 
 func (x *DecideFactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[27]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2498,7 +2682,7 @@ func (x *DecideFactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideFactResponse.ProtoReflect.Descriptor instead.
 func (*DecideFactResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{27}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DecideFactResponse) GetFact() *MemoryFact {
@@ -2525,7 +2709,7 @@ type GetFactRequest struct {
 
 func (x *GetFactRequest) Reset() {
 	*x = GetFactRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[28]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2537,7 +2721,7 @@ func (x *GetFactRequest) String() string {
 func (*GetFactRequest) ProtoMessage() {}
 
 func (x *GetFactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[28]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2550,7 +2734,7 @@ func (x *GetFactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFactRequest.ProtoReflect.Descriptor instead.
 func (*GetFactRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{28}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetFactRequest) GetScope() *Scope {
@@ -2576,7 +2760,7 @@ type GetFactResponse struct {
 
 func (x *GetFactResponse) Reset() {
 	*x = GetFactResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[29]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2588,7 +2772,7 @@ func (x *GetFactResponse) String() string {
 func (*GetFactResponse) ProtoMessage() {}
 
 func (x *GetFactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[29]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2601,7 +2785,7 @@ func (x *GetFactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFactResponse.ProtoReflect.Descriptor instead.
 func (*GetFactResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{29}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetFactResponse) GetFact() *MemoryFact {
@@ -2625,7 +2809,7 @@ type ListFactsRequest struct {
 
 func (x *ListFactsRequest) Reset() {
 	*x = ListFactsRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[30]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2637,7 +2821,7 @@ func (x *ListFactsRequest) String() string {
 func (*ListFactsRequest) ProtoMessage() {}
 
 func (x *ListFactsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[30]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2650,7 +2834,7 @@ func (x *ListFactsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFactsRequest.ProtoReflect.Descriptor instead.
 func (*ListFactsRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{30}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListFactsRequest) GetScope() *Scope {
@@ -2705,7 +2889,7 @@ type ListFactsResponse struct {
 
 func (x *ListFactsResponse) Reset() {
 	*x = ListFactsResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[31]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2717,7 +2901,7 @@ func (x *ListFactsResponse) String() string {
 func (*ListFactsResponse) ProtoMessage() {}
 
 func (x *ListFactsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[31]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2730,7 +2914,7 @@ func (x *ListFactsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFactsResponse.ProtoReflect.Descriptor instead.
 func (*ListFactsResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{31}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListFactsResponse) GetFacts() []*MemoryFact {
@@ -2759,7 +2943,7 @@ type DeleteFactRequest struct {
 
 func (x *DeleteFactRequest) Reset() {
 	*x = DeleteFactRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[32]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2771,7 +2955,7 @@ func (x *DeleteFactRequest) String() string {
 func (*DeleteFactRequest) ProtoMessage() {}
 
 func (x *DeleteFactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[32]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2784,7 +2968,7 @@ func (x *DeleteFactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFactRequest.ProtoReflect.Descriptor instead.
 func (*DeleteFactRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{32}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *DeleteFactRequest) GetCommand() *CommandIdentity {
@@ -2825,7 +3009,7 @@ type DeleteFactResponse struct {
 
 func (x *DeleteFactResponse) Reset() {
 	*x = DeleteFactResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[33]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2837,7 +3021,7 @@ func (x *DeleteFactResponse) String() string {
 func (*DeleteFactResponse) ProtoMessage() {}
 
 func (x *DeleteFactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[33]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2850,7 +3034,7 @@ func (x *DeleteFactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFactResponse.ProtoReflect.Descriptor instead.
 func (*DeleteFactResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{33}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeleteFactResponse) GetFact() *MemoryFact {
@@ -2880,7 +3064,7 @@ type RecallFactsRequest struct {
 
 func (x *RecallFactsRequest) Reset() {
 	*x = RecallFactsRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[34]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2892,7 +3076,7 @@ func (x *RecallFactsRequest) String() string {
 func (*RecallFactsRequest) ProtoMessage() {}
 
 func (x *RecallFactsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[34]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2905,7 +3089,7 @@ func (x *RecallFactsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecallFactsRequest.ProtoReflect.Descriptor instead.
 func (*RecallFactsRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{34}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *RecallFactsRequest) GetScope() *Scope {
@@ -2954,7 +3138,7 @@ type RecallFactsResponse struct {
 
 func (x *RecallFactsResponse) Reset() {
 	*x = RecallFactsResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[35]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2966,7 +3150,7 @@ func (x *RecallFactsResponse) String() string {
 func (*RecallFactsResponse) ProtoMessage() {}
 
 func (x *RecallFactsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[35]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2979,7 +3163,7 @@ func (x *RecallFactsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecallFactsResponse.ProtoReflect.Descriptor instead.
 func (*RecallFactsResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{35}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *RecallFactsResponse) GetFacts() []*MemoryFact {
@@ -3019,7 +3203,7 @@ type BackgroundTask struct {
 
 func (x *BackgroundTask) Reset() {
 	*x = BackgroundTask{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[36]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3031,7 +3215,7 @@ func (x *BackgroundTask) String() string {
 func (*BackgroundTask) ProtoMessage() {}
 
 func (x *BackgroundTask) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[36]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3044,7 +3228,7 @@ func (x *BackgroundTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackgroundTask.ProtoReflect.Descriptor instead.
 func (*BackgroundTask) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{36}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *BackgroundTask) GetTaskId() string {
@@ -3115,7 +3299,7 @@ type ClaimTaskRequest struct {
 
 func (x *ClaimTaskRequest) Reset() {
 	*x = ClaimTaskRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[37]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3127,7 +3311,7 @@ func (x *ClaimTaskRequest) String() string {
 func (*ClaimTaskRequest) ProtoMessage() {}
 
 func (x *ClaimTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[37]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3140,7 +3324,7 @@ func (x *ClaimTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimTaskRequest.ProtoReflect.Descriptor instead.
 func (*ClaimTaskRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{37}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ClaimTaskRequest) GetTaskId() string {
@@ -3182,7 +3366,7 @@ type ClaimTaskResponse struct {
 
 func (x *ClaimTaskResponse) Reset() {
 	*x = ClaimTaskResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[38]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3194,7 +3378,7 @@ func (x *ClaimTaskResponse) String() string {
 func (*ClaimTaskResponse) ProtoMessage() {}
 
 func (x *ClaimTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[38]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3207,7 +3391,7 @@ func (x *ClaimTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimTaskResponse.ProtoReflect.Descriptor instead.
 func (*ClaimTaskResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{38}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ClaimTaskResponse) GetTask() *BackgroundTask {
@@ -3235,7 +3419,7 @@ type HeartbeatTaskRequest struct {
 
 func (x *HeartbeatTaskRequest) Reset() {
 	*x = HeartbeatTaskRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[39]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3247,7 +3431,7 @@ func (x *HeartbeatTaskRequest) String() string {
 func (*HeartbeatTaskRequest) ProtoMessage() {}
 
 func (x *HeartbeatTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[39]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3260,7 +3444,7 @@ func (x *HeartbeatTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatTaskRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatTaskRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{39}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *HeartbeatTaskRequest) GetTaskId() string {
@@ -3293,7 +3477,7 @@ type HeartbeatTaskResponse struct {
 
 func (x *HeartbeatTaskResponse) Reset() {
 	*x = HeartbeatTaskResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[40]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3305,7 +3489,7 @@ func (x *HeartbeatTaskResponse) String() string {
 func (*HeartbeatTaskResponse) ProtoMessage() {}
 
 func (x *HeartbeatTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[40]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3318,7 +3502,7 @@ func (x *HeartbeatTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatTaskResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatTaskResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{40}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *HeartbeatTaskResponse) GetTask() *BackgroundTask {
@@ -3344,7 +3528,7 @@ type SubmitTaskResultRequest struct {
 
 func (x *SubmitTaskResultRequest) Reset() {
 	*x = SubmitTaskResultRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[41]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3356,7 +3540,7 @@ func (x *SubmitTaskResultRequest) String() string {
 func (*SubmitTaskResultRequest) ProtoMessage() {}
 
 func (x *SubmitTaskResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[41]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3369,7 +3553,7 @@ func (x *SubmitTaskResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitTaskResultRequest.ProtoReflect.Descriptor instead.
 func (*SubmitTaskResultRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{41}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *SubmitTaskResultRequest) GetTaskId() string {
@@ -3439,7 +3623,7 @@ type SubmitTaskResultResponse struct {
 
 func (x *SubmitTaskResultResponse) Reset() {
 	*x = SubmitTaskResultResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[42]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3451,7 +3635,7 @@ func (x *SubmitTaskResultResponse) String() string {
 func (*SubmitTaskResultResponse) ProtoMessage() {}
 
 func (x *SubmitTaskResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[42]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3464,7 +3648,7 @@ func (x *SubmitTaskResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitTaskResultResponse.ProtoReflect.Descriptor instead.
 func (*SubmitTaskResultResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{42}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *SubmitTaskResultResponse) GetTask() *BackgroundTask {
@@ -3497,7 +3681,7 @@ type GetTaskRequest struct {
 
 func (x *GetTaskRequest) Reset() {
 	*x = GetTaskRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[43]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3509,7 +3693,7 @@ func (x *GetTaskRequest) String() string {
 func (*GetTaskRequest) ProtoMessage() {}
 
 func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[43]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3522,7 +3706,7 @@ func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{43}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *GetTaskRequest) GetTaskId() string {
@@ -3541,7 +3725,7 @@ type GetTaskResponse struct {
 
 func (x *GetTaskResponse) Reset() {
 	*x = GetTaskResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[44]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3553,7 +3737,7 @@ func (x *GetTaskResponse) String() string {
 func (*GetTaskResponse) ProtoMessage() {}
 
 func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[44]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3566,7 +3750,7 @@ func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{44}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetTaskResponse) GetTask() *BackgroundTask {
@@ -3588,7 +3772,7 @@ type AdvanceParseRequest struct {
 
 func (x *AdvanceParseRequest) Reset() {
 	*x = AdvanceParseRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[45]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3600,7 +3784,7 @@ func (x *AdvanceParseRequest) String() string {
 func (*AdvanceParseRequest) ProtoMessage() {}
 
 func (x *AdvanceParseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[45]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3613,7 +3797,7 @@ func (x *AdvanceParseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceParseRequest.ProtoReflect.Descriptor instead.
 func (*AdvanceParseRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{45}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *AdvanceParseRequest) GetTaskId() string {
@@ -3658,7 +3842,7 @@ type AdvanceParseResponse struct {
 
 func (x *AdvanceParseResponse) Reset() {
 	*x = AdvanceParseResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[46]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3670,7 +3854,7 @@ func (x *AdvanceParseResponse) String() string {
 func (*AdvanceParseResponse) ProtoMessage() {}
 
 func (x *AdvanceParseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[46]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3683,7 +3867,7 @@ func (x *AdvanceParseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceParseResponse.ProtoReflect.Descriptor instead.
 func (*AdvanceParseResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{46}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *AdvanceParseResponse) GetState() ParseState {
@@ -3733,7 +3917,7 @@ type AdvanceIndexRequest struct {
 
 func (x *AdvanceIndexRequest) Reset() {
 	*x = AdvanceIndexRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[47]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3745,7 +3929,7 @@ func (x *AdvanceIndexRequest) String() string {
 func (*AdvanceIndexRequest) ProtoMessage() {}
 
 func (x *AdvanceIndexRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[47]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3758,7 +3942,7 @@ func (x *AdvanceIndexRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceIndexRequest.ProtoReflect.Descriptor instead.
 func (*AdvanceIndexRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{47}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *AdvanceIndexRequest) GetTaskId() string {
@@ -3803,7 +3987,7 @@ type AdvanceIndexResponse struct {
 
 func (x *AdvanceIndexResponse) Reset() {
 	*x = AdvanceIndexResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[48]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3815,7 +3999,7 @@ func (x *AdvanceIndexResponse) String() string {
 func (*AdvanceIndexResponse) ProtoMessage() {}
 
 func (x *AdvanceIndexResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[48]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3828,7 +4012,7 @@ func (x *AdvanceIndexResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceIndexResponse.ProtoReflect.Descriptor instead.
 func (*AdvanceIndexResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{48}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *AdvanceIndexResponse) GetState() IndexState {
@@ -3878,7 +4062,7 @@ type AdvanceProjectionRequest struct {
 
 func (x *AdvanceProjectionRequest) Reset() {
 	*x = AdvanceProjectionRequest{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[49]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3890,7 +4074,7 @@ func (x *AdvanceProjectionRequest) String() string {
 func (*AdvanceProjectionRequest) ProtoMessage() {}
 
 func (x *AdvanceProjectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[49]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3903,7 +4087,7 @@ func (x *AdvanceProjectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceProjectionRequest.ProtoReflect.Descriptor instead.
 func (*AdvanceProjectionRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{49}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *AdvanceProjectionRequest) GetTaskId() string {
@@ -3948,7 +4132,7 @@ type AdvanceProjectionResponse struct {
 
 func (x *AdvanceProjectionResponse) Reset() {
 	*x = AdvanceProjectionResponse{}
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[50]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3960,7 +4144,7 @@ func (x *AdvanceProjectionResponse) String() string {
 func (*AdvanceProjectionResponse) ProtoMessage() {}
 
 func (x *AdvanceProjectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[50]
+	mi := &file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3973,7 +4157,7 @@ func (x *AdvanceProjectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceProjectionResponse.ProtoReflect.Descriptor instead.
 func (*AdvanceProjectionResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{50}
+	return file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *AdvanceProjectionResponse) GetState() IndexState {
@@ -4032,11 +4216,14 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"project_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\tprojectId\x12%\n" +
 	"\bactor_id\x18\x03 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\aactorId\x12=\n" +
-	"\x05roles\x18\x04 \x03(\tB'\xbaH$\x92\x01!\x10 \x18\x01\"\x1br\x192\x17^[a-z][a-z0-9_-]{0,63}$R\x05roles\"\x88\x01\n" +
+	"\x05roles\x18\x04 \x03(\tB'\xbaH$\x92\x01!\x10 \x18\x01\"\x1br\x192\x17^[a-z][a-z0-9_-]{0,63}$R\x05roles\"\xbf\x01\n" +
 	"\vAccessEntry\x12J\n" +
 	"\x0eprincipal_type\x18\x01 \x01(\tB#\xbaH r\x1eR\x06tenantR\aprojectR\x05actorR\x04roleR\rprincipalType\x12-\n" +
 	"\fprincipal_id\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\vprincipalId\"\xaf\x04\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\vprincipalId\x125\n" +
+	"\n" +
+	"permission\x18\x03 \x01(\tB\x15\xbaH\x12r\x10R\x00R\x04readR\x06manageR\n" +
+	"permission\"\xaf\x04\n" +
 	"\x06Source\x12\x1b\n" +
 	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +
@@ -4054,12 +4241,33 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xfb\x03\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xc8\x02\n" +
+	"\x12BeginUploadRequest\x12H\n" +
+	"\acommand\x18\x01 \x01(\v2&.anvilkit.knowledge.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x12:\n" +
+	"\x05scope\x18\x02 \x01(\v2\x1c.anvilkit.knowledge.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12C\n" +
+	"\x0econtent_digest\x18\x03 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\rcontentDigest\x12<\n" +
+	"\n" +
+	"size_bytes\x18\x04 \x01(\tB\x1d\xbaH\x1ar\x182\x16^(0|[1-9][0-9]{0,19})$R\tsizeBytes\x12)\n" +
+	"\n" +
+	"media_type\x18\x05 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\tmediaType\"\xf5\x02\n" +
+	"\x13BeginUploadResponse\x12\x1b\n" +
+	"\tupload_id\x18\x01 \x01(\tR\buploadId\x12\x1d\n" +
+	"\n" +
+	"upload_url\x18\x02 \x01(\tR\tuploadUrl\x12#\n" +
+	"\rupload_method\x18\x03 \x01(\tR\fuploadMethod\x12d\n" +
+	"\x0eupload_headers\x18\x04 \x03(\v2=.anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntryR\ruploadHeaders\x129\n" +
+	"\n" +
+	"expires_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1a\n" +
+	"\bexisting\x18\x06 \x01(\bR\bexisting\x1a@\n" +
+	"\x12UploadHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xfb\x03\n" +
 	"\x15RegisterSourceRequest\x12H\n" +
 	"\acommand\x18\x01 \x01(\v2&.anvilkit.knowledge.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x12:\n" +
 	"\x05scope\x18\x02 \x01(\v2\x1c.anvilkit.knowledge.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12A\n" +
 	"\x04kind\x18\x03 \x01(\x0e2!.anvilkit.knowledge.v1.SourceKindB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04kind\x12$\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01\x18\x01R\x04kind\x12$\n" +
 	"\alocator\x18\x04 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\alocator\x12C\n" +
 	"\x0econtent_digest\x18\x05 \x01(\tB\x1c\xbaH\x19r\x172\x15^sha256:[0-9a-f]{64}$R\rcontentDigest\x12)\n" +
@@ -4374,14 +4582,14 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\rresult_digest\x18\x03 \x01(\tR\fresultDigest\x12&\n" +
 	"\ffailure_code\x18\x04 \x01(\tH\x00R\vfailureCode\x88\x01\x01\x12$\n" +
 	"\x0eretry_after_ms\x18\x05 \x01(\rR\fretryAfterMsB\x0f\n" +
-	"\r_failure_code*\x8b\x01\n" +
+	"\r_failure_code*\x97\x01\n" +
 	"\n" +
 	"SourceKind\x12\x1b\n" +
 	"\x17SOURCE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14SOURCE_KIND_DOCUMENT\x10\x01\x12\x13\n" +
-	"\x0fSOURCE_KIND_URL\x10\x02\x12\x1a\n" +
-	"\x16SOURCE_KIND_REPOSITORY\x10\x03\x12\x15\n" +
-	"\x11SOURCE_KIND_BRAND\x10\x04*\xc5\x01\n" +
+	"\x14SOURCE_KIND_DOCUMENT\x10\x01\x12\x17\n" +
+	"\x0fSOURCE_KIND_URL\x10\x02\x1a\x02\b\x01\x12\x1e\n" +
+	"\x16SOURCE_KIND_REPOSITORY\x10\x03\x1a\x02\b\x01\x12\x19\n" +
+	"\x11SOURCE_KIND_BRAND\x10\x04\x1a\x02\b\x01*\xc5\x01\n" +
 	"\vIngestState\x12\x1c\n" +
 	"\x18INGEST_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14INGEST_STATE_PENDING\x10\x01\x12\x18\n" +
@@ -4430,13 +4638,14 @@ const file_anvilkit_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\x17INDEX_STATE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13INDEX_STATE_RUNNING\x10\x01\x12\x1c\n" +
 	"\x18INDEX_STATE_MATERIALIZED\x10\x02\x12\x16\n" +
-	"\x12INDEX_STATE_FAILED\x10\x032\xa8\x04\n" +
+	"\x12INDEX_STATE_FAILED\x10\x032\x8e\x05\n" +
 	"\rSourceService\x12m\n" +
 	"\x0eRegisterSource\x12,.anvilkit.knowledge.v1.RegisterSourceRequest\x1a-.anvilkit.knowledge.v1.RegisterSourceResponse\x12^\n" +
 	"\tGetSource\x12'.anvilkit.knowledge.v1.GetSourceRequest\x1a(.anvilkit.knowledge.v1.GetSourceResponse\x12d\n" +
 	"\vListSources\x12).anvilkit.knowledge.v1.ListSourcesRequest\x1a*.anvilkit.knowledge.v1.ListSourcesResponse\x12y\n" +
 	"\x12UpdateSourceAccess\x120.anvilkit.knowledge.v1.UpdateSourceAccessRequest\x1a1.anvilkit.knowledge.v1.UpdateSourceAccessResponse\x12g\n" +
-	"\fDeleteSource\x12*.anvilkit.knowledge.v1.DeleteSourceRequest\x1a+.anvilkit.knowledge.v1.DeleteSourceResponse2\xe6\x01\n" +
+	"\fDeleteSource\x12*.anvilkit.knowledge.v1.DeleteSourceRequest\x1a+.anvilkit.knowledge.v1.DeleteSourceResponse\x12d\n" +
+	"\vBeginUpload\x12).anvilkit.knowledge.v1.BeginUploadRequest\x1a*.anvilkit.knowledge.v1.BeginUploadResponse2\xe6\x01\n" +
 	"\x0fSnapshotService\x12m\n" +
 	"\x0eCreateSnapshot\x12,.anvilkit.knowledge.v1.CreateSnapshotRequest\x1a-.anvilkit.knowledge.v1.CreateSnapshotResponse\x12d\n" +
 	"\vGetSnapshot\x12).anvilkit.knowledge.v1.GetSnapshotRequest\x1a*.anvilkit.knowledge.v1.GetSnapshotResponse2i\n" +
@@ -4475,7 +4684,7 @@ func file_anvilkit_knowledge_v1_knowledge_proto_rawDescGZIP() []byte {
 }
 
 var file_anvilkit_knowledge_v1_knowledge_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_anvilkit_knowledge_v1_knowledge_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_anvilkit_knowledge_v1_knowledge_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
 var file_anvilkit_knowledge_v1_knowledge_proto_goTypes = []any{
 	(SourceKind)(0),                    // 0: anvilkit.knowledge.v1.SourceKind
 	(IngestState)(0),                   // 1: anvilkit.knowledge.v1.IngestState
@@ -4489,169 +4698,178 @@ var file_anvilkit_knowledge_v1_knowledge_proto_goTypes = []any{
 	(*Scope)(nil),                      // 9: anvilkit.knowledge.v1.Scope
 	(*AccessEntry)(nil),                // 10: anvilkit.knowledge.v1.AccessEntry
 	(*Source)(nil),                     // 11: anvilkit.knowledge.v1.Source
-	(*RegisterSourceRequest)(nil),      // 12: anvilkit.knowledge.v1.RegisterSourceRequest
-	(*RegisterSourceResponse)(nil),     // 13: anvilkit.knowledge.v1.RegisterSourceResponse
-	(*GetSourceRequest)(nil),           // 14: anvilkit.knowledge.v1.GetSourceRequest
-	(*GetSourceResponse)(nil),          // 15: anvilkit.knowledge.v1.GetSourceResponse
-	(*ListSourcesRequest)(nil),         // 16: anvilkit.knowledge.v1.ListSourcesRequest
-	(*ListSourcesResponse)(nil),        // 17: anvilkit.knowledge.v1.ListSourcesResponse
-	(*UpdateSourceAccessRequest)(nil),  // 18: anvilkit.knowledge.v1.UpdateSourceAccessRequest
-	(*UpdateSourceAccessResponse)(nil), // 19: anvilkit.knowledge.v1.UpdateSourceAccessResponse
-	(*DeleteSourceRequest)(nil),        // 20: anvilkit.knowledge.v1.DeleteSourceRequest
-	(*DeleteSourceResponse)(nil),       // 21: anvilkit.knowledge.v1.DeleteSourceResponse
-	(*Snapshot)(nil),                   // 22: anvilkit.knowledge.v1.Snapshot
-	(*CreateSnapshotRequest)(nil),      // 23: anvilkit.knowledge.v1.CreateSnapshotRequest
-	(*CreateSnapshotResponse)(nil),     // 24: anvilkit.knowledge.v1.CreateSnapshotResponse
-	(*GetSnapshotRequest)(nil),         // 25: anvilkit.knowledge.v1.GetSnapshotRequest
-	(*GetSnapshotResponse)(nil),        // 26: anvilkit.knowledge.v1.GetSnapshotResponse
-	(*Citation)(nil),                   // 27: anvilkit.knowledge.v1.Citation
-	(*ContextItem)(nil),                // 28: anvilkit.knowledge.v1.ContextItem
-	(*SearchRequest)(nil),              // 29: anvilkit.knowledge.v1.SearchRequest
-	(*SearchResponse)(nil),             // 30: anvilkit.knowledge.v1.SearchResponse
-	(*MemoryFact)(nil),                 // 31: anvilkit.knowledge.v1.MemoryFact
-	(*ProposeFactRequest)(nil),         // 32: anvilkit.knowledge.v1.ProposeFactRequest
-	(*ProposeFactResponse)(nil),        // 33: anvilkit.knowledge.v1.ProposeFactResponse
-	(*DecideFactRequest)(nil),          // 34: anvilkit.knowledge.v1.DecideFactRequest
-	(*DecideFactResponse)(nil),         // 35: anvilkit.knowledge.v1.DecideFactResponse
-	(*GetFactRequest)(nil),             // 36: anvilkit.knowledge.v1.GetFactRequest
-	(*GetFactResponse)(nil),            // 37: anvilkit.knowledge.v1.GetFactResponse
-	(*ListFactsRequest)(nil),           // 38: anvilkit.knowledge.v1.ListFactsRequest
-	(*ListFactsResponse)(nil),          // 39: anvilkit.knowledge.v1.ListFactsResponse
-	(*DeleteFactRequest)(nil),          // 40: anvilkit.knowledge.v1.DeleteFactRequest
-	(*DeleteFactResponse)(nil),         // 41: anvilkit.knowledge.v1.DeleteFactResponse
-	(*RecallFactsRequest)(nil),         // 42: anvilkit.knowledge.v1.RecallFactsRequest
-	(*RecallFactsResponse)(nil),        // 43: anvilkit.knowledge.v1.RecallFactsResponse
-	(*BackgroundTask)(nil),             // 44: anvilkit.knowledge.v1.BackgroundTask
-	(*ClaimTaskRequest)(nil),           // 45: anvilkit.knowledge.v1.ClaimTaskRequest
-	(*ClaimTaskResponse)(nil),          // 46: anvilkit.knowledge.v1.ClaimTaskResponse
-	(*HeartbeatTaskRequest)(nil),       // 47: anvilkit.knowledge.v1.HeartbeatTaskRequest
-	(*HeartbeatTaskResponse)(nil),      // 48: anvilkit.knowledge.v1.HeartbeatTaskResponse
-	(*SubmitTaskResultRequest)(nil),    // 49: anvilkit.knowledge.v1.SubmitTaskResultRequest
-	(*SubmitTaskResultResponse)(nil),   // 50: anvilkit.knowledge.v1.SubmitTaskResultResponse
-	(*GetTaskRequest)(nil),             // 51: anvilkit.knowledge.v1.GetTaskRequest
-	(*GetTaskResponse)(nil),            // 52: anvilkit.knowledge.v1.GetTaskResponse
-	(*AdvanceParseRequest)(nil),        // 53: anvilkit.knowledge.v1.AdvanceParseRequest
-	(*AdvanceParseResponse)(nil),       // 54: anvilkit.knowledge.v1.AdvanceParseResponse
-	(*AdvanceIndexRequest)(nil),        // 55: anvilkit.knowledge.v1.AdvanceIndexRequest
-	(*AdvanceIndexResponse)(nil),       // 56: anvilkit.knowledge.v1.AdvanceIndexResponse
-	(*AdvanceProjectionRequest)(nil),   // 57: anvilkit.knowledge.v1.AdvanceProjectionRequest
-	(*AdvanceProjectionResponse)(nil),  // 58: anvilkit.knowledge.v1.AdvanceProjectionResponse
-	(*timestamppb.Timestamp)(nil),      // 59: google.protobuf.Timestamp
+	(*BeginUploadRequest)(nil),         // 12: anvilkit.knowledge.v1.BeginUploadRequest
+	(*BeginUploadResponse)(nil),        // 13: anvilkit.knowledge.v1.BeginUploadResponse
+	(*RegisterSourceRequest)(nil),      // 14: anvilkit.knowledge.v1.RegisterSourceRequest
+	(*RegisterSourceResponse)(nil),     // 15: anvilkit.knowledge.v1.RegisterSourceResponse
+	(*GetSourceRequest)(nil),           // 16: anvilkit.knowledge.v1.GetSourceRequest
+	(*GetSourceResponse)(nil),          // 17: anvilkit.knowledge.v1.GetSourceResponse
+	(*ListSourcesRequest)(nil),         // 18: anvilkit.knowledge.v1.ListSourcesRequest
+	(*ListSourcesResponse)(nil),        // 19: anvilkit.knowledge.v1.ListSourcesResponse
+	(*UpdateSourceAccessRequest)(nil),  // 20: anvilkit.knowledge.v1.UpdateSourceAccessRequest
+	(*UpdateSourceAccessResponse)(nil), // 21: anvilkit.knowledge.v1.UpdateSourceAccessResponse
+	(*DeleteSourceRequest)(nil),        // 22: anvilkit.knowledge.v1.DeleteSourceRequest
+	(*DeleteSourceResponse)(nil),       // 23: anvilkit.knowledge.v1.DeleteSourceResponse
+	(*Snapshot)(nil),                   // 24: anvilkit.knowledge.v1.Snapshot
+	(*CreateSnapshotRequest)(nil),      // 25: anvilkit.knowledge.v1.CreateSnapshotRequest
+	(*CreateSnapshotResponse)(nil),     // 26: anvilkit.knowledge.v1.CreateSnapshotResponse
+	(*GetSnapshotRequest)(nil),         // 27: anvilkit.knowledge.v1.GetSnapshotRequest
+	(*GetSnapshotResponse)(nil),        // 28: anvilkit.knowledge.v1.GetSnapshotResponse
+	(*Citation)(nil),                   // 29: anvilkit.knowledge.v1.Citation
+	(*ContextItem)(nil),                // 30: anvilkit.knowledge.v1.ContextItem
+	(*SearchRequest)(nil),              // 31: anvilkit.knowledge.v1.SearchRequest
+	(*SearchResponse)(nil),             // 32: anvilkit.knowledge.v1.SearchResponse
+	(*MemoryFact)(nil),                 // 33: anvilkit.knowledge.v1.MemoryFact
+	(*ProposeFactRequest)(nil),         // 34: anvilkit.knowledge.v1.ProposeFactRequest
+	(*ProposeFactResponse)(nil),        // 35: anvilkit.knowledge.v1.ProposeFactResponse
+	(*DecideFactRequest)(nil),          // 36: anvilkit.knowledge.v1.DecideFactRequest
+	(*DecideFactResponse)(nil),         // 37: anvilkit.knowledge.v1.DecideFactResponse
+	(*GetFactRequest)(nil),             // 38: anvilkit.knowledge.v1.GetFactRequest
+	(*GetFactResponse)(nil),            // 39: anvilkit.knowledge.v1.GetFactResponse
+	(*ListFactsRequest)(nil),           // 40: anvilkit.knowledge.v1.ListFactsRequest
+	(*ListFactsResponse)(nil),          // 41: anvilkit.knowledge.v1.ListFactsResponse
+	(*DeleteFactRequest)(nil),          // 42: anvilkit.knowledge.v1.DeleteFactRequest
+	(*DeleteFactResponse)(nil),         // 43: anvilkit.knowledge.v1.DeleteFactResponse
+	(*RecallFactsRequest)(nil),         // 44: anvilkit.knowledge.v1.RecallFactsRequest
+	(*RecallFactsResponse)(nil),        // 45: anvilkit.knowledge.v1.RecallFactsResponse
+	(*BackgroundTask)(nil),             // 46: anvilkit.knowledge.v1.BackgroundTask
+	(*ClaimTaskRequest)(nil),           // 47: anvilkit.knowledge.v1.ClaimTaskRequest
+	(*ClaimTaskResponse)(nil),          // 48: anvilkit.knowledge.v1.ClaimTaskResponse
+	(*HeartbeatTaskRequest)(nil),       // 49: anvilkit.knowledge.v1.HeartbeatTaskRequest
+	(*HeartbeatTaskResponse)(nil),      // 50: anvilkit.knowledge.v1.HeartbeatTaskResponse
+	(*SubmitTaskResultRequest)(nil),    // 51: anvilkit.knowledge.v1.SubmitTaskResultRequest
+	(*SubmitTaskResultResponse)(nil),   // 52: anvilkit.knowledge.v1.SubmitTaskResultResponse
+	(*GetTaskRequest)(nil),             // 53: anvilkit.knowledge.v1.GetTaskRequest
+	(*GetTaskResponse)(nil),            // 54: anvilkit.knowledge.v1.GetTaskResponse
+	(*AdvanceParseRequest)(nil),        // 55: anvilkit.knowledge.v1.AdvanceParseRequest
+	(*AdvanceParseResponse)(nil),       // 56: anvilkit.knowledge.v1.AdvanceParseResponse
+	(*AdvanceIndexRequest)(nil),        // 57: anvilkit.knowledge.v1.AdvanceIndexRequest
+	(*AdvanceIndexResponse)(nil),       // 58: anvilkit.knowledge.v1.AdvanceIndexResponse
+	(*AdvanceProjectionRequest)(nil),   // 59: anvilkit.knowledge.v1.AdvanceProjectionRequest
+	(*AdvanceProjectionResponse)(nil),  // 60: anvilkit.knowledge.v1.AdvanceProjectionResponse
+	nil,                                // 61: anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntry
+	(*timestamppb.Timestamp)(nil),      // 62: google.protobuf.Timestamp
 }
 var file_anvilkit_knowledge_v1_knowledge_proto_depIdxs = []int32{
 	0,  // 0: anvilkit.knowledge.v1.Source.kind:type_name -> anvilkit.knowledge.v1.SourceKind
 	10, // 1: anvilkit.knowledge.v1.Source.access:type_name -> anvilkit.knowledge.v1.AccessEntry
 	1,  // 2: anvilkit.knowledge.v1.Source.ingest:type_name -> anvilkit.knowledge.v1.IngestState
-	59, // 3: anvilkit.knowledge.v1.Source.created_at:type_name -> google.protobuf.Timestamp
-	59, // 4: anvilkit.knowledge.v1.Source.updated_at:type_name -> google.protobuf.Timestamp
-	8,  // 5: anvilkit.knowledge.v1.RegisterSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	9,  // 6: anvilkit.knowledge.v1.RegisterSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	0,  // 7: anvilkit.knowledge.v1.RegisterSourceRequest.kind:type_name -> anvilkit.knowledge.v1.SourceKind
-	10, // 8: anvilkit.knowledge.v1.RegisterSourceRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
-	11, // 9: anvilkit.knowledge.v1.RegisterSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	9,  // 10: anvilkit.knowledge.v1.GetSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	11, // 11: anvilkit.knowledge.v1.GetSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	9,  // 12: anvilkit.knowledge.v1.ListSourcesRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	11, // 13: anvilkit.knowledge.v1.ListSourcesResponse.sources:type_name -> anvilkit.knowledge.v1.Source
-	8,  // 14: anvilkit.knowledge.v1.UpdateSourceAccessRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	9,  // 15: anvilkit.knowledge.v1.UpdateSourceAccessRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	10, // 16: anvilkit.knowledge.v1.UpdateSourceAccessRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
-	11, // 17: anvilkit.knowledge.v1.UpdateSourceAccessResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	8,  // 18: anvilkit.knowledge.v1.DeleteSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	9,  // 19: anvilkit.knowledge.v1.DeleteSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	11, // 20: anvilkit.knowledge.v1.DeleteSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
-	59, // 21: anvilkit.knowledge.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
-	8,  // 22: anvilkit.knowledge.v1.CreateSnapshotRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	9,  // 23: anvilkit.knowledge.v1.CreateSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	22, // 24: anvilkit.knowledge.v1.CreateSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
-	9,  // 25: anvilkit.knowledge.v1.GetSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	22, // 26: anvilkit.knowledge.v1.GetSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
-	27, // 27: anvilkit.knowledge.v1.ContextItem.citation:type_name -> anvilkit.knowledge.v1.Citation
-	9,  // 28: anvilkit.knowledge.v1.SearchRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	59, // 29: anvilkit.knowledge.v1.SearchRequest.deadline:type_name -> google.protobuf.Timestamp
-	28, // 30: anvilkit.knowledge.v1.SearchResponse.items:type_name -> anvilkit.knowledge.v1.ContextItem
-	2,  // 31: anvilkit.knowledge.v1.MemoryFact.state:type_name -> anvilkit.knowledge.v1.FactState
-	59, // 32: anvilkit.knowledge.v1.MemoryFact.expires_at:type_name -> google.protobuf.Timestamp
-	59, // 33: anvilkit.knowledge.v1.MemoryFact.created_at:type_name -> google.protobuf.Timestamp
-	59, // 34: anvilkit.knowledge.v1.MemoryFact.updated_at:type_name -> google.protobuf.Timestamp
-	3,  // 35: anvilkit.knowledge.v1.MemoryFact.origin:type_name -> anvilkit.knowledge.v1.FactOrigin
-	8,  // 36: anvilkit.knowledge.v1.ProposeFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	9,  // 37: anvilkit.knowledge.v1.ProposeFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	59, // 38: anvilkit.knowledge.v1.ProposeFactRequest.expires_at:type_name -> google.protobuf.Timestamp
-	3,  // 39: anvilkit.knowledge.v1.ProposeFactRequest.origin:type_name -> anvilkit.knowledge.v1.FactOrigin
-	31, // 40: anvilkit.knowledge.v1.ProposeFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
-	8,  // 41: anvilkit.knowledge.v1.DecideFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	9,  // 42: anvilkit.knowledge.v1.DecideFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	4,  // 43: anvilkit.knowledge.v1.DecideFactRequest.decision:type_name -> anvilkit.knowledge.v1.FactDecision
-	59, // 44: anvilkit.knowledge.v1.DecideFactRequest.expires_at:type_name -> google.protobuf.Timestamp
-	31, // 45: anvilkit.knowledge.v1.DecideFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
-	9,  // 46: anvilkit.knowledge.v1.GetFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	31, // 47: anvilkit.knowledge.v1.GetFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
-	9,  // 48: anvilkit.knowledge.v1.ListFactsRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	2,  // 49: anvilkit.knowledge.v1.ListFactsRequest.state:type_name -> anvilkit.knowledge.v1.FactState
-	31, // 50: anvilkit.knowledge.v1.ListFactsResponse.facts:type_name -> anvilkit.knowledge.v1.MemoryFact
-	8,  // 51: anvilkit.knowledge.v1.DeleteFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
-	9,  // 52: anvilkit.knowledge.v1.DeleteFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	31, // 53: anvilkit.knowledge.v1.DeleteFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
-	9,  // 54: anvilkit.knowledge.v1.RecallFactsRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
-	59, // 55: anvilkit.knowledge.v1.RecallFactsRequest.deadline:type_name -> google.protobuf.Timestamp
-	31, // 56: anvilkit.knowledge.v1.RecallFactsResponse.facts:type_name -> anvilkit.knowledge.v1.MemoryFact
-	5,  // 57: anvilkit.knowledge.v1.BackgroundTask.state:type_name -> anvilkit.knowledge.v1.TaskState
-	59, // 58: anvilkit.knowledge.v1.BackgroundTask.lease_until:type_name -> google.protobuf.Timestamp
-	44, // 59: anvilkit.knowledge.v1.ClaimTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
-	44, // 60: anvilkit.knowledge.v1.HeartbeatTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
-	44, // 61: anvilkit.knowledge.v1.SubmitTaskResultResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
-	44, // 62: anvilkit.knowledge.v1.GetTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
-	6,  // 63: anvilkit.knowledge.v1.AdvanceParseResponse.state:type_name -> anvilkit.knowledge.v1.ParseState
-	7,  // 64: anvilkit.knowledge.v1.AdvanceIndexResponse.state:type_name -> anvilkit.knowledge.v1.IndexState
-	7,  // 65: anvilkit.knowledge.v1.AdvanceProjectionResponse.state:type_name -> anvilkit.knowledge.v1.IndexState
-	12, // 66: anvilkit.knowledge.v1.SourceService.RegisterSource:input_type -> anvilkit.knowledge.v1.RegisterSourceRequest
-	14, // 67: anvilkit.knowledge.v1.SourceService.GetSource:input_type -> anvilkit.knowledge.v1.GetSourceRequest
-	16, // 68: anvilkit.knowledge.v1.SourceService.ListSources:input_type -> anvilkit.knowledge.v1.ListSourcesRequest
-	18, // 69: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:input_type -> anvilkit.knowledge.v1.UpdateSourceAccessRequest
-	20, // 70: anvilkit.knowledge.v1.SourceService.DeleteSource:input_type -> anvilkit.knowledge.v1.DeleteSourceRequest
-	23, // 71: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:input_type -> anvilkit.knowledge.v1.CreateSnapshotRequest
-	25, // 72: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:input_type -> anvilkit.knowledge.v1.GetSnapshotRequest
-	29, // 73: anvilkit.knowledge.v1.RetrievalService.Search:input_type -> anvilkit.knowledge.v1.SearchRequest
-	32, // 74: anvilkit.knowledge.v1.MemoryService.ProposeFact:input_type -> anvilkit.knowledge.v1.ProposeFactRequest
-	34, // 75: anvilkit.knowledge.v1.MemoryService.DecideFact:input_type -> anvilkit.knowledge.v1.DecideFactRequest
-	36, // 76: anvilkit.knowledge.v1.MemoryService.GetFact:input_type -> anvilkit.knowledge.v1.GetFactRequest
-	38, // 77: anvilkit.knowledge.v1.MemoryService.ListFacts:input_type -> anvilkit.knowledge.v1.ListFactsRequest
-	40, // 78: anvilkit.knowledge.v1.MemoryService.DeleteFact:input_type -> anvilkit.knowledge.v1.DeleteFactRequest
-	42, // 79: anvilkit.knowledge.v1.MemoryService.RecallFacts:input_type -> anvilkit.knowledge.v1.RecallFactsRequest
-	45, // 80: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:input_type -> anvilkit.knowledge.v1.ClaimTaskRequest
-	47, // 81: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:input_type -> anvilkit.knowledge.v1.HeartbeatTaskRequest
-	49, // 82: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:input_type -> anvilkit.knowledge.v1.SubmitTaskResultRequest
-	51, // 83: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:input_type -> anvilkit.knowledge.v1.GetTaskRequest
-	53, // 84: anvilkit.knowledge.v1.IngestService.AdvanceParse:input_type -> anvilkit.knowledge.v1.AdvanceParseRequest
-	55, // 85: anvilkit.knowledge.v1.IngestService.AdvanceIndex:input_type -> anvilkit.knowledge.v1.AdvanceIndexRequest
-	57, // 86: anvilkit.knowledge.v1.IngestService.AdvanceProjection:input_type -> anvilkit.knowledge.v1.AdvanceProjectionRequest
-	13, // 87: anvilkit.knowledge.v1.SourceService.RegisterSource:output_type -> anvilkit.knowledge.v1.RegisterSourceResponse
-	15, // 88: anvilkit.knowledge.v1.SourceService.GetSource:output_type -> anvilkit.knowledge.v1.GetSourceResponse
-	17, // 89: anvilkit.knowledge.v1.SourceService.ListSources:output_type -> anvilkit.knowledge.v1.ListSourcesResponse
-	19, // 90: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:output_type -> anvilkit.knowledge.v1.UpdateSourceAccessResponse
-	21, // 91: anvilkit.knowledge.v1.SourceService.DeleteSource:output_type -> anvilkit.knowledge.v1.DeleteSourceResponse
-	24, // 92: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:output_type -> anvilkit.knowledge.v1.CreateSnapshotResponse
-	26, // 93: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:output_type -> anvilkit.knowledge.v1.GetSnapshotResponse
-	30, // 94: anvilkit.knowledge.v1.RetrievalService.Search:output_type -> anvilkit.knowledge.v1.SearchResponse
-	33, // 95: anvilkit.knowledge.v1.MemoryService.ProposeFact:output_type -> anvilkit.knowledge.v1.ProposeFactResponse
-	35, // 96: anvilkit.knowledge.v1.MemoryService.DecideFact:output_type -> anvilkit.knowledge.v1.DecideFactResponse
-	37, // 97: anvilkit.knowledge.v1.MemoryService.GetFact:output_type -> anvilkit.knowledge.v1.GetFactResponse
-	39, // 98: anvilkit.knowledge.v1.MemoryService.ListFacts:output_type -> anvilkit.knowledge.v1.ListFactsResponse
-	41, // 99: anvilkit.knowledge.v1.MemoryService.DeleteFact:output_type -> anvilkit.knowledge.v1.DeleteFactResponse
-	43, // 100: anvilkit.knowledge.v1.MemoryService.RecallFacts:output_type -> anvilkit.knowledge.v1.RecallFactsResponse
-	46, // 101: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:output_type -> anvilkit.knowledge.v1.ClaimTaskResponse
-	48, // 102: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:output_type -> anvilkit.knowledge.v1.HeartbeatTaskResponse
-	50, // 103: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:output_type -> anvilkit.knowledge.v1.SubmitTaskResultResponse
-	52, // 104: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:output_type -> anvilkit.knowledge.v1.GetTaskResponse
-	54, // 105: anvilkit.knowledge.v1.IngestService.AdvanceParse:output_type -> anvilkit.knowledge.v1.AdvanceParseResponse
-	56, // 106: anvilkit.knowledge.v1.IngestService.AdvanceIndex:output_type -> anvilkit.knowledge.v1.AdvanceIndexResponse
-	58, // 107: anvilkit.knowledge.v1.IngestService.AdvanceProjection:output_type -> anvilkit.knowledge.v1.AdvanceProjectionResponse
-	87, // [87:108] is the sub-list for method output_type
-	66, // [66:87] is the sub-list for method input_type
-	66, // [66:66] is the sub-list for extension type_name
-	66, // [66:66] is the sub-list for extension extendee
-	0,  // [0:66] is the sub-list for field type_name
+	62, // 3: anvilkit.knowledge.v1.Source.created_at:type_name -> google.protobuf.Timestamp
+	62, // 4: anvilkit.knowledge.v1.Source.updated_at:type_name -> google.protobuf.Timestamp
+	8,  // 5: anvilkit.knowledge.v1.BeginUploadRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 6: anvilkit.knowledge.v1.BeginUploadRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	61, // 7: anvilkit.knowledge.v1.BeginUploadResponse.upload_headers:type_name -> anvilkit.knowledge.v1.BeginUploadResponse.UploadHeadersEntry
+	62, // 8: anvilkit.knowledge.v1.BeginUploadResponse.expires_at:type_name -> google.protobuf.Timestamp
+	8,  // 9: anvilkit.knowledge.v1.RegisterSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 10: anvilkit.knowledge.v1.RegisterSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	0,  // 11: anvilkit.knowledge.v1.RegisterSourceRequest.kind:type_name -> anvilkit.knowledge.v1.SourceKind
+	10, // 12: anvilkit.knowledge.v1.RegisterSourceRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
+	11, // 13: anvilkit.knowledge.v1.RegisterSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	9,  // 14: anvilkit.knowledge.v1.GetSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	11, // 15: anvilkit.knowledge.v1.GetSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	9,  // 16: anvilkit.knowledge.v1.ListSourcesRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	11, // 17: anvilkit.knowledge.v1.ListSourcesResponse.sources:type_name -> anvilkit.knowledge.v1.Source
+	8,  // 18: anvilkit.knowledge.v1.UpdateSourceAccessRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 19: anvilkit.knowledge.v1.UpdateSourceAccessRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	10, // 20: anvilkit.knowledge.v1.UpdateSourceAccessRequest.access:type_name -> anvilkit.knowledge.v1.AccessEntry
+	11, // 21: anvilkit.knowledge.v1.UpdateSourceAccessResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	8,  // 22: anvilkit.knowledge.v1.DeleteSourceRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 23: anvilkit.knowledge.v1.DeleteSourceRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	11, // 24: anvilkit.knowledge.v1.DeleteSourceResponse.source:type_name -> anvilkit.knowledge.v1.Source
+	62, // 25: anvilkit.knowledge.v1.Snapshot.created_at:type_name -> google.protobuf.Timestamp
+	8,  // 26: anvilkit.knowledge.v1.CreateSnapshotRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 27: anvilkit.knowledge.v1.CreateSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	24, // 28: anvilkit.knowledge.v1.CreateSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
+	9,  // 29: anvilkit.knowledge.v1.GetSnapshotRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	24, // 30: anvilkit.knowledge.v1.GetSnapshotResponse.snapshot:type_name -> anvilkit.knowledge.v1.Snapshot
+	29, // 31: anvilkit.knowledge.v1.ContextItem.citation:type_name -> anvilkit.knowledge.v1.Citation
+	9,  // 32: anvilkit.knowledge.v1.SearchRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	62, // 33: anvilkit.knowledge.v1.SearchRequest.deadline:type_name -> google.protobuf.Timestamp
+	30, // 34: anvilkit.knowledge.v1.SearchResponse.items:type_name -> anvilkit.knowledge.v1.ContextItem
+	2,  // 35: anvilkit.knowledge.v1.MemoryFact.state:type_name -> anvilkit.knowledge.v1.FactState
+	62, // 36: anvilkit.knowledge.v1.MemoryFact.expires_at:type_name -> google.protobuf.Timestamp
+	62, // 37: anvilkit.knowledge.v1.MemoryFact.created_at:type_name -> google.protobuf.Timestamp
+	62, // 38: anvilkit.knowledge.v1.MemoryFact.updated_at:type_name -> google.protobuf.Timestamp
+	3,  // 39: anvilkit.knowledge.v1.MemoryFact.origin:type_name -> anvilkit.knowledge.v1.FactOrigin
+	8,  // 40: anvilkit.knowledge.v1.ProposeFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 41: anvilkit.knowledge.v1.ProposeFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	62, // 42: anvilkit.knowledge.v1.ProposeFactRequest.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 43: anvilkit.knowledge.v1.ProposeFactRequest.origin:type_name -> anvilkit.knowledge.v1.FactOrigin
+	33, // 44: anvilkit.knowledge.v1.ProposeFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
+	8,  // 45: anvilkit.knowledge.v1.DecideFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 46: anvilkit.knowledge.v1.DecideFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	4,  // 47: anvilkit.knowledge.v1.DecideFactRequest.decision:type_name -> anvilkit.knowledge.v1.FactDecision
+	62, // 48: anvilkit.knowledge.v1.DecideFactRequest.expires_at:type_name -> google.protobuf.Timestamp
+	33, // 49: anvilkit.knowledge.v1.DecideFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
+	9,  // 50: anvilkit.knowledge.v1.GetFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	33, // 51: anvilkit.knowledge.v1.GetFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
+	9,  // 52: anvilkit.knowledge.v1.ListFactsRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	2,  // 53: anvilkit.knowledge.v1.ListFactsRequest.state:type_name -> anvilkit.knowledge.v1.FactState
+	33, // 54: anvilkit.knowledge.v1.ListFactsResponse.facts:type_name -> anvilkit.knowledge.v1.MemoryFact
+	8,  // 55: anvilkit.knowledge.v1.DeleteFactRequest.command:type_name -> anvilkit.knowledge.v1.CommandIdentity
+	9,  // 56: anvilkit.knowledge.v1.DeleteFactRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	33, // 57: anvilkit.knowledge.v1.DeleteFactResponse.fact:type_name -> anvilkit.knowledge.v1.MemoryFact
+	9,  // 58: anvilkit.knowledge.v1.RecallFactsRequest.scope:type_name -> anvilkit.knowledge.v1.Scope
+	62, // 59: anvilkit.knowledge.v1.RecallFactsRequest.deadline:type_name -> google.protobuf.Timestamp
+	33, // 60: anvilkit.knowledge.v1.RecallFactsResponse.facts:type_name -> anvilkit.knowledge.v1.MemoryFact
+	5,  // 61: anvilkit.knowledge.v1.BackgroundTask.state:type_name -> anvilkit.knowledge.v1.TaskState
+	62, // 62: anvilkit.knowledge.v1.BackgroundTask.lease_until:type_name -> google.protobuf.Timestamp
+	46, // 63: anvilkit.knowledge.v1.ClaimTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	46, // 64: anvilkit.knowledge.v1.HeartbeatTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	46, // 65: anvilkit.knowledge.v1.SubmitTaskResultResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	46, // 66: anvilkit.knowledge.v1.GetTaskResponse.task:type_name -> anvilkit.knowledge.v1.BackgroundTask
+	6,  // 67: anvilkit.knowledge.v1.AdvanceParseResponse.state:type_name -> anvilkit.knowledge.v1.ParseState
+	7,  // 68: anvilkit.knowledge.v1.AdvanceIndexResponse.state:type_name -> anvilkit.knowledge.v1.IndexState
+	7,  // 69: anvilkit.knowledge.v1.AdvanceProjectionResponse.state:type_name -> anvilkit.knowledge.v1.IndexState
+	14, // 70: anvilkit.knowledge.v1.SourceService.RegisterSource:input_type -> anvilkit.knowledge.v1.RegisterSourceRequest
+	16, // 71: anvilkit.knowledge.v1.SourceService.GetSource:input_type -> anvilkit.knowledge.v1.GetSourceRequest
+	18, // 72: anvilkit.knowledge.v1.SourceService.ListSources:input_type -> anvilkit.knowledge.v1.ListSourcesRequest
+	20, // 73: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:input_type -> anvilkit.knowledge.v1.UpdateSourceAccessRequest
+	22, // 74: anvilkit.knowledge.v1.SourceService.DeleteSource:input_type -> anvilkit.knowledge.v1.DeleteSourceRequest
+	12, // 75: anvilkit.knowledge.v1.SourceService.BeginUpload:input_type -> anvilkit.knowledge.v1.BeginUploadRequest
+	25, // 76: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:input_type -> anvilkit.knowledge.v1.CreateSnapshotRequest
+	27, // 77: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:input_type -> anvilkit.knowledge.v1.GetSnapshotRequest
+	31, // 78: anvilkit.knowledge.v1.RetrievalService.Search:input_type -> anvilkit.knowledge.v1.SearchRequest
+	34, // 79: anvilkit.knowledge.v1.MemoryService.ProposeFact:input_type -> anvilkit.knowledge.v1.ProposeFactRequest
+	36, // 80: anvilkit.knowledge.v1.MemoryService.DecideFact:input_type -> anvilkit.knowledge.v1.DecideFactRequest
+	38, // 81: anvilkit.knowledge.v1.MemoryService.GetFact:input_type -> anvilkit.knowledge.v1.GetFactRequest
+	40, // 82: anvilkit.knowledge.v1.MemoryService.ListFacts:input_type -> anvilkit.knowledge.v1.ListFactsRequest
+	42, // 83: anvilkit.knowledge.v1.MemoryService.DeleteFact:input_type -> anvilkit.knowledge.v1.DeleteFactRequest
+	44, // 84: anvilkit.knowledge.v1.MemoryService.RecallFacts:input_type -> anvilkit.knowledge.v1.RecallFactsRequest
+	47, // 85: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:input_type -> anvilkit.knowledge.v1.ClaimTaskRequest
+	49, // 86: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:input_type -> anvilkit.knowledge.v1.HeartbeatTaskRequest
+	51, // 87: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:input_type -> anvilkit.knowledge.v1.SubmitTaskResultRequest
+	53, // 88: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:input_type -> anvilkit.knowledge.v1.GetTaskRequest
+	55, // 89: anvilkit.knowledge.v1.IngestService.AdvanceParse:input_type -> anvilkit.knowledge.v1.AdvanceParseRequest
+	57, // 90: anvilkit.knowledge.v1.IngestService.AdvanceIndex:input_type -> anvilkit.knowledge.v1.AdvanceIndexRequest
+	59, // 91: anvilkit.knowledge.v1.IngestService.AdvanceProjection:input_type -> anvilkit.knowledge.v1.AdvanceProjectionRequest
+	15, // 92: anvilkit.knowledge.v1.SourceService.RegisterSource:output_type -> anvilkit.knowledge.v1.RegisterSourceResponse
+	17, // 93: anvilkit.knowledge.v1.SourceService.GetSource:output_type -> anvilkit.knowledge.v1.GetSourceResponse
+	19, // 94: anvilkit.knowledge.v1.SourceService.ListSources:output_type -> anvilkit.knowledge.v1.ListSourcesResponse
+	21, // 95: anvilkit.knowledge.v1.SourceService.UpdateSourceAccess:output_type -> anvilkit.knowledge.v1.UpdateSourceAccessResponse
+	23, // 96: anvilkit.knowledge.v1.SourceService.DeleteSource:output_type -> anvilkit.knowledge.v1.DeleteSourceResponse
+	13, // 97: anvilkit.knowledge.v1.SourceService.BeginUpload:output_type -> anvilkit.knowledge.v1.BeginUploadResponse
+	26, // 98: anvilkit.knowledge.v1.SnapshotService.CreateSnapshot:output_type -> anvilkit.knowledge.v1.CreateSnapshotResponse
+	28, // 99: anvilkit.knowledge.v1.SnapshotService.GetSnapshot:output_type -> anvilkit.knowledge.v1.GetSnapshotResponse
+	32, // 100: anvilkit.knowledge.v1.RetrievalService.Search:output_type -> anvilkit.knowledge.v1.SearchResponse
+	35, // 101: anvilkit.knowledge.v1.MemoryService.ProposeFact:output_type -> anvilkit.knowledge.v1.ProposeFactResponse
+	37, // 102: anvilkit.knowledge.v1.MemoryService.DecideFact:output_type -> anvilkit.knowledge.v1.DecideFactResponse
+	39, // 103: anvilkit.knowledge.v1.MemoryService.GetFact:output_type -> anvilkit.knowledge.v1.GetFactResponse
+	41, // 104: anvilkit.knowledge.v1.MemoryService.ListFacts:output_type -> anvilkit.knowledge.v1.ListFactsResponse
+	43, // 105: anvilkit.knowledge.v1.MemoryService.DeleteFact:output_type -> anvilkit.knowledge.v1.DeleteFactResponse
+	45, // 106: anvilkit.knowledge.v1.MemoryService.RecallFacts:output_type -> anvilkit.knowledge.v1.RecallFactsResponse
+	48, // 107: anvilkit.knowledge.v1.BackgroundTaskService.ClaimTask:output_type -> anvilkit.knowledge.v1.ClaimTaskResponse
+	50, // 108: anvilkit.knowledge.v1.BackgroundTaskService.HeartbeatTask:output_type -> anvilkit.knowledge.v1.HeartbeatTaskResponse
+	52, // 109: anvilkit.knowledge.v1.BackgroundTaskService.SubmitTaskResult:output_type -> anvilkit.knowledge.v1.SubmitTaskResultResponse
+	54, // 110: anvilkit.knowledge.v1.BackgroundTaskService.GetTask:output_type -> anvilkit.knowledge.v1.GetTaskResponse
+	56, // 111: anvilkit.knowledge.v1.IngestService.AdvanceParse:output_type -> anvilkit.knowledge.v1.AdvanceParseResponse
+	58, // 112: anvilkit.knowledge.v1.IngestService.AdvanceIndex:output_type -> anvilkit.knowledge.v1.AdvanceIndexResponse
+	60, // 113: anvilkit.knowledge.v1.IngestService.AdvanceProjection:output_type -> anvilkit.knowledge.v1.AdvanceProjectionResponse
+	92, // [92:114] is the sub-list for method output_type
+	70, // [70:92] is the sub-list for method input_type
+	70, // [70:70] is the sub-list for extension type_name
+	70, // [70:70] is the sub-list for extension extendee
+	0,  // [0:70] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_knowledge_v1_knowledge_proto_init() }
@@ -4659,21 +4877,21 @@ func file_anvilkit_knowledge_v1_knowledge_proto_init() {
 	if File_anvilkit_knowledge_v1_knowledge_proto != nil {
 		return
 	}
-	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[23].OneofWrappers = []any{}
-	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[24].OneofWrappers = []any{}
+	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[25].OneofWrappers = []any{}
 	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[26].OneofWrappers = []any{}
-	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[36].OneofWrappers = []any{}
-	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[41].OneofWrappers = []any{}
-	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[46].OneofWrappers = []any{}
+	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[28].OneofWrappers = []any{}
+	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[38].OneofWrappers = []any{}
+	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[43].OneofWrappers = []any{}
 	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[48].OneofWrappers = []any{}
 	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[50].OneofWrappers = []any{}
+	file_anvilkit_knowledge_v1_knowledge_proto_msgTypes[52].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_anvilkit_knowledge_v1_knowledge_proto_rawDesc), len(file_anvilkit_knowledge_v1_knowledge_proto_rawDesc)),
 			NumEnums:      8,
-			NumMessages:   51,
+			NumMessages:   54,
 			NumExtensions: 0,
 			NumServices:   6,
 		},

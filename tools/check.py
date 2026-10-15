@@ -5,8 +5,12 @@ Usage: python3 tools/check.py [--against GIT_REF]
 
 Checks, each failing loudly when its input is missing:
   1. Proto: `buf lint` on the Buf module (proto/); with --against, `buf breaking` against the
-     recorded baseline ref of this repository (never against legacy protos).
-  2. OpenAPI: openapi/{agent,inference,model-proxy}.yaml validate as OpenAPI 3.0.
+     recorded baseline ref of this repository (never against legacy protos): a removed or
+     renumbered field fails.
+  2. OpenAPI: openapi/{agent,inference,model-proxy}.yaml validate as OpenAPI 3.0; with
+     --against, `oasdiff breaking --fail-on ERR` (pinned 1.32.1) compares each document with
+     its version at the same ref: a removed route, field or response, a narrowed type or a
+     newly required request member fails (CON-05).
   3. JSON Schema: every **/*.schema.json passes the 2020-12 metaschema; every **/fixtures.json
      case validates (or is rejected) as declared (jobs/codegen/fixtures.json: the codegen
      process protocol); every profile in jobs/profiles.json validates as a Job profile.
@@ -32,6 +36,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import pyenv_check  # noqa: E402
@@ -99,6 +104,34 @@ def check_proto(against: str | None) -> None:
             fail("buf breaking: " + (p.stdout + p.stderr).strip())
         else:
             count("buf_breaking")
+
+
+OASDIFF_PIN = "1.32.1"
+
+
+def check_openapi_breaking(against: str) -> None:
+    """CON-05: each OpenAPI document against its version at the baseline ref."""
+    oasdiff = pathlib.Path(subprocess.run(["go", "env", "GOPATH"], capture_output=True, text=True).stdout.strip()) / "bin" / "oasdiff"
+    if not oasdiff.exists():
+        oasdiff = shutil.which("oasdiff")
+    if not oasdiff:
+        fail(f"oasdiff is not installed (go install github.com/oasdiff/oasdiff@v{OASDIFF_PIN})")
+        return
+    with tempfile.TemporaryDirectory(prefix="contracts-openapi-base-") as tmp:
+        for name in ("agent", "inference", "model-proxy"):
+            rel = f"openapi/{name}.yaml"
+            base = subprocess.run(["git", "show", f"{against}:{rel}"], cwd=CONTRACTS, capture_output=True)
+            if base.returncode != 0:
+                count("openapi_breaking_new_document")  # absent at the baseline: nothing to break
+                continue
+            base_path = pathlib.Path(tmp) / f"{name}.yaml"
+            base_path.write_bytes(base.stdout)
+            p = subprocess.run([str(oasdiff), "breaking", "--fail-on", "ERR", str(base_path), str(CONTRACTS / rel)],
+                               cwd=CONTRACTS, capture_output=True, text=True)
+            if p.returncode != 0:
+                fail(f"oasdiff breaking {rel} against {against}: " + (p.stdout + p.stderr).strip()[:3000])
+            else:
+                count("openapi_breaking")
 
 
 def check_openapi() -> dict[str, dict]:
@@ -281,13 +314,15 @@ def check_proto_vectors() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--against", help="git ref holding the recorded new-system Proto baseline for buf breaking")
+    ap.add_argument("--against", help="git ref holding the recorded new-system baseline for buf breaking and the OpenAPI breaking diff")
     a = ap.parse_args()
     if not (CONTRACTS / "proto").is_dir() or not (CONTRACTS / "openapi").is_dir():
         print("FAIL proto/ or openapi/ is missing; run from a checkout of anvilkit-agent-contracts")
         return 1
     check_proto(a.against)
     specs = check_openapi()
+    if a.against:
+        check_openapi_breaking(a.against)
     check_schemas()
     check_api_vectors(specs)
     check_proto_vectors()

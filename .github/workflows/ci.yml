@@ -6,19 +6,21 @@ on:
     branches: [main]
     tags: ["go/v*"]
   pull_request:
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: "1.27.0"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
       - name: Pinned generators
@@ -29,3 +31,41 @@ jobs:
           go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
       - name: Verify (check, generate --check, go, ts, python)
         run: sh tools/verification-env.sh
+  # CON-05 (P3.1 AC3): the Proto and OpenAPI contracts against the previous
+  # released Go tag. A removed or renumbered field, a removed route or
+  # response member, a narrowed type or a newly required request member
+  # fails (buf breaking FILE; oasdiff breaking --fail-on ERR). A deliberate
+  # breaking change of the 0.x line is an explicit protocol evolution decided
+  # in review, not a silent pass of this job.
+  breaking:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.27.0"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Pinned breaking-change tools
+        run: |
+          go install github.com/bufbuild/buf/cmd/buf@v1.73.0
+          go install github.com/oasdiff/oasdiff@v1.32.1
+      - name: Baseline (the newest go/v* tag other than the one being pushed)
+        id: baseline
+        run: |
+          current=""
+          case "$GITHUB_REF" in refs/tags/go/v*) current="${GITHUB_REF#refs/tags/}" ;; esac
+          baseline=$(git tag --list 'go/v*' --sort=-v:refname --merged HEAD | grep -vxF -- "$current" | head -n 1)
+          test -n "$baseline" || { echo "no go/v* baseline tag"; exit 1; }
+          echo "ref=$baseline" >> "$GITHUB_OUTPUT"
+      - name: buf breaking and oasdiff breaking against the baseline
+        env:
+          BASELINE: ${{ steps.baseline.outputs.ref }}
+        run: |
+          python3.12 -m venv .ci-venv
+          .ci-venv/bin/python -m pip install --quiet --require-hashes -r tools/requirements.txt
+          .ci-venv/bin/python tools/check.py --against "$BASELINE"

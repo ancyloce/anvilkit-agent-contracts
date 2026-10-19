@@ -124,6 +124,13 @@ message GetRecoveryRequest {
     min_len: 1
     max_len: 128
   }];
+  // The operator's verified user scope (P0.3) when the API reads a run on an
+  // operator's behalf (API-17): Control discloses the run only to an operator
+  // of its scope (the operator role in the run's tenant, the
+  // platform_operator role for "*"); any other scope is NOT_FOUND. A verified
+  // API caller must carry it. The Workflow, which drives the run, reads
+  // without one.
+  Scope scope = 2;
 }
 
 message GetRecoveryResponse {
@@ -158,6 +165,9 @@ message ListFindingsRequest {
     lte: 1000
   }];
   string cursor = 4 [(buf.validate.field).string = {max_len: 512}];
+  // The operator's verified user scope when the API lists findings on an
+  // operator's behalf (API-17), decided as for GetRecovery.
+  Scope scope = 5;
 }
 
 message ListFindingsResponse {

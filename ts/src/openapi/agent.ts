@@ -149,11 +149,18 @@ export interface paths {
         };
         /**
          * API-04 authorized SSE of durable operation events after a cursor
-         * @description Server-Sent Events. `id` carries the eventSeq cursor; reconnect with `Last-Event-ID` or
-         *     `after`. Each `operation.changed` event's `data` is an OperationEventFrame. A cursor
-         *     before retention yields one `reset_required` event whose data is a ResetFrame; fetch
-         *     the snapshot and continue from coveredEventSeq. Slow consumers are disconnected;
-         *     disconnection never cancels the operation.
+         * @description Server-Sent Events. The stream opens with a `retry` field (the reconnect interval in
+         *     milliseconds, jittered). `id` carries the eventSeq cursor; reconnect with
+         *     `Last-Event-ID` or `after`. Each `operation.changed` event's `data` is an
+         *     OperationEventFrame. A cursor before retention yields one `reset_required` event
+         *     whose data is a ResetFrame; fetch the snapshot and continue from coveredEventSeq.
+         *     A stream the server ends on its own (reason `server_shutdown`: the replica drains)
+         *     ends with one `end` event whose data is an EndFrame and carries no `id`; the client
+         *     reconnects after the advertised `retry` interval with its last event id, to any
+         *     replica, and loses nothing. A stream whose operation became terminal closes after
+         *     its last `operation.changed` event without an `end` event. Comment lines are
+         *     heartbeats. Slow consumers are disconnected; disconnection never cancels the
+         *     operation.
          */
         get: operations["streamOperationEvents"];
         put?: never;
@@ -579,6 +586,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recoveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * API-17 begin an operator recovery run of a rollback window (F-P3.7-1)
+         * @description Closes new admission for the scope and fences every active execution identity under a new recovery epoch in one commit; the RecoveryWorkflow then enumerates the five independent inventories of the window and reconciles each finding under its original identity. The scope is the principal's tenant, or every tenant with `allTenants`. Control decides the authorization from the principal's verified roles: `operator` in the tenant, `platform_operator` for every tenant. The same commandId and body returns the existing run (200); a second run while one holds the scope is STALE_EXECUTION (RECOVERY_IN_PROGRESS).
+         */
+        post: operations["beginRecovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recoveries/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * API-17 read a recovery run, its enumeration progress and unsettled findings
+         * @description Disclosed only to an operator of the run's scope; any other caller receives NOT_FOUND.
+         */
+        get: operations["getRecovery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recoveries/{runId}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * API-17 page a run's findings in their fixed (class, obligation) order
+         * @description A caller that follows nextCursor until complete reaches every finding whatever the state of the ones before it. Disclosed only to an operator of the run's scope.
+         */
+        get: operations["listRecoveryFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recoveries/{runId}/dispositions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * API-17 record an evidence-bound operator disposition of one obligation of a run
+         * @description One obligation per command; there is no bulk form. The decision must apply to the obligation's class, the evidence reference and digest are verified before anything is recorded (a not-sent confirmation against the dispatch owner's independently checkable evidence), and the recoveryEpoch must be the obligation's current one. Needs the operator role in the principal's tenant. Evidence that does not verify is refused with EFFECT_UNCERTAIN and nothing is recorded: the obligation keeps its exposure. The same commandId and body returns the existing disposition (200).
+         */
+        post: operations["disposeObligation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -733,6 +820,12 @@ export interface components {
         ResetFrame: {
             operationId: components["schemas"]["Id"];
             coveredEventSeq: components["schemas"]["Sequence"];
+        };
+        /** @description The `data` of an SSE `end` event; the stream closes after it and is resumed from the last event id. */
+        EndFrame: {
+            operationId: components["schemas"]["Id"];
+            /** @enum {string} */
+            reason: "server_shutdown";
         };
         SubmitAnswerRequest: {
             commandId: components["schemas"]["Id"];
@@ -1189,6 +1282,85 @@ export interface components {
             /** @description Why a transfer was rejected or expired. */
             reasonCode?: string;
         };
+        /** @enum {string} */
+        ObligationClass: "intake" | "job-launch" | "model-dispatch" | "tool-dispatch" | "business-write";
+        /** @enum {string} */
+        RecoveryPhase: "fenced" | "enumerating" | "reconciling" | "restricted" | "reopened";
+        /** @enum {string} */
+        FindingStatus: "present" | "missing" | "restored" | "resolved" | "unresolved" | "disposed" | "outside_scope";
+        /** @enum {string} */
+        DispositionDecision: "confirm_not_sent" | "resolve_succeeded" | "resolve_failed" | "retain_exposure";
+        BeginRecoveryRequest: {
+            commandId: components["schemas"]["Id"];
+            /** @description Recover every tenant (needs platform_operator); otherwise the principal's tenant. */
+            allTenants?: boolean;
+            windowStart: components["schemas"]["Timestamp"];
+            windowEnd: components["schemas"]["Timestamp"];
+            /** @description Clock uncertainty Control widens the window by. */
+            clockUncertaintySeconds?: number;
+            reason?: string;
+        };
+        ClassProgress: {
+            class: components["schemas"]["ObligationClass"];
+            complete: boolean;
+            seen: components["schemas"]["Sequence"];
+        };
+        RecoveryRun: {
+            runId: components["schemas"]["Id"];
+            /** @description The recovered tenant, or "*" for every tenant. */
+            scopeKey: string;
+            recoveryEpoch: components["schemas"]["Sequence"];
+            phase: components["schemas"]["RecoveryPhase"];
+            windowStart: components["schemas"]["Timestamp"];
+            windowEnd: components["schemas"]["Timestamp"];
+            clockUncertaintySeconds: number;
+            fencedOperations: components["schemas"]["Sequence"];
+            unsettledFindings: components["schemas"]["Sequence"];
+            progress: components["schemas"]["ClassProgress"][];
+            createdAt: components["schemas"]["Timestamp"];
+            reopenedAt?: components["schemas"]["Timestamp"];
+        };
+        Finding: {
+            findingId: components["schemas"]["Id"];
+            runId: components["schemas"]["Id"];
+            class: components["schemas"]["ObligationClass"];
+            obligationId: components["schemas"]["Id"];
+            tenantId: components["schemas"]["Id"];
+            inventoryVersion: string;
+            recordedAt: components["schemas"]["Timestamp"];
+            status: components["schemas"]["FindingStatus"];
+            outcome?: string;
+            evidenceRef?: string;
+            detail?: string;
+            /** @description The launch identity the trusted launcher observes, for a job-launch finding the database holds. */
+            launchKey?: string;
+        };
+        FindingPage: {
+            findings: components["schemas"]["Finding"][];
+            nextCursor?: string;
+            complete: boolean;
+        };
+        DisposeObligationRequest: {
+            commandId: components["schemas"]["Id"];
+            class: components["schemas"]["ObligationClass"];
+            obligationId: components["schemas"]["Id"];
+            decision: components["schemas"]["DispositionDecision"];
+            evidenceRef: string;
+            evidenceDigest: components["schemas"]["Digest"];
+            recoveryEpoch: string;
+            reason?: string;
+        };
+        Disposition: {
+            dispositionId: components["schemas"]["Id"];
+            runId: components["schemas"]["Id"];
+            class: components["schemas"]["ObligationClass"];
+            obligationId: components["schemas"]["Id"];
+            decision: components["schemas"]["DispositionDecision"];
+            evidenceRef: string;
+            evidenceDigest: components["schemas"]["Digest"];
+            recoveryEpoch: components["schemas"]["Sequence"];
+            decidedAt: components["schemas"]["Timestamp"];
+        };
     };
     responses: {
         /** @description INVALID_ARGUMENT */
@@ -1259,6 +1431,7 @@ export interface components {
         operationId: components["schemas"]["Id"];
         sourceId: components["schemas"]["Id"];
         grantId: components["schemas"]["Id"];
+        runId: components["schemas"]["Id"];
         cursor: string;
         limit: number;
     };
@@ -2326,6 +2499,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Transfer"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    beginRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeginRecoveryRequest"];
+            };
+        };
+        responses: {
+            /** @description The run this command already began. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryRun"];
+                };
+            };
+            /** @description The new run, phase fenced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryRun"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["runId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryRun"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listRecoveryFindings: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["FindingStatus"];
+                cursor?: components["parameters"]["cursor"];
+                limit?: components["parameters"]["limit"];
+            };
+            header?: never;
+            path: {
+                runId: components["parameters"]["runId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Finding page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingPage"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    disposeObligation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["runId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisposeObligationRequest"];
+            };
+        };
+        responses: {
+            /** @description The disposition this command already recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disposition"];
+                };
+            };
+            /** @description The recorded disposition. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disposition"];
                 };
             };
             400: components["responses"]["InvalidArgument"];

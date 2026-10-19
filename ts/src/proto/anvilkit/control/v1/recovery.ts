@@ -285,6 +285,15 @@ export interface BeginRecoveryResponse {
 export interface GetRecoveryRequest {
   $type: "anvilkit.control.v1.GetRecoveryRequest";
   runId: string;
+  /**
+   * The operator's verified user scope (P0.3) when the API reads a run on an
+   * operator's behalf (API-17): Control discloses the run only to an operator
+   * of its scope (the operator role in the run's tenant, the
+   * platform_operator role for "*"); any other scope is NOT_FOUND. A verified
+   * API caller must carry it. The Workflow, which drives the run, reads
+   * without one.
+   */
+  scope: Scope | undefined;
 }
 
 export interface GetRecoveryResponse {
@@ -316,6 +325,11 @@ export interface ListFindingsRequest {
   status: FindingStatus;
   limit: number;
   cursor: string;
+  /**
+   * The operator's verified user scope when the API lists findings on an
+   * operator's behalf (API-17), decided as for GetRecovery.
+   */
+  scope: Scope | undefined;
 }
 
 export interface ListFindingsResponse {
@@ -1426,7 +1440,7 @@ export const BeginRecoveryResponse: MessageFns<BeginRecoveryResponse, "anvilkit.
 messageTypeRegistry.set(BeginRecoveryResponse.$type, BeginRecoveryResponse);
 
 function createBaseGetRecoveryRequest(): GetRecoveryRequest {
-  return { $type: "anvilkit.control.v1.GetRecoveryRequest", runId: "" };
+  return { $type: "anvilkit.control.v1.GetRecoveryRequest", runId: "", scope: undefined };
 }
 
 export const GetRecoveryRequest: MessageFns<GetRecoveryRequest, "anvilkit.control.v1.GetRecoveryRequest"> = {
@@ -1435,6 +1449,9 @@ export const GetRecoveryRequest: MessageFns<GetRecoveryRequest, "anvilkit.contro
   encode(message: GetRecoveryRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.runId !== "") {
       writer.uint32(10).string(message.runId);
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(18).fork()).join();
     }
     return writer;
   },
@@ -1460,6 +1477,14 @@ export const GetRecoveryRequest: MessageFns<GetRecoveryRequest, "anvilkit.contro
             message.runId = reader.string();
             continue;
           }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1480,6 +1505,7 @@ export const GetRecoveryRequest: MessageFns<GetRecoveryRequest, "anvilkit.contro
         : isSet(object.run_id)
         ? globalThis.String(object.run_id)
         : "",
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
     };
   },
 
@@ -1487,6 +1513,9 @@ export const GetRecoveryRequest: MessageFns<GetRecoveryRequest, "anvilkit.contro
     const obj: any = {};
     if (message.runId !== "") {
       obj.runId = message.runId;
+    }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
     }
     return obj;
   },
@@ -1497,6 +1526,7 @@ export const GetRecoveryRequest: MessageFns<GetRecoveryRequest, "anvilkit.contro
   fromPartial<I extends Exact<DeepPartial<GetRecoveryRequest>, I>>(object: I): GetRecoveryRequest {
     const message = createBaseGetRecoveryRequest();
     message.runId = object.runId ?? "";
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
     return message;
   },
 };
@@ -1751,7 +1781,14 @@ export const EnumerateInventoryResponse: MessageFns<
 messageTypeRegistry.set(EnumerateInventoryResponse.$type, EnumerateInventoryResponse);
 
 function createBaseListFindingsRequest(): ListFindingsRequest {
-  return { $type: "anvilkit.control.v1.ListFindingsRequest", runId: "", status: 0, limit: 0, cursor: "" };
+  return {
+    $type: "anvilkit.control.v1.ListFindingsRequest",
+    runId: "",
+    status: 0,
+    limit: 0,
+    cursor: "",
+    scope: undefined,
+  };
 }
 
 export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.control.v1.ListFindingsRequest"> = {
@@ -1769,6 +1806,9 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
     }
     if (message.cursor !== "") {
       writer.uint32(34).string(message.cursor);
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(42).fork()).join();
     }
     return writer;
   },
@@ -1818,6 +1858,14 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
             message.cursor = reader.string();
             continue;
           }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1841,6 +1889,7 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
       status: isSet(object.status) ? findingStatusFromJSON(object.status) : 0,
       limit: isSet(object.limit) ? globalThis.Number(object.limit) : 0,
       cursor: isSet(object.cursor) ? globalThis.String(object.cursor) : "",
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
     };
   },
 
@@ -1858,6 +1907,9 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
     if (message.cursor !== "") {
       obj.cursor = message.cursor;
     }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
     return obj;
   },
 
@@ -1870,6 +1922,7 @@ export const ListFindingsRequest: MessageFns<ListFindingsRequest, "anvilkit.cont
     message.status = object.status ?? 0;
     message.limit = object.limit ?? 0;
     message.cursor = object.cursor ?? "";
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
     return message;
   },
 };

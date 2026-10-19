@@ -695,8 +695,15 @@ func (x *BeginRecoveryResponse) GetExisting() bool {
 }
 
 type GetRecoveryRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	RunId string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	// The operator's verified user scope (P0.3) when the API reads a run on an
+	// operator's behalf (API-17): Control discloses the run only to an operator
+	// of its scope (the operator role in the run's tenant, the
+	// platform_operator role for "*"); any other scope is NOT_FOUND. A verified
+	// API caller must carry it. The Workflow, which drives the run, reads
+	// without one.
+	Scope         *Scope `protobuf:"bytes,2,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -736,6 +743,13 @@ func (x *GetRecoveryRequest) GetRunId() string {
 		return x.RunId
 	}
 	return ""
+}
+
+func (x *GetRecoveryRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
 }
 
 type GetRecoveryResponse struct {
@@ -884,11 +898,14 @@ func (x *EnumerateInventoryResponse) GetProgress() *ClassProgress {
 // caller that walks every page reaches every finding whatever the state of
 // the ones before it.
 type ListFindingsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	Status        FindingStatus          `protobuf:"varint,2,opt,name=status,proto3,enum=anvilkit.control.v1.FindingStatus" json:"status,omitempty"`
-	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	Cursor        string                 `protobuf:"bytes,4,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RunId  string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	Status FindingStatus          `protobuf:"varint,2,opt,name=status,proto3,enum=anvilkit.control.v1.FindingStatus" json:"status,omitempty"`
+	Limit  int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Cursor string                 `protobuf:"bytes,4,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// The operator's verified user scope when the API lists findings on an
+	// operator's behalf (API-17), decided as for GetRecovery.
+	Scope         *Scope `protobuf:"bytes,5,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -949,6 +966,13 @@ func (x *ListFindingsRequest) GetCursor() string {
 		return x.Cursor
 	}
 	return ""
+}
+
+func (x *ListFindingsRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
 }
 
 type ListFindingsResponse struct {
@@ -1721,10 +1745,11 @@ const file_anvilkit_control_v1_recovery_proto_rawDesc = "" +
 	"\x05scope\x18\a \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\"g\n" +
 	"\x15BeginRecoveryResponse\x122\n" +
 	"\x03run\x18\x01 \x01(\v2 .anvilkit.control.v1.RecoveryRunR\x03run\x12\x1a\n" +
-	"\bexisting\x18\x02 \x01(\bR\bexisting\"7\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"i\n" +
 	"\x12GetRecoveryRequest\x12!\n" +
 	"\x06run_id\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x05runId\"I\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x05runId\x120\n" +
+	"\x05scope\x18\x02 \x01(\v2\x1a.anvilkit.control.v1.ScopeR\x05scope\"I\n" +
 	"\x13GetRecoveryResponse\x122\n" +
 	"\x03run\x18\x01 \x01(\v2 .anvilkit.control.v1.RecoveryRunR\x03run\"\x9e\x01\n" +
 	"\x19EnumerateInventoryRequest\x12!\n" +
@@ -1733,14 +1758,15 @@ const file_anvilkit_control_v1_recovery_proto_rawDesc = "" +
 	"\x05class\x18\x02 \x01(\tBH\xbaHErCR\x06intakeR\n" +
 	"job-launchR\x0emodel-dispatchR\rtool-dispatchR\x0ebusiness-writeR\x05class\"\\\n" +
 	"\x1aEnumerateInventoryResponse\x12>\n" +
-	"\bprogress\x18\x01 \x01(\v2\".anvilkit.control.v1.ClassProgressR\bprogress\"\xb8\x01\n" +
+	"\bprogress\x18\x01 \x01(\v2\".anvilkit.control.v1.ClassProgressR\bprogress\"\xea\x01\n" +
 	"\x13ListFindingsRequest\x12!\n" +
 	"\x06run_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x05runId\x12:\n" +
 	"\x06status\x18\x02 \x01(\x0e2\".anvilkit.control.v1.FindingStatusR\x06status\x12 \n" +
 	"\x05limit\x18\x03 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\x12 \n" +
-	"\x06cursor\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06cursor\"\x8d\x01\n" +
+	"\x06cursor\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06cursor\x120\n" +
+	"\x05scope\x18\x05 \x01(\v2\x1a.anvilkit.control.v1.ScopeR\x05scope\"\x8d\x01\n" +
 	"\x14ListFindingsResponse\x128\n" +
 	"\bfindings\x18\x01 \x03(\v2\x1c.anvilkit.control.v1.FindingR\bfindings\x12\x1f\n" +
 	"\vnext_cursor\x18\x02 \x01(\tR\n" +
@@ -1905,43 +1931,45 @@ var file_anvilkit_control_v1_recovery_proto_depIdxs = []int32{
 	25, // 12: anvilkit.control.v1.BeginRecoveryRequest.clock_uncertainty:type_name -> google.protobuf.Duration
 	27, // 13: anvilkit.control.v1.BeginRecoveryRequest.scope:type_name -> anvilkit.control.v1.Scope
 	3,  // 14: anvilkit.control.v1.BeginRecoveryResponse.run:type_name -> anvilkit.control.v1.RecoveryRun
-	3,  // 15: anvilkit.control.v1.GetRecoveryResponse.run:type_name -> anvilkit.control.v1.RecoveryRun
-	4,  // 16: anvilkit.control.v1.EnumerateInventoryResponse.progress:type_name -> anvilkit.control.v1.ClassProgress
-	1,  // 17: anvilkit.control.v1.ListFindingsRequest.status:type_name -> anvilkit.control.v1.FindingStatus
-	5,  // 18: anvilkit.control.v1.ListFindingsResponse.findings:type_name -> anvilkit.control.v1.Finding
-	5,  // 19: anvilkit.control.v1.ReconcileFindingResponse.finding:type_name -> anvilkit.control.v1.Finding
-	28, // 20: anvilkit.control.v1.LaunchPod.phase:type_name -> anvilkit.control.v1.InstancePhase
-	24, // 21: anvilkit.control.v1.LaunchPod.observed_at:type_name -> google.protobuf.Timestamp
-	16, // 22: anvilkit.control.v1.RecordLaunchOutcomeRequest.pods:type_name -> anvilkit.control.v1.LaunchPod
-	5,  // 23: anvilkit.control.v1.RecordLaunchOutcomeResponse.finding:type_name -> anvilkit.control.v1.Finding
-	3,  // 24: anvilkit.control.v1.EvaluateRecoveryResponse.run:type_name -> anvilkit.control.v1.RecoveryRun
-	26, // 25: anvilkit.control.v1.DisposeObligationRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	2,  // 26: anvilkit.control.v1.DisposeObligationRequest.decision:type_name -> anvilkit.control.v1.DispositionDecision
-	27, // 27: anvilkit.control.v1.DisposeObligationRequest.scope:type_name -> anvilkit.control.v1.Scope
-	2,  // 28: anvilkit.control.v1.Disposition.decision:type_name -> anvilkit.control.v1.DispositionDecision
-	24, // 29: anvilkit.control.v1.Disposition.decided_at:type_name -> google.protobuf.Timestamp
-	22, // 30: anvilkit.control.v1.DisposeObligationResponse.disposition:type_name -> anvilkit.control.v1.Disposition
-	6,  // 31: anvilkit.control.v1.RecoveryService.BeginRecovery:input_type -> anvilkit.control.v1.BeginRecoveryRequest
-	8,  // 32: anvilkit.control.v1.RecoveryService.GetRecovery:input_type -> anvilkit.control.v1.GetRecoveryRequest
-	10, // 33: anvilkit.control.v1.RecoveryService.EnumerateInventory:input_type -> anvilkit.control.v1.EnumerateInventoryRequest
-	12, // 34: anvilkit.control.v1.RecoveryService.ListFindings:input_type -> anvilkit.control.v1.ListFindingsRequest
-	14, // 35: anvilkit.control.v1.RecoveryService.ReconcileFinding:input_type -> anvilkit.control.v1.ReconcileFindingRequest
-	17, // 36: anvilkit.control.v1.RecoveryService.RecordLaunchOutcome:input_type -> anvilkit.control.v1.RecordLaunchOutcomeRequest
-	19, // 37: anvilkit.control.v1.RecoveryService.EvaluateRecovery:input_type -> anvilkit.control.v1.EvaluateRecoveryRequest
-	21, // 38: anvilkit.control.v1.RecoveryService.DisposeObligation:input_type -> anvilkit.control.v1.DisposeObligationRequest
-	7,  // 39: anvilkit.control.v1.RecoveryService.BeginRecovery:output_type -> anvilkit.control.v1.BeginRecoveryResponse
-	9,  // 40: anvilkit.control.v1.RecoveryService.GetRecovery:output_type -> anvilkit.control.v1.GetRecoveryResponse
-	11, // 41: anvilkit.control.v1.RecoveryService.EnumerateInventory:output_type -> anvilkit.control.v1.EnumerateInventoryResponse
-	13, // 42: anvilkit.control.v1.RecoveryService.ListFindings:output_type -> anvilkit.control.v1.ListFindingsResponse
-	15, // 43: anvilkit.control.v1.RecoveryService.ReconcileFinding:output_type -> anvilkit.control.v1.ReconcileFindingResponse
-	18, // 44: anvilkit.control.v1.RecoveryService.RecordLaunchOutcome:output_type -> anvilkit.control.v1.RecordLaunchOutcomeResponse
-	20, // 45: anvilkit.control.v1.RecoveryService.EvaluateRecovery:output_type -> anvilkit.control.v1.EvaluateRecoveryResponse
-	23, // 46: anvilkit.control.v1.RecoveryService.DisposeObligation:output_type -> anvilkit.control.v1.DisposeObligationResponse
-	39, // [39:47] is the sub-list for method output_type
-	31, // [31:39] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	27, // 15: anvilkit.control.v1.GetRecoveryRequest.scope:type_name -> anvilkit.control.v1.Scope
+	3,  // 16: anvilkit.control.v1.GetRecoveryResponse.run:type_name -> anvilkit.control.v1.RecoveryRun
+	4,  // 17: anvilkit.control.v1.EnumerateInventoryResponse.progress:type_name -> anvilkit.control.v1.ClassProgress
+	1,  // 18: anvilkit.control.v1.ListFindingsRequest.status:type_name -> anvilkit.control.v1.FindingStatus
+	27, // 19: anvilkit.control.v1.ListFindingsRequest.scope:type_name -> anvilkit.control.v1.Scope
+	5,  // 20: anvilkit.control.v1.ListFindingsResponse.findings:type_name -> anvilkit.control.v1.Finding
+	5,  // 21: anvilkit.control.v1.ReconcileFindingResponse.finding:type_name -> anvilkit.control.v1.Finding
+	28, // 22: anvilkit.control.v1.LaunchPod.phase:type_name -> anvilkit.control.v1.InstancePhase
+	24, // 23: anvilkit.control.v1.LaunchPod.observed_at:type_name -> google.protobuf.Timestamp
+	16, // 24: anvilkit.control.v1.RecordLaunchOutcomeRequest.pods:type_name -> anvilkit.control.v1.LaunchPod
+	5,  // 25: anvilkit.control.v1.RecordLaunchOutcomeResponse.finding:type_name -> anvilkit.control.v1.Finding
+	3,  // 26: anvilkit.control.v1.EvaluateRecoveryResponse.run:type_name -> anvilkit.control.v1.RecoveryRun
+	26, // 27: anvilkit.control.v1.DisposeObligationRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	2,  // 28: anvilkit.control.v1.DisposeObligationRequest.decision:type_name -> anvilkit.control.v1.DispositionDecision
+	27, // 29: anvilkit.control.v1.DisposeObligationRequest.scope:type_name -> anvilkit.control.v1.Scope
+	2,  // 30: anvilkit.control.v1.Disposition.decision:type_name -> anvilkit.control.v1.DispositionDecision
+	24, // 31: anvilkit.control.v1.Disposition.decided_at:type_name -> google.protobuf.Timestamp
+	22, // 32: anvilkit.control.v1.DisposeObligationResponse.disposition:type_name -> anvilkit.control.v1.Disposition
+	6,  // 33: anvilkit.control.v1.RecoveryService.BeginRecovery:input_type -> anvilkit.control.v1.BeginRecoveryRequest
+	8,  // 34: anvilkit.control.v1.RecoveryService.GetRecovery:input_type -> anvilkit.control.v1.GetRecoveryRequest
+	10, // 35: anvilkit.control.v1.RecoveryService.EnumerateInventory:input_type -> anvilkit.control.v1.EnumerateInventoryRequest
+	12, // 36: anvilkit.control.v1.RecoveryService.ListFindings:input_type -> anvilkit.control.v1.ListFindingsRequest
+	14, // 37: anvilkit.control.v1.RecoveryService.ReconcileFinding:input_type -> anvilkit.control.v1.ReconcileFindingRequest
+	17, // 38: anvilkit.control.v1.RecoveryService.RecordLaunchOutcome:input_type -> anvilkit.control.v1.RecordLaunchOutcomeRequest
+	19, // 39: anvilkit.control.v1.RecoveryService.EvaluateRecovery:input_type -> anvilkit.control.v1.EvaluateRecoveryRequest
+	21, // 40: anvilkit.control.v1.RecoveryService.DisposeObligation:input_type -> anvilkit.control.v1.DisposeObligationRequest
+	7,  // 41: anvilkit.control.v1.RecoveryService.BeginRecovery:output_type -> anvilkit.control.v1.BeginRecoveryResponse
+	9,  // 42: anvilkit.control.v1.RecoveryService.GetRecovery:output_type -> anvilkit.control.v1.GetRecoveryResponse
+	11, // 43: anvilkit.control.v1.RecoveryService.EnumerateInventory:output_type -> anvilkit.control.v1.EnumerateInventoryResponse
+	13, // 44: anvilkit.control.v1.RecoveryService.ListFindings:output_type -> anvilkit.control.v1.ListFindingsResponse
+	15, // 45: anvilkit.control.v1.RecoveryService.ReconcileFinding:output_type -> anvilkit.control.v1.ReconcileFindingResponse
+	18, // 46: anvilkit.control.v1.RecoveryService.RecordLaunchOutcome:output_type -> anvilkit.control.v1.RecordLaunchOutcomeResponse
+	20, // 47: anvilkit.control.v1.RecoveryService.EvaluateRecovery:output_type -> anvilkit.control.v1.EvaluateRecoveryResponse
+	23, // 48: anvilkit.control.v1.RecoveryService.DisposeObligation:output_type -> anvilkit.control.v1.DisposeObligationResponse
+	41, // [41:49] is the sub-list for method output_type
+	33, // [33:41] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_recovery_proto_init() }

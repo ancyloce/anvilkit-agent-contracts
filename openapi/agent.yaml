@@ -21,6 +21,7 @@ tags:
   - name: memories
   - name: mcp
   - name: artifacts
+  - name: recovery
 
 paths:
   /preparations:
@@ -205,11 +206,18 @@ paths:
       operationId: streamOperationEvents
       summary: API-04 authorized SSE of durable operation events after a cursor
       description: |
-        Server-Sent Events. `id` carries the eventSeq cursor; reconnect with `Last-Event-ID` or
-        `after`. Each `operation.changed` event's `data` is an OperationEventFrame. A cursor
-        before retention yields one `reset_required` event whose data is a ResetFrame; fetch
-        the snapshot and continue from coveredEventSeq. Slow consumers are disconnected;
-        disconnection never cancels the operation.
+        Server-Sent Events. The stream opens with a `retry` field (the reconnect interval in
+        milliseconds, jittered). `id` carries the eventSeq cursor; reconnect with
+        `Last-Event-ID` or `after`. Each `operation.changed` event's `data` is an
+        OperationEventFrame. A cursor before retention yields one `reset_required` event
+        whose data is a ResetFrame; fetch the snapshot and continue from coveredEventSeq.
+        A stream the server ends on its own (reason `server_shutdown`: the replica drains)
+        ends with one `end` event whose data is an EndFrame and carries no `id`; the client
+        reconnects after the advertised `retry` interval with its last event id, to any
+        replica, and loses nothing. A stream whose operation became terminal closes after
+        its last `operation.changed` event without an `end` event. Comment lines are
+        heartbeats. Slow consumers are disconnected; disconnection never cancels the
+        operation.
       parameters:
         - $ref: "#/components/parameters/operationId"
         - name: after
@@ -851,6 +859,130 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /recoveries:
+    post:
+      tags: [recovery]
+      operationId: beginRecovery
+      summary: API-17 begin an operator recovery run of a rollback window (F-P3.7-1)
+      description: >-
+        Closes new admission for the scope and fences every active execution
+        identity under a new recovery epoch in one commit; the RecoveryWorkflow
+        then enumerates the five independent inventories of the window and
+        reconciles each finding under its original identity. The scope is the
+        principal's tenant, or every tenant with `allTenants`. Control decides
+        the authorization from the principal's verified roles: `operator` in
+        the tenant, `platform_operator` for every tenant. The same commandId
+        and body returns the existing run (200); a second run while one holds
+        the scope is STALE_EXECUTION (RECOVERY_IN_PROGRESS).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BeginRecoveryRequest" }
+      responses:
+        "200":
+          description: The run this command already began.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryRun" }
+        "201":
+          description: The new run, phase fenced.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryRun" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /recoveries/{runId}:
+    get:
+      tags: [recovery]
+      operationId: getRecovery
+      summary: API-17 read a recovery run, its enumeration progress and unsettled findings
+      description: >-
+        Disclosed only to an operator of the run's scope; any other caller
+        receives NOT_FOUND.
+      parameters:
+        - $ref: "#/components/parameters/runId"
+      responses:
+        "200":
+          description: Run.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryRun" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /recoveries/{runId}/findings:
+    get:
+      tags: [recovery]
+      operationId: listRecoveryFindings
+      summary: API-17 page a run's findings in their fixed (class, obligation) order
+      description: >-
+        A caller that follows nextCursor until complete reaches every finding
+        whatever the state of the ones before it. Disclosed only to an operator
+        of the run's scope.
+      parameters:
+        - $ref: "#/components/parameters/runId"
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/FindingStatus" }
+        - $ref: "#/components/parameters/cursor"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: Finding page.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingPage" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /recoveries/{runId}/dispositions:
+    post:
+      tags: [recovery]
+      operationId: disposeObligation
+      summary: API-17 record an evidence-bound operator disposition of one obligation of a run
+      description: >-
+        One obligation per command; there is no bulk form. The decision must
+        apply to the obligation's class, the evidence reference and digest are
+        verified before anything is recorded (a not-sent confirmation against
+        the dispatch owner's independently checkable evidence), and the
+        recoveryEpoch must be the obligation's current one. Needs the operator
+        role in the principal's tenant. Evidence that does not verify is refused
+        with EFFECT_UNCERTAIN and nothing is recorded: the obligation keeps its
+        exposure. The same commandId and body returns the existing disposition
+        (200).
+      parameters:
+        - $ref: "#/components/parameters/runId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DisposeObligationRequest" }
+      responses:
+        "200":
+          description: The disposition this command already recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Disposition" }
+        "201":
+          description: The recorded disposition.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Disposition" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -871,6 +1003,11 @@ components:
       schema: { $ref: "#/components/schemas/Id" }
     grantId:
       name: grantId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    runId:
+      name: runId
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Id" }
@@ -1225,6 +1362,16 @@ components:
       properties:
         operationId: { $ref: "#/components/schemas/Id" }
         coveredEventSeq: { $ref: "#/components/schemas/Sequence" }
+    EndFrame:
+      description: The `data` of an SSE `end` event; the stream closes after it and is resumed from the last event id.
+      type: object
+      additionalProperties: false
+      required: [operationId, reason]
+      properties:
+        operationId: { $ref: "#/components/schemas/Id" }
+        reason:
+          type: string
+          enum: [server_shutdown]
     SubmitAnswerRequest:
       type: object
       additionalProperties: false
@@ -2072,3 +2219,148 @@ components:
           description: Why a transfer was rejected or expired.
           type: string
           maxLength: 64
+
+    # ---- recovery (API-17) ----
+    ObligationClass:
+      type: string
+      enum: [intake, job-launch, model-dispatch, tool-dispatch, business-write]
+    RecoveryPhase:
+      type: string
+      enum: [fenced, enumerating, reconciling, restricted, reopened]
+    FindingStatus:
+      type: string
+      enum: [present, missing, restored, resolved, unresolved, disposed, outside_scope]
+    DispositionDecision:
+      type: string
+      enum: [confirm_not_sent, resolve_succeeded, resolve_failed, retain_exposure]
+    BeginRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, windowStart, windowEnd]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        allTenants:
+          description: Recover every tenant (needs platform_operator); otherwise the principal's tenant.
+          type: boolean
+        windowStart: { $ref: "#/components/schemas/Timestamp" }
+        windowEnd: { $ref: "#/components/schemas/Timestamp" }
+        clockUncertaintySeconds:
+          description: Clock uncertainty Control widens the window by.
+          type: integer
+          minimum: 0
+          maximum: 86400
+        reason:
+          type: string
+          maxLength: 512
+    ClassProgress:
+      type: object
+      additionalProperties: false
+      required: [class, complete, seen]
+      properties:
+        class: { $ref: "#/components/schemas/ObligationClass" }
+        complete:
+          type: boolean
+        seen: { $ref: "#/components/schemas/Sequence" }
+    RecoveryRun:
+      type: object
+      additionalProperties: false
+      required: [runId, scopeKey, recoveryEpoch, phase, windowStart, windowEnd, clockUncertaintySeconds, fencedOperations, unsettledFindings, progress, createdAt]
+      properties:
+        runId: { $ref: "#/components/schemas/Id" }
+        scopeKey:
+          description: The recovered tenant, or "*" for every tenant.
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(\\*|[A-Za-z0-9][A-Za-z0-9._:-]*)$"
+        recoveryEpoch: { $ref: "#/components/schemas/Sequence" }
+        phase: { $ref: "#/components/schemas/RecoveryPhase" }
+        windowStart: { $ref: "#/components/schemas/Timestamp" }
+        windowEnd: { $ref: "#/components/schemas/Timestamp" }
+        clockUncertaintySeconds:
+          type: integer
+          minimum: 0
+        fencedOperations: { $ref: "#/components/schemas/Sequence" }
+        unsettledFindings: { $ref: "#/components/schemas/Sequence" }
+        progress:
+          type: array
+          items: { $ref: "#/components/schemas/ClassProgress" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        reopenedAt: { $ref: "#/components/schemas/Timestamp" }
+    Finding:
+      type: object
+      additionalProperties: false
+      required: [findingId, runId, class, obligationId, tenantId, inventoryVersion, recordedAt, status]
+      properties:
+        findingId: { $ref: "#/components/schemas/Id" }
+        runId: { $ref: "#/components/schemas/Id" }
+        class: { $ref: "#/components/schemas/ObligationClass" }
+        obligationId: { $ref: "#/components/schemas/Id" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        inventoryVersion:
+          type: string
+          maxLength: 256
+        recordedAt: { $ref: "#/components/schemas/Timestamp" }
+        status: { $ref: "#/components/schemas/FindingStatus" }
+        outcome:
+          type: string
+          maxLength: 64
+        evidenceRef:
+          type: string
+          maxLength: 256
+        detail:
+          type: string
+          maxLength: 512
+        launchKey:
+          description: The launch identity the trusted launcher observes, for a job-launch finding the database holds.
+          type: string
+          maxLength: 256
+    FindingPage:
+      type: object
+      additionalProperties: false
+      required: [findings, complete]
+      properties:
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        nextCursor:
+          type: string
+          maxLength: 512
+        complete:
+          type: boolean
+    DisposeObligationRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, class, obligationId, decision, evidenceRef, evidenceDigest, recoveryEpoch]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        class: { $ref: "#/components/schemas/ObligationClass" }
+        obligationId: { $ref: "#/components/schemas/Id" }
+        decision: { $ref: "#/components/schemas/DispositionDecision" }
+        evidenceRef:
+          type: string
+          minLength: 1
+          maxLength: 256
+        evidenceDigest: { $ref: "#/components/schemas/Digest" }
+        recoveryEpoch:
+          type: string
+          pattern: "^[1-9][0-9]{0,19}$"
+        reason:
+          type: string
+          maxLength: 512
+    Disposition:
+      type: object
+      additionalProperties: false
+      required: [dispositionId, runId, class, obligationId, decision, evidenceRef, evidenceDigest, recoveryEpoch, decidedAt]
+      properties:
+        dispositionId: { $ref: "#/components/schemas/Id" }
+        runId: { $ref: "#/components/schemas/Id" }
+        class: { $ref: "#/components/schemas/ObligationClass" }
+        obligationId: { $ref: "#/components/schemas/Id" }
+        decision: { $ref: "#/components/schemas/DispositionDecision" }
+        evidenceRef:
+          type: string
+          maxLength: 256
+        evidenceDigest: { $ref: "#/components/schemas/Digest" }
+        recoveryEpoch: { $ref: "#/components/schemas/Sequence" }
+        decidedAt: { $ref: "#/components/schemas/Timestamp" }

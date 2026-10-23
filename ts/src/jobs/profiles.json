@@ -192,17 +192,17 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-dev-v1",
-      "revision": "11",
+      "revision": "12",
       "jobKind": "codegen",
       "state": "development",
       "description": "P2.4 DEVELOPMENT_ONLY: codegen-team-v1 on the development foundation's containerd runtime (no gVisor): the same image, layout, sidecar placements and identity binding, labelled candidate code, so the complete in-Job team path is exercised there; it qualifies no isolation and every launcher refuses it outside its development guard.",
       "image": {
         "repository": "anvilkit-codegen-team",
-        "digest": "sha256:fb19e4f3c6eef1804b043ac0dcada31644a3ea8be07b9ac70c4b43a9d01b372c"
+        "digest": "sha256:6a67354c949880522bbca7909224262d874a0d34578f6429a46d41b8b2a4980f"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
-        "digest": "sha256:d96be167bf0a09e6f9922205e138a465baaeb3d7a6fb028d063cd294b2401e24"
+        "digest": "sha256:3857da8067b137681de4b55e4fe35106a5015089e57b930ad9e453f1a4757542"
       },
       "entrypoint": [
         "/usr/local/bin/anvilkit-codegen-supervisor",

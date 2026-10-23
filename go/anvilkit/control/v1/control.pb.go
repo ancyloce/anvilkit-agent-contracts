@@ -1439,8 +1439,11 @@ type OperationView struct {
 	// (P0.8), resolved by Control for preview_build and release operations;
 	// absent when the lineage has none (a release is refused then).
 	LineageIdentity *ComponentIdentity `protobuf:"bytes,21,opt,name=lineage_identity,json=lineageIdentity,proto3,oneof" json:"lineage_identity,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// progress is the latest attempt-bound fact (plan 0005 Phase 2); absent
+	// before the first attempt.
+	Progress      *OperationProgress `protobuf:"bytes,22,opt,name=progress,proto3,oneof" json:"progress,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *OperationView) Reset() {
@@ -1620,15 +1623,48 @@ func (x *OperationView) GetLineageIdentity() *ComponentIdentity {
 	return nil
 }
 
+func (x *OperationView) GetProgress() *OperationProgress {
+	if x != nil {
+		return x.Progress
+	}
+	return nil
+}
+
 // OperationChangedPayload is the reviewed small payload of operation.changed.
 type OperationChangedPayload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Lifecycle     Lifecycle              `protobuf:"varint,1,opt,name=lifecycle,proto3,enum=anvilkit.control.v1.Lifecycle" json:"lifecycle,omitempty"`
-	Phase         string                 `protobuf:"bytes,2,opt,name=phase,proto3" json:"phase,omitempty"`
-	Control       ControlState           `protobuf:"varint,3,opt,name=control,proto3,enum=anvilkit.control.v1.ControlState" json:"control,omitempty"`
-	Cleanup       CleanupState           `protobuf:"varint,4,opt,name=cleanup,proto3,enum=anvilkit.control.v1.CleanupState" json:"cleanup,omitempty"`
-	Finance       FinanceState           `protobuf:"varint,5,opt,name=finance,proto3,enum=anvilkit.control.v1.FinanceState" json:"finance,omitempty"`
-	FailureCode   *string                `protobuf:"bytes,6,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Lifecycle   Lifecycle              `protobuf:"varint,1,opt,name=lifecycle,proto3,enum=anvilkit.control.v1.Lifecycle" json:"lifecycle,omitempty"`
+	Phase       string                 `protobuf:"bytes,2,opt,name=phase,proto3" json:"phase,omitempty"`
+	Control     ControlState           `protobuf:"varint,3,opt,name=control,proto3,enum=anvilkit.control.v1.ControlState" json:"control,omitempty"`
+	Cleanup     CleanupState           `protobuf:"varint,4,opt,name=cleanup,proto3,enum=anvilkit.control.v1.CleanupState" json:"cleanup,omitempty"`
+	Finance     FinanceState           `protobuf:"varint,5,opt,name=finance,proto3,enum=anvilkit.control.v1.FinanceState" json:"finance,omitempty"`
+	FailureCode *string                `protobuf:"bytes,6,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
+	// Attempt-bound facts (plan 0005 Phase 2): set on every transition Control
+	// commits for an attempt (open, launch prepared, instance running, result
+	// accepted, closed) and on an intra-Job progress report; absent on the
+	// other transitions. step is the attempt's step id (analysis, codegen,
+	// validate, register_candidate), visit the outer repair round ("0" first),
+	// attempt_ordinal the rerun of that visit ("1" first).
+	Step           *string `protobuf:"bytes,7,opt,name=step,proto3,oneof" json:"step,omitempty"`
+	Visit          *string `protobuf:"bytes,8,opt,name=visit,proto3,oneof" json:"visit,omitempty"`
+	AttemptOrdinal *string `protobuf:"bytes,9,opt,name=attempt_ordinal,json=attemptOrdinal,proto3,oneof" json:"attempt_ordinal,omitempty"`
+	// verdict and verdict_code describe an accepted result only (the
+	// observer's verdict and the stage's failure code); a codegen step's verdict
+	// is the team's own classification, a validate step's the independent
+	// Validator's. The operation's failure_code is unaffected by a repairable
+	// verdict.
+	Verdict     Verdict `protobuf:"varint,10,opt,name=verdict,proto3,enum=anvilkit.control.v1.Verdict" json:"verdict,omitempty"`
+	VerdictCode *string `protobuf:"bytes,11,opt,name=verdict_code,json=verdictCode,proto3,oneof" json:"verdict_code,omitempty"`
+	// node and node_state are the trusted coordinator's node boundary
+	// (planner, retrieve, code, review, validate; started, completed, failed,
+	// skipped) reported through RecordAttemptProgress; round the team's
+	// internal coding round ("1" first); outcome_code a controlled code of a
+	// failed or classified node. Progress is a projection for display and never
+	// a verdict.
+	Node          *string `protobuf:"bytes,12,opt,name=node,proto3,oneof" json:"node,omitempty"`
+	NodeState     *string `protobuf:"bytes,13,opt,name=node_state,json=nodeState,proto3,oneof" json:"node_state,omitempty"`
+	Round         *string `protobuf:"bytes,14,opt,name=round,proto3,oneof" json:"round,omitempty"`
+	OutcomeCode   *string `protobuf:"bytes,15,opt,name=outcome_code,json=outcomeCode,proto3,oneof" json:"outcome_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1705,6 +1741,165 @@ func (x *OperationChangedPayload) GetFailureCode() string {
 	return ""
 }
 
+func (x *OperationChangedPayload) GetStep() string {
+	if x != nil && x.Step != nil {
+		return *x.Step
+	}
+	return ""
+}
+
+func (x *OperationChangedPayload) GetVisit() string {
+	if x != nil && x.Visit != nil {
+		return *x.Visit
+	}
+	return ""
+}
+
+func (x *OperationChangedPayload) GetAttemptOrdinal() string {
+	if x != nil && x.AttemptOrdinal != nil {
+		return *x.AttemptOrdinal
+	}
+	return ""
+}
+
+func (x *OperationChangedPayload) GetVerdict() Verdict {
+	if x != nil {
+		return x.Verdict
+	}
+	return Verdict_VERDICT_UNSPECIFIED
+}
+
+func (x *OperationChangedPayload) GetVerdictCode() string {
+	if x != nil && x.VerdictCode != nil {
+		return *x.VerdictCode
+	}
+	return ""
+}
+
+func (x *OperationChangedPayload) GetNode() string {
+	if x != nil && x.Node != nil {
+		return *x.Node
+	}
+	return ""
+}
+
+func (x *OperationChangedPayload) GetNodeState() string {
+	if x != nil && x.NodeState != nil {
+		return *x.NodeState
+	}
+	return ""
+}
+
+func (x *OperationChangedPayload) GetRound() string {
+	if x != nil && x.Round != nil {
+		return *x.Round
+	}
+	return ""
+}
+
+func (x *OperationChangedPayload) GetOutcomeCode() string {
+	if x != nil && x.OutcomeCode != nil {
+		return *x.OutcomeCode
+	}
+	return ""
+}
+
+// OperationProgress is the latest attempt-bound fact of an operation as the
+// projection reports it (the payload fields above of the newest event that
+// carries a step), with the event sequence it comes from: a reconnecting
+// client that lost history still learns the current step and node.
+type OperationProgress struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Step           string                 `protobuf:"bytes,1,opt,name=step,proto3" json:"step,omitempty"`
+	Visit          string                 `protobuf:"bytes,2,opt,name=visit,proto3" json:"visit,omitempty"`
+	AttemptOrdinal string                 `protobuf:"bytes,3,opt,name=attempt_ordinal,json=attemptOrdinal,proto3" json:"attempt_ordinal,omitempty"`
+	Node           *string                `protobuf:"bytes,4,opt,name=node,proto3,oneof" json:"node,omitempty"`
+	NodeState      *string                `protobuf:"bytes,5,opt,name=node_state,json=nodeState,proto3,oneof" json:"node_state,omitempty"`
+	Round          *string                `protobuf:"bytes,6,opt,name=round,proto3,oneof" json:"round,omitempty"`
+	EventSeq       string                 `protobuf:"bytes,7,opt,name=event_seq,json=eventSeq,proto3" json:"event_seq,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *OperationProgress) Reset() {
+	*x = OperationProgress{}
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OperationProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OperationProgress) ProtoMessage() {}
+
+func (x *OperationProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OperationProgress.ProtoReflect.Descriptor instead.
+func (*OperationProgress) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *OperationProgress) GetStep() string {
+	if x != nil {
+		return x.Step
+	}
+	return ""
+}
+
+func (x *OperationProgress) GetVisit() string {
+	if x != nil {
+		return x.Visit
+	}
+	return ""
+}
+
+func (x *OperationProgress) GetAttemptOrdinal() string {
+	if x != nil {
+		return x.AttemptOrdinal
+	}
+	return ""
+}
+
+func (x *OperationProgress) GetNode() string {
+	if x != nil && x.Node != nil {
+		return *x.Node
+	}
+	return ""
+}
+
+func (x *OperationProgress) GetNodeState() string {
+	if x != nil && x.NodeState != nil {
+		return *x.NodeState
+	}
+	return ""
+}
+
+func (x *OperationProgress) GetRound() string {
+	if x != nil && x.Round != nil {
+		return *x.Round
+	}
+	return ""
+}
+
+func (x *OperationProgress) GetEventSeq() string {
+	if x != nil {
+		return x.EventSeq
+	}
+	return ""
+}
+
 type OperationEvent struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	OperationId  string                 `protobuf:"bytes,1,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
@@ -1723,7 +1918,7 @@ type OperationEvent struct {
 
 func (x *OperationEvent) Reset() {
 	*x = OperationEvent{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[12]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1735,7 +1930,7 @@ func (x *OperationEvent) String() string {
 func (*OperationEvent) ProtoMessage() {}
 
 func (x *OperationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[12]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1748,7 +1943,7 @@ func (x *OperationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OperationEvent.ProtoReflect.Descriptor instead.
 func (*OperationEvent) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{12}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *OperationEvent) GetOperationId() string {
@@ -1835,7 +2030,7 @@ type CommandReceipt struct {
 
 func (x *CommandReceipt) Reset() {
 	*x = CommandReceipt{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[13]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1847,7 +2042,7 @@ func (x *CommandReceipt) String() string {
 func (*CommandReceipt) ProtoMessage() {}
 
 func (x *CommandReceipt) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[13]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1860,7 +2055,7 @@ func (x *CommandReceipt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandReceipt.ProtoReflect.Descriptor instead.
 func (*CommandReceipt) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{13}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CommandReceipt) GetCommandId() string {
@@ -1934,7 +2129,7 @@ type CreateOperationRequest struct {
 
 func (x *CreateOperationRequest) Reset() {
 	*x = CreateOperationRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[14]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1946,7 +2141,7 @@ func (x *CreateOperationRequest) String() string {
 func (*CreateOperationRequest) ProtoMessage() {}
 
 func (x *CreateOperationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[14]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1959,7 +2154,7 @@ func (x *CreateOperationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOperationRequest.ProtoReflect.Descriptor instead.
 func (*CreateOperationRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{14}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CreateOperationRequest) GetCommand() *CommandIdentity {
@@ -2007,7 +2202,7 @@ type CreateOperationResponse struct {
 
 func (x *CreateOperationResponse) Reset() {
 	*x = CreateOperationResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[15]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2019,7 +2214,7 @@ func (x *CreateOperationResponse) String() string {
 func (*CreateOperationResponse) ProtoMessage() {}
 
 func (x *CreateOperationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[15]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2032,7 +2227,7 @@ func (x *CreateOperationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOperationResponse.ProtoReflect.Descriptor instead.
 func (*CreateOperationResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{15}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CreateOperationResponse) GetOperation() *OperationView {
@@ -2059,7 +2254,7 @@ type GetOperationRequest struct {
 
 func (x *GetOperationRequest) Reset() {
 	*x = GetOperationRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[16]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2071,7 +2266,7 @@ func (x *GetOperationRequest) String() string {
 func (*GetOperationRequest) ProtoMessage() {}
 
 func (x *GetOperationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[16]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2084,7 +2279,7 @@ func (x *GetOperationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOperationRequest.ProtoReflect.Descriptor instead.
 func (*GetOperationRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{16}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetOperationRequest) GetScope() *Scope {
@@ -2110,7 +2305,7 @@ type GetOperationResponse struct {
 
 func (x *GetOperationResponse) Reset() {
 	*x = GetOperationResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[17]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2122,7 +2317,7 @@ func (x *GetOperationResponse) String() string {
 func (*GetOperationResponse) ProtoMessage() {}
 
 func (x *GetOperationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[17]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2135,7 +2330,7 @@ func (x *GetOperationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOperationResponse.ProtoReflect.Descriptor instead.
 func (*GetOperationResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{17}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetOperationResponse) GetOperation() *OperationView {
@@ -2158,7 +2353,7 @@ type ListOperationEventsRequest struct {
 
 func (x *ListOperationEventsRequest) Reset() {
 	*x = ListOperationEventsRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[18]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2170,7 +2365,7 @@ func (x *ListOperationEventsRequest) String() string {
 func (*ListOperationEventsRequest) ProtoMessage() {}
 
 func (x *ListOperationEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[18]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2183,7 +2378,7 @@ func (x *ListOperationEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperationEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListOperationEventsRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{18}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListOperationEventsRequest) GetScope() *Scope {
@@ -2225,7 +2420,7 @@ type ListOperationEventsResponse struct {
 
 func (x *ListOperationEventsResponse) Reset() {
 	*x = ListOperationEventsResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[19]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2237,7 +2432,7 @@ func (x *ListOperationEventsResponse) String() string {
 func (*ListOperationEventsResponse) ProtoMessage() {}
 
 func (x *ListOperationEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[19]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2250,7 +2445,7 @@ func (x *ListOperationEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOperationEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListOperationEventsResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{19}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListOperationEventsResponse) GetEvents() []*OperationEvent {
@@ -2285,7 +2480,7 @@ type StreamOperationEventsRequest struct {
 
 func (x *StreamOperationEventsRequest) Reset() {
 	*x = StreamOperationEventsRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[20]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2297,7 +2492,7 @@ func (x *StreamOperationEventsRequest) String() string {
 func (*StreamOperationEventsRequest) ProtoMessage() {}
 
 func (x *StreamOperationEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[20]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2310,7 +2505,7 @@ func (x *StreamOperationEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamOperationEventsRequest.ProtoReflect.Descriptor instead.
 func (*StreamOperationEventsRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{20}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *StreamOperationEventsRequest) GetScope() *Scope {
@@ -2343,7 +2538,7 @@ type StreamOperationEventsResponse struct {
 
 func (x *StreamOperationEventsResponse) Reset() {
 	*x = StreamOperationEventsResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[21]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2355,7 +2550,7 @@ func (x *StreamOperationEventsResponse) String() string {
 func (*StreamOperationEventsResponse) ProtoMessage() {}
 
 func (x *StreamOperationEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[21]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2368,7 +2563,7 @@ func (x *StreamOperationEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamOperationEventsResponse.ProtoReflect.Descriptor instead.
 func (*StreamOperationEventsResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{21}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *StreamOperationEventsResponse) GetEvent() *OperationEvent {
@@ -2392,7 +2587,7 @@ type SubmitCommandRequest struct {
 
 func (x *SubmitCommandRequest) Reset() {
 	*x = SubmitCommandRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[22]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2404,7 +2599,7 @@ func (x *SubmitCommandRequest) String() string {
 func (*SubmitCommandRequest) ProtoMessage() {}
 
 func (x *SubmitCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[22]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2417,7 +2612,7 @@ func (x *SubmitCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitCommandRequest.ProtoReflect.Descriptor instead.
 func (*SubmitCommandRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{22}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SubmitCommandRequest) GetCommand() *CommandIdentity {
@@ -2472,7 +2667,7 @@ type SubmitCommandResponse struct {
 
 func (x *SubmitCommandResponse) Reset() {
 	*x = SubmitCommandResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[23]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2484,7 +2679,7 @@ func (x *SubmitCommandResponse) String() string {
 func (*SubmitCommandResponse) ProtoMessage() {}
 
 func (x *SubmitCommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[23]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2497,7 +2692,7 @@ func (x *SubmitCommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitCommandResponse.ProtoReflect.Descriptor instead.
 func (*SubmitCommandResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{23}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SubmitCommandResponse) GetReceipt() *CommandReceipt {
@@ -2525,7 +2720,7 @@ type GetCommandRequest struct {
 
 func (x *GetCommandRequest) Reset() {
 	*x = GetCommandRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[24]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2537,7 +2732,7 @@ func (x *GetCommandRequest) String() string {
 func (*GetCommandRequest) ProtoMessage() {}
 
 func (x *GetCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[24]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2550,7 +2745,7 @@ func (x *GetCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCommandRequest.ProtoReflect.Descriptor instead.
 func (*GetCommandRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{24}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetCommandRequest) GetScope() *Scope {
@@ -2583,7 +2778,7 @@ type GetCommandResponse struct {
 
 func (x *GetCommandResponse) Reset() {
 	*x = GetCommandResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[25]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2595,7 +2790,7 @@ func (x *GetCommandResponse) String() string {
 func (*GetCommandResponse) ProtoMessage() {}
 
 func (x *GetCommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[25]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2608,7 +2803,7 @@ func (x *GetCommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCommandResponse.ProtoReflect.Descriptor instead.
 func (*GetCommandResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{25}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetCommandResponse) GetReceipt() *CommandReceipt {
@@ -2638,7 +2833,7 @@ type Attempt struct {
 
 func (x *Attempt) Reset() {
 	*x = Attempt{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[26]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2650,7 +2845,7 @@ func (x *Attempt) String() string {
 func (*Attempt) ProtoMessage() {}
 
 func (x *Attempt) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[26]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2663,7 +2858,7 @@ func (x *Attempt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Attempt.ProtoReflect.Descriptor instead.
 func (*Attempt) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{26}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Attempt) GetAttemptId() string {
@@ -2771,7 +2966,7 @@ type PhysicalInstance struct {
 
 func (x *PhysicalInstance) Reset() {
 	*x = PhysicalInstance{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[27]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2783,7 +2978,7 @@ func (x *PhysicalInstance) String() string {
 func (*PhysicalInstance) ProtoMessage() {}
 
 func (x *PhysicalInstance) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[27]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2796,7 +2991,7 @@ func (x *PhysicalInstance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PhysicalInstance.ProtoReflect.Descriptor instead.
 func (*PhysicalInstance) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{27}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *PhysicalInstance) GetInstanceId() string {
@@ -2907,7 +3102,7 @@ type ArtifactReference struct {
 
 func (x *ArtifactReference) Reset() {
 	*x = ArtifactReference{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[28]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2919,7 +3114,7 @@ func (x *ArtifactReference) String() string {
 func (*ArtifactReference) ProtoMessage() {}
 
 func (x *ArtifactReference) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[28]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2932,7 +3127,7 @@ func (x *ArtifactReference) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactReference.ProtoReflect.Descriptor instead.
 func (*ArtifactReference) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{28}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ArtifactReference) GetHandle() string {
@@ -3000,7 +3195,7 @@ type AcceptedStage struct {
 
 func (x *AcceptedStage) Reset() {
 	*x = AcceptedStage{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[29]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3012,7 +3207,7 @@ func (x *AcceptedStage) String() string {
 func (*AcceptedStage) ProtoMessage() {}
 
 func (x *AcceptedStage) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[29]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3025,7 +3220,7 @@ func (x *AcceptedStage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptedStage.ProtoReflect.Descriptor instead.
 func (*AcceptedStage) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{29}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *AcceptedStage) GetStageId() string {
@@ -3119,6 +3314,160 @@ func (x *AcceptedStage) GetArtifacts() []*ArtifactReference {
 	return nil
 }
 
+type RecordAttemptProgressRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Command        *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+	AttemptId      string                 `protobuf:"bytes,2,opt,name=attempt_id,json=attemptId,proto3" json:"attempt_id,omitempty"`
+	InstanceId     string                 `protobuf:"bytes,3,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	ExecutionEpoch string                 `protobuf:"bytes,4,opt,name=execution_epoch,json=executionEpoch,proto3" json:"execution_epoch,omitempty"`
+	Node           string                 `protobuf:"bytes,5,opt,name=node,proto3" json:"node,omitempty"`
+	State          string                 `protobuf:"bytes,6,opt,name=state,proto3" json:"state,omitempty"`
+	// round is the team's internal coding round the node belongs to; empty for
+	// the planner and the retrieval specialist.
+	Round         string  `protobuf:"bytes,7,opt,name=round,proto3" json:"round,omitempty"`
+	OutcomeCode   *string `protobuf:"bytes,8,opt,name=outcome_code,json=outcomeCode,proto3,oneof" json:"outcome_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecordAttemptProgressRequest) Reset() {
+	*x = RecordAttemptProgressRequest{}
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordAttemptProgressRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordAttemptProgressRequest) ProtoMessage() {}
+
+func (x *RecordAttemptProgressRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordAttemptProgressRequest.ProtoReflect.Descriptor instead.
+func (*RecordAttemptProgressRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *RecordAttemptProgressRequest) GetCommand() *CommandIdentity {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *RecordAttemptProgressRequest) GetAttemptId() string {
+	if x != nil {
+		return x.AttemptId
+	}
+	return ""
+}
+
+func (x *RecordAttemptProgressRequest) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
+	}
+	return ""
+}
+
+func (x *RecordAttemptProgressRequest) GetExecutionEpoch() string {
+	if x != nil {
+		return x.ExecutionEpoch
+	}
+	return ""
+}
+
+func (x *RecordAttemptProgressRequest) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *RecordAttemptProgressRequest) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *RecordAttemptProgressRequest) GetRound() string {
+	if x != nil {
+		return x.Round
+	}
+	return ""
+}
+
+func (x *RecordAttemptProgressRequest) GetOutcomeCode() string {
+	if x != nil && x.OutcomeCode != nil {
+		return *x.OutcomeCode
+	}
+	return ""
+}
+
+type RecordAttemptProgressResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Event         *OperationEvent        `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	Existing      bool                   `protobuf:"varint,2,opt,name=existing,proto3" json:"existing,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecordAttemptProgressResponse) Reset() {
+	*x = RecordAttemptProgressResponse{}
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordAttemptProgressResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordAttemptProgressResponse) ProtoMessage() {}
+
+func (x *RecordAttemptProgressResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordAttemptProgressResponse.ProtoReflect.Descriptor instead.
+func (*RecordAttemptProgressResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *RecordAttemptProgressResponse) GetEvent() *OperationEvent {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+func (x *RecordAttemptProgressResponse) GetExisting() bool {
+	if x != nil {
+		return x.Existing
+	}
+	return false
+}
+
 type OpenAttemptRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
@@ -3132,7 +3481,7 @@ type OpenAttemptRequest struct {
 
 func (x *OpenAttemptRequest) Reset() {
 	*x = OpenAttemptRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[30]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3144,7 +3493,7 @@ func (x *OpenAttemptRequest) String() string {
 func (*OpenAttemptRequest) ProtoMessage() {}
 
 func (x *OpenAttemptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[30]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3157,7 +3506,7 @@ func (x *OpenAttemptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenAttemptRequest.ProtoReflect.Descriptor instead.
 func (*OpenAttemptRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{30}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *OpenAttemptRequest) GetCommand() *CommandIdentity {
@@ -3205,7 +3554,7 @@ type OpenAttemptResponse struct {
 
 func (x *OpenAttemptResponse) Reset() {
 	*x = OpenAttemptResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[31]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3217,7 +3566,7 @@ func (x *OpenAttemptResponse) String() string {
 func (*OpenAttemptResponse) ProtoMessage() {}
 
 func (x *OpenAttemptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[31]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3230,7 +3579,7 @@ func (x *OpenAttemptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenAttemptResponse.ProtoReflect.Descriptor instead.
 func (*OpenAttemptResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{31}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *OpenAttemptResponse) GetAttempt() *Attempt {
@@ -3261,7 +3610,7 @@ type PrepareLaunchRequest struct {
 
 func (x *PrepareLaunchRequest) Reset() {
 	*x = PrepareLaunchRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[32]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3273,7 +3622,7 @@ func (x *PrepareLaunchRequest) String() string {
 func (*PrepareLaunchRequest) ProtoMessage() {}
 
 func (x *PrepareLaunchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[32]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3286,7 +3635,7 @@ func (x *PrepareLaunchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareLaunchRequest.ProtoReflect.Descriptor instead.
 func (*PrepareLaunchRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{32}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *PrepareLaunchRequest) GetCommand() *CommandIdentity {
@@ -3345,7 +3694,7 @@ type PrepareLaunchResponse struct {
 
 func (x *PrepareLaunchResponse) Reset() {
 	*x = PrepareLaunchResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[33]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3357,7 +3706,7 @@ func (x *PrepareLaunchResponse) String() string {
 func (*PrepareLaunchResponse) ProtoMessage() {}
 
 func (x *PrepareLaunchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[33]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3370,7 +3719,7 @@ func (x *PrepareLaunchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareLaunchResponse.ProtoReflect.Descriptor instead.
 func (*PrepareLaunchResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{33}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *PrepareLaunchResponse) GetLaunchId() string {
@@ -3430,7 +3779,7 @@ type RegisterInstanceRequest struct {
 
 func (x *RegisterInstanceRequest) Reset() {
 	*x = RegisterInstanceRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[34]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3442,7 +3791,7 @@ func (x *RegisterInstanceRequest) String() string {
 func (*RegisterInstanceRequest) ProtoMessage() {}
 
 func (x *RegisterInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[34]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3455,7 +3804,7 @@ func (x *RegisterInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterInstanceRequest.ProtoReflect.Descriptor instead.
 func (*RegisterInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{34}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *RegisterInstanceRequest) GetCommand() *CommandIdentity {
@@ -3517,7 +3866,7 @@ type RegisterInstanceResponse struct {
 
 func (x *RegisterInstanceResponse) Reset() {
 	*x = RegisterInstanceResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[35]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3529,7 +3878,7 @@ func (x *RegisterInstanceResponse) String() string {
 func (*RegisterInstanceResponse) ProtoMessage() {}
 
 func (x *RegisterInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[35]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3542,7 +3891,7 @@ func (x *RegisterInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterInstanceResponse.ProtoReflect.Descriptor instead.
 func (*RegisterInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{35}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *RegisterInstanceResponse) GetInstance() *PhysicalInstance {
@@ -3575,7 +3924,7 @@ type ObserveInstanceRequest struct {
 
 func (x *ObserveInstanceRequest) Reset() {
 	*x = ObserveInstanceRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[36]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3587,7 +3936,7 @@ func (x *ObserveInstanceRequest) String() string {
 func (*ObserveInstanceRequest) ProtoMessage() {}
 
 func (x *ObserveInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[36]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3600,7 +3949,7 @@ func (x *ObserveInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObserveInstanceRequest.ProtoReflect.Descriptor instead.
 func (*ObserveInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{36}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ObserveInstanceRequest) GetAttemptId() string {
@@ -3654,7 +4003,7 @@ type ObserveInstanceResponse struct {
 
 func (x *ObserveInstanceResponse) Reset() {
 	*x = ObserveInstanceResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[37]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3666,7 +4015,7 @@ func (x *ObserveInstanceResponse) String() string {
 func (*ObserveInstanceResponse) ProtoMessage() {}
 
 func (x *ObserveInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[37]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3679,7 +4028,7 @@ func (x *ObserveInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObserveInstanceResponse.ProtoReflect.Descriptor instead.
 func (*ObserveInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{37}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ObserveInstanceResponse) GetInstance() *PhysicalInstance {
@@ -3711,7 +4060,7 @@ type AcceptResultRequest struct {
 
 func (x *AcceptResultRequest) Reset() {
 	*x = AcceptResultRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[38]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3723,7 +4072,7 @@ func (x *AcceptResultRequest) String() string {
 func (*AcceptResultRequest) ProtoMessage() {}
 
 func (x *AcceptResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[38]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3736,7 +4085,7 @@ func (x *AcceptResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptResultRequest.ProtoReflect.Descriptor instead.
 func (*AcceptResultRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{38}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AcceptResultRequest) GetCommand() *CommandIdentity {
@@ -3819,7 +4168,7 @@ type AcceptResultResponse struct {
 
 func (x *AcceptResultResponse) Reset() {
 	*x = AcceptResultResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[39]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3831,7 +4180,7 @@ func (x *AcceptResultResponse) String() string {
 func (*AcceptResultResponse) ProtoMessage() {}
 
 func (x *AcceptResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[39]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3844,7 +4193,7 @@ func (x *AcceptResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptResultResponse.ProtoReflect.Descriptor instead.
 func (*AcceptResultResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{39}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *AcceptResultResponse) GetStage() *AcceptedStage {
@@ -3877,7 +4226,7 @@ type GetAcceptedStageRequest struct {
 
 func (x *GetAcceptedStageRequest) Reset() {
 	*x = GetAcceptedStageRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[40]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3889,7 +4238,7 @@ func (x *GetAcceptedStageRequest) String() string {
 func (*GetAcceptedStageRequest) ProtoMessage() {}
 
 func (x *GetAcceptedStageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[40]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3902,7 +4251,7 @@ func (x *GetAcceptedStageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAcceptedStageRequest.ProtoReflect.Descriptor instead.
 func (*GetAcceptedStageRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{40}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetAcceptedStageRequest) GetAttemptId() string {
@@ -3935,7 +4284,7 @@ type GetAcceptedStageResponse struct {
 
 func (x *GetAcceptedStageResponse) Reset() {
 	*x = GetAcceptedStageResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[41]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3947,7 +4296,7 @@ func (x *GetAcceptedStageResponse) String() string {
 func (*GetAcceptedStageResponse) ProtoMessage() {}
 
 func (x *GetAcceptedStageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[41]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3960,7 +4309,7 @@ func (x *GetAcceptedStageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAcceptedStageResponse.ProtoReflect.Descriptor instead.
 func (*GetAcceptedStageResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{41}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *GetAcceptedStageResponse) GetStage() *AcceptedStage {
@@ -3981,7 +4330,7 @@ type GetInstanceRequest struct {
 
 func (x *GetInstanceRequest) Reset() {
 	*x = GetInstanceRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[42]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3993,7 +4342,7 @@ func (x *GetInstanceRequest) String() string {
 func (*GetInstanceRequest) ProtoMessage() {}
 
 func (x *GetInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[42]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4006,7 +4355,7 @@ func (x *GetInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInstanceRequest.ProtoReflect.Descriptor instead.
 func (*GetInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{42}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *GetInstanceRequest) GetBackend() string {
@@ -4056,7 +4405,7 @@ type GetInstanceResponse struct {
 
 func (x *GetInstanceResponse) Reset() {
 	*x = GetInstanceResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[43]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4068,7 +4417,7 @@ func (x *GetInstanceResponse) String() string {
 func (*GetInstanceResponse) ProtoMessage() {}
 
 func (x *GetInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[43]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4081,7 +4430,7 @@ func (x *GetInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInstanceResponse.ProtoReflect.Descriptor instead.
 func (*GetInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{43}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetInstanceResponse) GetInstance() *PhysicalInstance {
@@ -4139,7 +4488,7 @@ type CloseAttemptRequest struct {
 
 func (x *CloseAttemptRequest) Reset() {
 	*x = CloseAttemptRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[44]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4151,7 +4500,7 @@ func (x *CloseAttemptRequest) String() string {
 func (*CloseAttemptRequest) ProtoMessage() {}
 
 func (x *CloseAttemptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[44]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4164,7 +4513,7 @@ func (x *CloseAttemptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseAttemptRequest.ProtoReflect.Descriptor instead.
 func (*CloseAttemptRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{44}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CloseAttemptRequest) GetCommand() *CommandIdentity {
@@ -4213,7 +4562,7 @@ type CloseAttemptResponse struct {
 
 func (x *CloseAttemptResponse) Reset() {
 	*x = CloseAttemptResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[45]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4225,7 +4574,7 @@ func (x *CloseAttemptResponse) String() string {
 func (*CloseAttemptResponse) ProtoMessage() {}
 
 func (x *CloseAttemptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[45]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4238,7 +4587,7 @@ func (x *CloseAttemptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseAttemptResponse.ProtoReflect.Descriptor instead.
 func (*CloseAttemptResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{45}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CloseAttemptResponse) GetAttempt() *Attempt {
@@ -4277,7 +4626,7 @@ type SettleOperationRequest struct {
 
 func (x *SettleOperationRequest) Reset() {
 	*x = SettleOperationRequest{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[46]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4289,7 +4638,7 @@ func (x *SettleOperationRequest) String() string {
 func (*SettleOperationRequest) ProtoMessage() {}
 
 func (x *SettleOperationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[46]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4302,7 +4651,7 @@ func (x *SettleOperationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SettleOperationRequest.ProtoReflect.Descriptor instead.
 func (*SettleOperationRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{46}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *SettleOperationRequest) GetCommand() *CommandIdentity {
@@ -4350,7 +4699,7 @@ type SettleOperationResponse struct {
 
 func (x *SettleOperationResponse) Reset() {
 	*x = SettleOperationResponse{}
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[47]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4362,7 +4711,7 @@ func (x *SettleOperationResponse) String() string {
 func (*SettleOperationResponse) ProtoMessage() {}
 
 func (x *SettleOperationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_control_proto_msgTypes[47]
+	mi := &file_anvilkit_control_v1_control_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4375,7 +4724,7 @@ func (x *SettleOperationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SettleOperationResponse.ProtoReflect.Descriptor instead.
 func (*SettleOperationResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{47}
+	return file_anvilkit_control_v1_control_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *SettleOperationResponse) GetOperation() *OperationView {
@@ -4464,7 +4813,7 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\fcomponent_id\x18\x01 \x01(\tB*\xbaH'r%2#^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$R\vcomponentId\x12<\n" +
 	"\tpuck_type\x18\x02 \x01(\tB\x1f\xbaH\x1cr\x1a2\x18^[A-Z][A-Za-z0-9]{0,63}$R\bpuckType\x12-\n" +
 	"\fpackage_name\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xd6\x01R\vpackageName\"\x91\t\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xd6\x01R\vpackageName\"\xe7\t\n" +
 	"\rOperationView\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +
@@ -4490,19 +4839,52 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\ffailure_code\x18\x12 \x01(\tH\x00R\vfailureCode\x88\x01\x01\x12H\n" +
 	"\x0factive_deadline\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x0eactiveDeadline\x88\x01\x01\x12M\n" +
 	"\rclarification\x18\x14 \x01(\v2\".anvilkit.control.v1.ClarificationH\x02R\rclarification\x88\x01\x01\x12V\n" +
-	"\x10lineage_identity\x18\x15 \x01(\v2&.anvilkit.control.v1.ComponentIdentityH\x03R\x0flineageIdentity\x88\x01\x01B\x0f\n" +
+	"\x10lineage_identity\x18\x15 \x01(\v2&.anvilkit.control.v1.ComponentIdentityH\x03R\x0flineageIdentity\x88\x01\x01\x12G\n" +
+	"\bprogress\x18\x16 \x01(\v2&.anvilkit.control.v1.OperationProgressH\x04R\bprogress\x88\x01\x01B\x0f\n" +
 	"\r_failure_codeB\x12\n" +
 	"\x10_active_deadlineB\x10\n" +
 	"\x0e_clarificationB\x13\n" +
-	"\x11_lineage_identity\"\xdd\x02\n" +
+	"\x11_lineage_identityB\v\n" +
+	"\t_progress\"\x8a\x06\n" +
 	"\x17OperationChangedPayload\x12<\n" +
 	"\tlifecycle\x18\x01 \x01(\x0e2\x1e.anvilkit.control.v1.LifecycleR\tlifecycle\x12\x14\n" +
 	"\x05phase\x18\x02 \x01(\tR\x05phase\x12;\n" +
 	"\acontrol\x18\x03 \x01(\x0e2!.anvilkit.control.v1.ControlStateR\acontrol\x12;\n" +
 	"\acleanup\x18\x04 \x01(\x0e2!.anvilkit.control.v1.CleanupStateR\acleanup\x12;\n" +
 	"\afinance\x18\x05 \x01(\x0e2!.anvilkit.control.v1.FinanceStateR\afinance\x12&\n" +
-	"\ffailure_code\x18\x06 \x01(\tH\x00R\vfailureCode\x88\x01\x01B\x0f\n" +
-	"\r_failure_code\"\xd5\x02\n" +
+	"\ffailure_code\x18\x06 \x01(\tH\x00R\vfailureCode\x88\x01\x01\x12\x17\n" +
+	"\x04step\x18\a \x01(\tH\x01R\x04step\x88\x01\x01\x12\x19\n" +
+	"\x05visit\x18\b \x01(\tH\x02R\x05visit\x88\x01\x01\x12,\n" +
+	"\x0fattempt_ordinal\x18\t \x01(\tH\x03R\x0eattemptOrdinal\x88\x01\x01\x126\n" +
+	"\averdict\x18\n" +
+	" \x01(\x0e2\x1c.anvilkit.control.v1.VerdictR\averdict\x12&\n" +
+	"\fverdict_code\x18\v \x01(\tH\x04R\vverdictCode\x88\x01\x01\x12\x17\n" +
+	"\x04node\x18\f \x01(\tH\x05R\x04node\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"node_state\x18\r \x01(\tH\x06R\tnodeState\x88\x01\x01\x12\x19\n" +
+	"\x05round\x18\x0e \x01(\tH\aR\x05round\x88\x01\x01\x12&\n" +
+	"\foutcome_code\x18\x0f \x01(\tH\bR\voutcomeCode\x88\x01\x01B\x0f\n" +
+	"\r_failure_codeB\a\n" +
+	"\x05_stepB\b\n" +
+	"\x06_visitB\x12\n" +
+	"\x10_attempt_ordinalB\x0f\n" +
+	"\r_verdict_codeB\a\n" +
+	"\x05_nodeB\r\n" +
+	"\v_node_stateB\b\n" +
+	"\x06_roundB\x0f\n" +
+	"\r_outcome_code\"\xfd\x01\n" +
+	"\x11OperationProgress\x12\x12\n" +
+	"\x04step\x18\x01 \x01(\tR\x04step\x12\x14\n" +
+	"\x05visit\x18\x02 \x01(\tR\x05visit\x12'\n" +
+	"\x0fattempt_ordinal\x18\x03 \x01(\tR\x0eattemptOrdinal\x12\x17\n" +
+	"\x04node\x18\x04 \x01(\tH\x00R\x04node\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"node_state\x18\x05 \x01(\tH\x01R\tnodeState\x88\x01\x01\x12\x19\n" +
+	"\x05round\x18\x06 \x01(\tH\x02R\x05round\x88\x01\x01\x12\x1b\n" +
+	"\tevent_seq\x18\a \x01(\tR\beventSeqB\a\n" +
+	"\x05_nodeB\r\n" +
+	"\v_node_stateB\b\n" +
+	"\x06_round\"\xd5\x02\n" +
 	"\x0eOperationEvent\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1b\n" +
 	"\tevent_seq\x18\x02 \x01(\tR\beventSeq\x12#\n" +
@@ -4655,7 +5037,24 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\x0fexecution_epoch\x18\v \x01(\tR\x0eexecutionEpoch\x12%\n" +
 	"\x0erecovery_epoch\x18\f \x01(\tR\rrecoveryEpoch\x12D\n" +
 	"\tartifacts\x18\r \x03(\v2&.anvilkit.control.v1.ArtifactReferenceR\tartifactsB\x0f\n" +
-	"\r_failure_code\"\x9f\x02\n" +
+	"\r_failure_code\"\x86\x04\n" +
+	"\x1cRecordAttemptProgressRequest\x12F\n" +
+	"\acommand\x18\x01 \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x12)\n" +
+	"\n" +
+	"attempt_id\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\tattemptId\x12+\n" +
+	"\vinstance_id\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\n" +
+	"instanceId\x12F\n" +
+	"\x0fexecution_epoch\x18\x04 \x01(\tB\x1d\xbaH\x1ar\x182\x16^(0|[1-9][0-9]{0,19})$R\x0eexecutionEpoch\x12D\n" +
+	"\x04node\x18\x05 \x01(\tB0\xbaH-r+R\aplannerR\bretrieveR\x04codeR\x06reviewR\bvalidateR\x04node\x12@\n" +
+	"\x05state\x18\x06 \x01(\tB*\xbaH'r%R\astartedR\tcompletedR\x06failedR\askippedR\x05state\x124\n" +
+	"\x05round\x18\a \x01(\tB\x1e\xbaH\x1br\x192\x17^(0|[1-9][0-9]{0,19})?$R\x05round\x12/\n" +
+	"\foutcome_code\x18\b \x01(\tB\a\xbaH\x04r\x02\x18@H\x00R\voutcomeCode\x88\x01\x01B\x0f\n" +
+	"\r_outcome_code\"v\n" +
+	"\x1dRecordAttemptProgressResponse\x129\n" +
+	"\x05event\x18\x01 \x01(\v2#.anvilkit.control.v1.OperationEventR\x05event\x12\x1a\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"\x9f\x02\n" +
 	"\x12OpenAttemptRequest\x12F\n" +
 	"\acommand\x18\x01 \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x12-\n" +
 	"\foperation_id\x18\x02 \x01(\tB\n" +
@@ -4885,7 +5284,7 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\x15StreamOperationEvents\x121.anvilkit.control.v1.StreamOperationEventsRequest\x1a2.anvilkit.control.v1.StreamOperationEventsResponse0\x01\x12f\n" +
 	"\rSubmitCommand\x12).anvilkit.control.v1.SubmitCommandRequest\x1a*.anvilkit.control.v1.SubmitCommandResponse\x12]\n" +
 	"\n" +
-	"GetCommand\x12&.anvilkit.control.v1.GetCommandRequest\x1a'.anvilkit.control.v1.GetCommandResponse2\xc6\a\n" +
+	"GetCommand\x12&.anvilkit.control.v1.GetCommandRequest\x1a'.anvilkit.control.v1.GetCommandResponse2\xc6\b\n" +
 	"\x10ExecutionService\x12`\n" +
 	"\vOpenAttempt\x12'.anvilkit.control.v1.OpenAttemptRequest\x1a(.anvilkit.control.v1.OpenAttemptResponse\x12f\n" +
 	"\rPrepareLaunch\x12).anvilkit.control.v1.PrepareLaunchRequest\x1a*.anvilkit.control.v1.PrepareLaunchResponse\x12o\n" +
@@ -4895,7 +5294,8 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\x10GetAcceptedStage\x12,.anvilkit.control.v1.GetAcceptedStageRequest\x1a-.anvilkit.control.v1.GetAcceptedStageResponse\x12`\n" +
 	"\vGetInstance\x12'.anvilkit.control.v1.GetInstanceRequest\x1a(.anvilkit.control.v1.GetInstanceResponse\x12c\n" +
 	"\fCloseAttempt\x12(.anvilkit.control.v1.CloseAttemptRequest\x1a).anvilkit.control.v1.CloseAttemptResponse\x12l\n" +
-	"\x0fSettleOperation\x12+.anvilkit.control.v1.SettleOperationRequest\x1a,.anvilkit.control.v1.SettleOperationResponseB\xe4\x01\n" +
+	"\x0fSettleOperation\x12+.anvilkit.control.v1.SettleOperationRequest\x1a,.anvilkit.control.v1.SettleOperationResponse\x12~\n" +
+	"\x15RecordAttemptProgress\x121.anvilkit.control.v1.RecordAttemptProgressRequest\x1a2.anvilkit.control.v1.RecordAttemptProgressResponseB\xe4\x01\n" +
 	"\x17com.anvilkit.control.v1B\fControlProtoP\x01ZMgithub.com/ancyloce/anvilkit-agent-contracts/go/anvilkit/control/v1;controlv1\xa2\x02\x03ACX\xaa\x02\x13Anvilkit.Control.V1\xca\x02\x13Anvilkit\\Control\\V1\xe2\x02\x1fAnvilkit\\Control\\V1\\GPBMetadata\xea\x02\x15Anvilkit::Control::V1b\x06proto3"
 
 var (
@@ -4911,7 +5311,7 @@ func file_anvilkit_control_v1_control_proto_rawDescGZIP() []byte {
 }
 
 var file_anvilkit_control_v1_control_proto_enumTypes = make([]protoimpl.EnumInfo, 12)
-var file_anvilkit_control_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_anvilkit_control_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
 var file_anvilkit_control_v1_control_proto_goTypes = []any{
 	(OperationKind)(0),                    // 0: anvilkit.control.v1.OperationKind
 	(Lifecycle)(0),                        // 1: anvilkit.control.v1.Lifecycle
@@ -4937,160 +5337,169 @@ var file_anvilkit_control_v1_control_proto_goTypes = []any{
 	(*ComponentIdentity)(nil),             // 21: anvilkit.control.v1.ComponentIdentity
 	(*OperationView)(nil),                 // 22: anvilkit.control.v1.OperationView
 	(*OperationChangedPayload)(nil),       // 23: anvilkit.control.v1.OperationChangedPayload
-	(*OperationEvent)(nil),                // 24: anvilkit.control.v1.OperationEvent
-	(*CommandReceipt)(nil),                // 25: anvilkit.control.v1.CommandReceipt
-	(*CreateOperationRequest)(nil),        // 26: anvilkit.control.v1.CreateOperationRequest
-	(*CreateOperationResponse)(nil),       // 27: anvilkit.control.v1.CreateOperationResponse
-	(*GetOperationRequest)(nil),           // 28: anvilkit.control.v1.GetOperationRequest
-	(*GetOperationResponse)(nil),          // 29: anvilkit.control.v1.GetOperationResponse
-	(*ListOperationEventsRequest)(nil),    // 30: anvilkit.control.v1.ListOperationEventsRequest
-	(*ListOperationEventsResponse)(nil),   // 31: anvilkit.control.v1.ListOperationEventsResponse
-	(*StreamOperationEventsRequest)(nil),  // 32: anvilkit.control.v1.StreamOperationEventsRequest
-	(*StreamOperationEventsResponse)(nil), // 33: anvilkit.control.v1.StreamOperationEventsResponse
-	(*SubmitCommandRequest)(nil),          // 34: anvilkit.control.v1.SubmitCommandRequest
-	(*SubmitCommandResponse)(nil),         // 35: anvilkit.control.v1.SubmitCommandResponse
-	(*GetCommandRequest)(nil),             // 36: anvilkit.control.v1.GetCommandRequest
-	(*GetCommandResponse)(nil),            // 37: anvilkit.control.v1.GetCommandResponse
-	(*Attempt)(nil),                       // 38: anvilkit.control.v1.Attempt
-	(*PhysicalInstance)(nil),              // 39: anvilkit.control.v1.PhysicalInstance
-	(*ArtifactReference)(nil),             // 40: anvilkit.control.v1.ArtifactReference
-	(*AcceptedStage)(nil),                 // 41: anvilkit.control.v1.AcceptedStage
-	(*OpenAttemptRequest)(nil),            // 42: anvilkit.control.v1.OpenAttemptRequest
-	(*OpenAttemptResponse)(nil),           // 43: anvilkit.control.v1.OpenAttemptResponse
-	(*PrepareLaunchRequest)(nil),          // 44: anvilkit.control.v1.PrepareLaunchRequest
-	(*PrepareLaunchResponse)(nil),         // 45: anvilkit.control.v1.PrepareLaunchResponse
-	(*RegisterInstanceRequest)(nil),       // 46: anvilkit.control.v1.RegisterInstanceRequest
-	(*RegisterInstanceResponse)(nil),      // 47: anvilkit.control.v1.RegisterInstanceResponse
-	(*ObserveInstanceRequest)(nil),        // 48: anvilkit.control.v1.ObserveInstanceRequest
-	(*ObserveInstanceResponse)(nil),       // 49: anvilkit.control.v1.ObserveInstanceResponse
-	(*AcceptResultRequest)(nil),           // 50: anvilkit.control.v1.AcceptResultRequest
-	(*AcceptResultResponse)(nil),          // 51: anvilkit.control.v1.AcceptResultResponse
-	(*GetAcceptedStageRequest)(nil),       // 52: anvilkit.control.v1.GetAcceptedStageRequest
-	(*GetAcceptedStageResponse)(nil),      // 53: anvilkit.control.v1.GetAcceptedStageResponse
-	(*GetInstanceRequest)(nil),            // 54: anvilkit.control.v1.GetInstanceRequest
-	(*GetInstanceResponse)(nil),           // 55: anvilkit.control.v1.GetInstanceResponse
-	(*CloseAttemptRequest)(nil),           // 56: anvilkit.control.v1.CloseAttemptRequest
-	(*CloseAttemptResponse)(nil),          // 57: anvilkit.control.v1.CloseAttemptResponse
-	(*SettleOperationRequest)(nil),        // 58: anvilkit.control.v1.SettleOperationRequest
-	(*SettleOperationResponse)(nil),       // 59: anvilkit.control.v1.SettleOperationResponse
-	(*timestamppb.Timestamp)(nil),         // 60: google.protobuf.Timestamp
+	(*OperationProgress)(nil),             // 24: anvilkit.control.v1.OperationProgress
+	(*OperationEvent)(nil),                // 25: anvilkit.control.v1.OperationEvent
+	(*CommandReceipt)(nil),                // 26: anvilkit.control.v1.CommandReceipt
+	(*CreateOperationRequest)(nil),        // 27: anvilkit.control.v1.CreateOperationRequest
+	(*CreateOperationResponse)(nil),       // 28: anvilkit.control.v1.CreateOperationResponse
+	(*GetOperationRequest)(nil),           // 29: anvilkit.control.v1.GetOperationRequest
+	(*GetOperationResponse)(nil),          // 30: anvilkit.control.v1.GetOperationResponse
+	(*ListOperationEventsRequest)(nil),    // 31: anvilkit.control.v1.ListOperationEventsRequest
+	(*ListOperationEventsResponse)(nil),   // 32: anvilkit.control.v1.ListOperationEventsResponse
+	(*StreamOperationEventsRequest)(nil),  // 33: anvilkit.control.v1.StreamOperationEventsRequest
+	(*StreamOperationEventsResponse)(nil), // 34: anvilkit.control.v1.StreamOperationEventsResponse
+	(*SubmitCommandRequest)(nil),          // 35: anvilkit.control.v1.SubmitCommandRequest
+	(*SubmitCommandResponse)(nil),         // 36: anvilkit.control.v1.SubmitCommandResponse
+	(*GetCommandRequest)(nil),             // 37: anvilkit.control.v1.GetCommandRequest
+	(*GetCommandResponse)(nil),            // 38: anvilkit.control.v1.GetCommandResponse
+	(*Attempt)(nil),                       // 39: anvilkit.control.v1.Attempt
+	(*PhysicalInstance)(nil),              // 40: anvilkit.control.v1.PhysicalInstance
+	(*ArtifactReference)(nil),             // 41: anvilkit.control.v1.ArtifactReference
+	(*AcceptedStage)(nil),                 // 42: anvilkit.control.v1.AcceptedStage
+	(*RecordAttemptProgressRequest)(nil),  // 43: anvilkit.control.v1.RecordAttemptProgressRequest
+	(*RecordAttemptProgressResponse)(nil), // 44: anvilkit.control.v1.RecordAttemptProgressResponse
+	(*OpenAttemptRequest)(nil),            // 45: anvilkit.control.v1.OpenAttemptRequest
+	(*OpenAttemptResponse)(nil),           // 46: anvilkit.control.v1.OpenAttemptResponse
+	(*PrepareLaunchRequest)(nil),          // 47: anvilkit.control.v1.PrepareLaunchRequest
+	(*PrepareLaunchResponse)(nil),         // 48: anvilkit.control.v1.PrepareLaunchResponse
+	(*RegisterInstanceRequest)(nil),       // 49: anvilkit.control.v1.RegisterInstanceRequest
+	(*RegisterInstanceResponse)(nil),      // 50: anvilkit.control.v1.RegisterInstanceResponse
+	(*ObserveInstanceRequest)(nil),        // 51: anvilkit.control.v1.ObserveInstanceRequest
+	(*ObserveInstanceResponse)(nil),       // 52: anvilkit.control.v1.ObserveInstanceResponse
+	(*AcceptResultRequest)(nil),           // 53: anvilkit.control.v1.AcceptResultRequest
+	(*AcceptResultResponse)(nil),          // 54: anvilkit.control.v1.AcceptResultResponse
+	(*GetAcceptedStageRequest)(nil),       // 55: anvilkit.control.v1.GetAcceptedStageRequest
+	(*GetAcceptedStageResponse)(nil),      // 56: anvilkit.control.v1.GetAcceptedStageResponse
+	(*GetInstanceRequest)(nil),            // 57: anvilkit.control.v1.GetInstanceRequest
+	(*GetInstanceResponse)(nil),           // 58: anvilkit.control.v1.GetInstanceResponse
+	(*CloseAttemptRequest)(nil),           // 59: anvilkit.control.v1.CloseAttemptRequest
+	(*CloseAttemptResponse)(nil),          // 60: anvilkit.control.v1.CloseAttemptResponse
+	(*SettleOperationRequest)(nil),        // 61: anvilkit.control.v1.SettleOperationRequest
+	(*SettleOperationResponse)(nil),       // 62: anvilkit.control.v1.SettleOperationResponse
+	(*timestamppb.Timestamp)(nil),         // 63: google.protobuf.Timestamp
 }
 var file_anvilkit_control_v1_control_proto_depIdxs = []int32{
-	15, // 0: anvilkit.control.v1.PreparationIntake.prompt:type_name -> anvilkit.control.v1.ArtifactBinding
-	16, // 1: anvilkit.control.v1.PreparationIntake.brand_references:type_name -> anvilkit.control.v1.SourceReference
-	16, // 2: anvilkit.control.v1.PreparationIntake.asset_references:type_name -> anvilkit.control.v1.SourceReference
-	60, // 3: anvilkit.control.v1.Clarification.asked_at:type_name -> google.protobuf.Timestamp
-	60, // 4: anvilkit.control.v1.Clarification.expires_at:type_name -> google.protobuf.Timestamp
-	18, // 5: anvilkit.control.v1.Clarification.questions:type_name -> anvilkit.control.v1.Question
-	0,  // 6: anvilkit.control.v1.OperationView.kind:type_name -> anvilkit.control.v1.OperationKind
-	20, // 7: anvilkit.control.v1.OperationView.subject:type_name -> anvilkit.control.v1.OperationSubject
-	1,  // 8: anvilkit.control.v1.OperationView.lifecycle:type_name -> anvilkit.control.v1.Lifecycle
-	2,  // 9: anvilkit.control.v1.OperationView.control:type_name -> anvilkit.control.v1.ControlState
-	3,  // 10: anvilkit.control.v1.OperationView.cleanup:type_name -> anvilkit.control.v1.CleanupState
-	4,  // 11: anvilkit.control.v1.OperationView.finance:type_name -> anvilkit.control.v1.FinanceState
-	60, // 12: anvilkit.control.v1.OperationView.created_at:type_name -> google.protobuf.Timestamp
-	60, // 13: anvilkit.control.v1.OperationView.updated_at:type_name -> google.protobuf.Timestamp
-	60, // 14: anvilkit.control.v1.OperationView.deadline:type_name -> google.protobuf.Timestamp
-	60, // 15: anvilkit.control.v1.OperationView.active_deadline:type_name -> google.protobuf.Timestamp
-	19, // 16: anvilkit.control.v1.OperationView.clarification:type_name -> anvilkit.control.v1.Clarification
-	21, // 17: anvilkit.control.v1.OperationView.lineage_identity:type_name -> anvilkit.control.v1.ComponentIdentity
-	1,  // 18: anvilkit.control.v1.OperationChangedPayload.lifecycle:type_name -> anvilkit.control.v1.Lifecycle
-	2,  // 19: anvilkit.control.v1.OperationChangedPayload.control:type_name -> anvilkit.control.v1.ControlState
-	3,  // 20: anvilkit.control.v1.OperationChangedPayload.cleanup:type_name -> anvilkit.control.v1.CleanupState
-	4,  // 21: anvilkit.control.v1.OperationChangedPayload.finance:type_name -> anvilkit.control.v1.FinanceState
-	60, // 22: anvilkit.control.v1.OperationEvent.occurred_at:type_name -> google.protobuf.Timestamp
-	23, // 23: anvilkit.control.v1.OperationEvent.operation_changed:type_name -> anvilkit.control.v1.OperationChangedPayload
-	5,  // 24: anvilkit.control.v1.CommandReceipt.kind:type_name -> anvilkit.control.v1.CommandKind
-	6,  // 25: anvilkit.control.v1.CommandReceipt.outcome:type_name -> anvilkit.control.v1.CommandOutcome
-	60, // 26: anvilkit.control.v1.CommandReceipt.accepted_at:type_name -> google.protobuf.Timestamp
-	60, // 27: anvilkit.control.v1.CommandReceipt.settled_at:type_name -> google.protobuf.Timestamp
-	12, // 28: anvilkit.control.v1.CreateOperationRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	13, // 29: anvilkit.control.v1.CreateOperationRequest.scope:type_name -> anvilkit.control.v1.Scope
-	0,  // 30: anvilkit.control.v1.CreateOperationRequest.kind:type_name -> anvilkit.control.v1.OperationKind
-	20, // 31: anvilkit.control.v1.CreateOperationRequest.subject:type_name -> anvilkit.control.v1.OperationSubject
-	17, // 32: anvilkit.control.v1.CreateOperationRequest.preparation:type_name -> anvilkit.control.v1.PreparationIntake
-	22, // 33: anvilkit.control.v1.CreateOperationResponse.operation:type_name -> anvilkit.control.v1.OperationView
-	13, // 34: anvilkit.control.v1.GetOperationRequest.scope:type_name -> anvilkit.control.v1.Scope
-	22, // 35: anvilkit.control.v1.GetOperationResponse.operation:type_name -> anvilkit.control.v1.OperationView
-	13, // 36: anvilkit.control.v1.ListOperationEventsRequest.scope:type_name -> anvilkit.control.v1.Scope
-	24, // 37: anvilkit.control.v1.ListOperationEventsResponse.events:type_name -> anvilkit.control.v1.OperationEvent
-	13, // 38: anvilkit.control.v1.StreamOperationEventsRequest.scope:type_name -> anvilkit.control.v1.Scope
-	24, // 39: anvilkit.control.v1.StreamOperationEventsResponse.event:type_name -> anvilkit.control.v1.OperationEvent
-	12, // 40: anvilkit.control.v1.SubmitCommandRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	13, // 41: anvilkit.control.v1.SubmitCommandRequest.scope:type_name -> anvilkit.control.v1.Scope
-	5,  // 42: anvilkit.control.v1.SubmitCommandRequest.kind:type_name -> anvilkit.control.v1.CommandKind
-	25, // 43: anvilkit.control.v1.SubmitCommandResponse.receipt:type_name -> anvilkit.control.v1.CommandReceipt
-	13, // 44: anvilkit.control.v1.GetCommandRequest.scope:type_name -> anvilkit.control.v1.Scope
-	25, // 45: anvilkit.control.v1.GetCommandResponse.receipt:type_name -> anvilkit.control.v1.CommandReceipt
-	7,  // 46: anvilkit.control.v1.Attempt.state:type_name -> anvilkit.control.v1.AttemptState
-	8,  // 47: anvilkit.control.v1.Attempt.outcome:type_name -> anvilkit.control.v1.AttemptOutcome
-	60, // 48: anvilkit.control.v1.Attempt.deadline:type_name -> google.protobuf.Timestamp
-	9,  // 49: anvilkit.control.v1.PhysicalInstance.phase:type_name -> anvilkit.control.v1.InstancePhase
-	60, // 50: anvilkit.control.v1.PhysicalInstance.registered_at:type_name -> google.protobuf.Timestamp
-	60, // 51: anvilkit.control.v1.PhysicalInstance.observed_at:type_name -> google.protobuf.Timestamp
-	10, // 52: anvilkit.control.v1.AcceptedStage.verdict:type_name -> anvilkit.control.v1.Verdict
-	60, // 53: anvilkit.control.v1.AcceptedStage.accepted_at:type_name -> google.protobuf.Timestamp
-	40, // 54: anvilkit.control.v1.AcceptedStage.artifacts:type_name -> anvilkit.control.v1.ArtifactReference
-	12, // 55: anvilkit.control.v1.OpenAttemptRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	38, // 56: anvilkit.control.v1.OpenAttemptResponse.attempt:type_name -> anvilkit.control.v1.Attempt
-	12, // 57: anvilkit.control.v1.PrepareLaunchRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	60, // 58: anvilkit.control.v1.PrepareLaunchRequest.deadline:type_name -> google.protobuf.Timestamp
-	12, // 59: anvilkit.control.v1.RegisterInstanceRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	39, // 60: anvilkit.control.v1.RegisterInstanceResponse.instance:type_name -> anvilkit.control.v1.PhysicalInstance
-	9,  // 61: anvilkit.control.v1.ObserveInstanceRequest.phase:type_name -> anvilkit.control.v1.InstancePhase
-	60, // 62: anvilkit.control.v1.ObserveInstanceRequest.observed_at:type_name -> google.protobuf.Timestamp
-	39, // 63: anvilkit.control.v1.ObserveInstanceResponse.instance:type_name -> anvilkit.control.v1.PhysicalInstance
-	12, // 64: anvilkit.control.v1.AcceptResultRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	10, // 65: anvilkit.control.v1.AcceptResultRequest.verdict:type_name -> anvilkit.control.v1.Verdict
-	41, // 66: anvilkit.control.v1.AcceptResultResponse.stage:type_name -> anvilkit.control.v1.AcceptedStage
-	41, // 67: anvilkit.control.v1.GetAcceptedStageResponse.stage:type_name -> anvilkit.control.v1.AcceptedStage
-	39, // 68: anvilkit.control.v1.GetInstanceResponse.instance:type_name -> anvilkit.control.v1.PhysicalInstance
-	38, // 69: anvilkit.control.v1.GetInstanceResponse.attempt:type_name -> anvilkit.control.v1.Attempt
-	22, // 70: anvilkit.control.v1.GetInstanceResponse.operation:type_name -> anvilkit.control.v1.OperationView
-	14, // 71: anvilkit.control.v1.GetInstanceResponse.budget_headroom:type_name -> anvilkit.control.v1.Money
-	12, // 72: anvilkit.control.v1.CloseAttemptRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	8,  // 73: anvilkit.control.v1.CloseAttemptRequest.outcome:type_name -> anvilkit.control.v1.AttemptOutcome
-	3,  // 74: anvilkit.control.v1.CloseAttemptRequest.cleanup:type_name -> anvilkit.control.v1.CleanupState
-	38, // 75: anvilkit.control.v1.CloseAttemptResponse.attempt:type_name -> anvilkit.control.v1.Attempt
-	22, // 76: anvilkit.control.v1.CloseAttemptResponse.operation:type_name -> anvilkit.control.v1.OperationView
-	12, // 77: anvilkit.control.v1.SettleOperationRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	11, // 78: anvilkit.control.v1.SettleOperationRequest.outcome:type_name -> anvilkit.control.v1.OperationOutcome
-	22, // 79: anvilkit.control.v1.SettleOperationResponse.operation:type_name -> anvilkit.control.v1.OperationView
-	26, // 80: anvilkit.control.v1.OperationService.CreateOperation:input_type -> anvilkit.control.v1.CreateOperationRequest
-	28, // 81: anvilkit.control.v1.OperationService.GetOperation:input_type -> anvilkit.control.v1.GetOperationRequest
-	30, // 82: anvilkit.control.v1.OperationService.ListOperationEvents:input_type -> anvilkit.control.v1.ListOperationEventsRequest
-	32, // 83: anvilkit.control.v1.OperationService.StreamOperationEvents:input_type -> anvilkit.control.v1.StreamOperationEventsRequest
-	34, // 84: anvilkit.control.v1.OperationService.SubmitCommand:input_type -> anvilkit.control.v1.SubmitCommandRequest
-	36, // 85: anvilkit.control.v1.OperationService.GetCommand:input_type -> anvilkit.control.v1.GetCommandRequest
-	42, // 86: anvilkit.control.v1.ExecutionService.OpenAttempt:input_type -> anvilkit.control.v1.OpenAttemptRequest
-	44, // 87: anvilkit.control.v1.ExecutionService.PrepareLaunch:input_type -> anvilkit.control.v1.PrepareLaunchRequest
-	46, // 88: anvilkit.control.v1.ExecutionService.RegisterInstance:input_type -> anvilkit.control.v1.RegisterInstanceRequest
-	48, // 89: anvilkit.control.v1.ExecutionService.ObserveInstance:input_type -> anvilkit.control.v1.ObserveInstanceRequest
-	50, // 90: anvilkit.control.v1.ExecutionService.AcceptResult:input_type -> anvilkit.control.v1.AcceptResultRequest
-	52, // 91: anvilkit.control.v1.ExecutionService.GetAcceptedStage:input_type -> anvilkit.control.v1.GetAcceptedStageRequest
-	54, // 92: anvilkit.control.v1.ExecutionService.GetInstance:input_type -> anvilkit.control.v1.GetInstanceRequest
-	56, // 93: anvilkit.control.v1.ExecutionService.CloseAttempt:input_type -> anvilkit.control.v1.CloseAttemptRequest
-	58, // 94: anvilkit.control.v1.ExecutionService.SettleOperation:input_type -> anvilkit.control.v1.SettleOperationRequest
-	27, // 95: anvilkit.control.v1.OperationService.CreateOperation:output_type -> anvilkit.control.v1.CreateOperationResponse
-	29, // 96: anvilkit.control.v1.OperationService.GetOperation:output_type -> anvilkit.control.v1.GetOperationResponse
-	31, // 97: anvilkit.control.v1.OperationService.ListOperationEvents:output_type -> anvilkit.control.v1.ListOperationEventsResponse
-	33, // 98: anvilkit.control.v1.OperationService.StreamOperationEvents:output_type -> anvilkit.control.v1.StreamOperationEventsResponse
-	35, // 99: anvilkit.control.v1.OperationService.SubmitCommand:output_type -> anvilkit.control.v1.SubmitCommandResponse
-	37, // 100: anvilkit.control.v1.OperationService.GetCommand:output_type -> anvilkit.control.v1.GetCommandResponse
-	43, // 101: anvilkit.control.v1.ExecutionService.OpenAttempt:output_type -> anvilkit.control.v1.OpenAttemptResponse
-	45, // 102: anvilkit.control.v1.ExecutionService.PrepareLaunch:output_type -> anvilkit.control.v1.PrepareLaunchResponse
-	47, // 103: anvilkit.control.v1.ExecutionService.RegisterInstance:output_type -> anvilkit.control.v1.RegisterInstanceResponse
-	49, // 104: anvilkit.control.v1.ExecutionService.ObserveInstance:output_type -> anvilkit.control.v1.ObserveInstanceResponse
-	51, // 105: anvilkit.control.v1.ExecutionService.AcceptResult:output_type -> anvilkit.control.v1.AcceptResultResponse
-	53, // 106: anvilkit.control.v1.ExecutionService.GetAcceptedStage:output_type -> anvilkit.control.v1.GetAcceptedStageResponse
-	55, // 107: anvilkit.control.v1.ExecutionService.GetInstance:output_type -> anvilkit.control.v1.GetInstanceResponse
-	57, // 108: anvilkit.control.v1.ExecutionService.CloseAttempt:output_type -> anvilkit.control.v1.CloseAttemptResponse
-	59, // 109: anvilkit.control.v1.ExecutionService.SettleOperation:output_type -> anvilkit.control.v1.SettleOperationResponse
-	95, // [95:110] is the sub-list for method output_type
-	80, // [80:95] is the sub-list for method input_type
-	80, // [80:80] is the sub-list for extension type_name
-	80, // [80:80] is the sub-list for extension extendee
-	0,  // [0:80] is the sub-list for field type_name
+	15,  // 0: anvilkit.control.v1.PreparationIntake.prompt:type_name -> anvilkit.control.v1.ArtifactBinding
+	16,  // 1: anvilkit.control.v1.PreparationIntake.brand_references:type_name -> anvilkit.control.v1.SourceReference
+	16,  // 2: anvilkit.control.v1.PreparationIntake.asset_references:type_name -> anvilkit.control.v1.SourceReference
+	63,  // 3: anvilkit.control.v1.Clarification.asked_at:type_name -> google.protobuf.Timestamp
+	63,  // 4: anvilkit.control.v1.Clarification.expires_at:type_name -> google.protobuf.Timestamp
+	18,  // 5: anvilkit.control.v1.Clarification.questions:type_name -> anvilkit.control.v1.Question
+	0,   // 6: anvilkit.control.v1.OperationView.kind:type_name -> anvilkit.control.v1.OperationKind
+	20,  // 7: anvilkit.control.v1.OperationView.subject:type_name -> anvilkit.control.v1.OperationSubject
+	1,   // 8: anvilkit.control.v1.OperationView.lifecycle:type_name -> anvilkit.control.v1.Lifecycle
+	2,   // 9: anvilkit.control.v1.OperationView.control:type_name -> anvilkit.control.v1.ControlState
+	3,   // 10: anvilkit.control.v1.OperationView.cleanup:type_name -> anvilkit.control.v1.CleanupState
+	4,   // 11: anvilkit.control.v1.OperationView.finance:type_name -> anvilkit.control.v1.FinanceState
+	63,  // 12: anvilkit.control.v1.OperationView.created_at:type_name -> google.protobuf.Timestamp
+	63,  // 13: anvilkit.control.v1.OperationView.updated_at:type_name -> google.protobuf.Timestamp
+	63,  // 14: anvilkit.control.v1.OperationView.deadline:type_name -> google.protobuf.Timestamp
+	63,  // 15: anvilkit.control.v1.OperationView.active_deadline:type_name -> google.protobuf.Timestamp
+	19,  // 16: anvilkit.control.v1.OperationView.clarification:type_name -> anvilkit.control.v1.Clarification
+	21,  // 17: anvilkit.control.v1.OperationView.lineage_identity:type_name -> anvilkit.control.v1.ComponentIdentity
+	24,  // 18: anvilkit.control.v1.OperationView.progress:type_name -> anvilkit.control.v1.OperationProgress
+	1,   // 19: anvilkit.control.v1.OperationChangedPayload.lifecycle:type_name -> anvilkit.control.v1.Lifecycle
+	2,   // 20: anvilkit.control.v1.OperationChangedPayload.control:type_name -> anvilkit.control.v1.ControlState
+	3,   // 21: anvilkit.control.v1.OperationChangedPayload.cleanup:type_name -> anvilkit.control.v1.CleanupState
+	4,   // 22: anvilkit.control.v1.OperationChangedPayload.finance:type_name -> anvilkit.control.v1.FinanceState
+	10,  // 23: anvilkit.control.v1.OperationChangedPayload.verdict:type_name -> anvilkit.control.v1.Verdict
+	63,  // 24: anvilkit.control.v1.OperationEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	23,  // 25: anvilkit.control.v1.OperationEvent.operation_changed:type_name -> anvilkit.control.v1.OperationChangedPayload
+	5,   // 26: anvilkit.control.v1.CommandReceipt.kind:type_name -> anvilkit.control.v1.CommandKind
+	6,   // 27: anvilkit.control.v1.CommandReceipt.outcome:type_name -> anvilkit.control.v1.CommandOutcome
+	63,  // 28: anvilkit.control.v1.CommandReceipt.accepted_at:type_name -> google.protobuf.Timestamp
+	63,  // 29: anvilkit.control.v1.CommandReceipt.settled_at:type_name -> google.protobuf.Timestamp
+	12,  // 30: anvilkit.control.v1.CreateOperationRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	13,  // 31: anvilkit.control.v1.CreateOperationRequest.scope:type_name -> anvilkit.control.v1.Scope
+	0,   // 32: anvilkit.control.v1.CreateOperationRequest.kind:type_name -> anvilkit.control.v1.OperationKind
+	20,  // 33: anvilkit.control.v1.CreateOperationRequest.subject:type_name -> anvilkit.control.v1.OperationSubject
+	17,  // 34: anvilkit.control.v1.CreateOperationRequest.preparation:type_name -> anvilkit.control.v1.PreparationIntake
+	22,  // 35: anvilkit.control.v1.CreateOperationResponse.operation:type_name -> anvilkit.control.v1.OperationView
+	13,  // 36: anvilkit.control.v1.GetOperationRequest.scope:type_name -> anvilkit.control.v1.Scope
+	22,  // 37: anvilkit.control.v1.GetOperationResponse.operation:type_name -> anvilkit.control.v1.OperationView
+	13,  // 38: anvilkit.control.v1.ListOperationEventsRequest.scope:type_name -> anvilkit.control.v1.Scope
+	25,  // 39: anvilkit.control.v1.ListOperationEventsResponse.events:type_name -> anvilkit.control.v1.OperationEvent
+	13,  // 40: anvilkit.control.v1.StreamOperationEventsRequest.scope:type_name -> anvilkit.control.v1.Scope
+	25,  // 41: anvilkit.control.v1.StreamOperationEventsResponse.event:type_name -> anvilkit.control.v1.OperationEvent
+	12,  // 42: anvilkit.control.v1.SubmitCommandRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	13,  // 43: anvilkit.control.v1.SubmitCommandRequest.scope:type_name -> anvilkit.control.v1.Scope
+	5,   // 44: anvilkit.control.v1.SubmitCommandRequest.kind:type_name -> anvilkit.control.v1.CommandKind
+	26,  // 45: anvilkit.control.v1.SubmitCommandResponse.receipt:type_name -> anvilkit.control.v1.CommandReceipt
+	13,  // 46: anvilkit.control.v1.GetCommandRequest.scope:type_name -> anvilkit.control.v1.Scope
+	26,  // 47: anvilkit.control.v1.GetCommandResponse.receipt:type_name -> anvilkit.control.v1.CommandReceipt
+	7,   // 48: anvilkit.control.v1.Attempt.state:type_name -> anvilkit.control.v1.AttemptState
+	8,   // 49: anvilkit.control.v1.Attempt.outcome:type_name -> anvilkit.control.v1.AttemptOutcome
+	63,  // 50: anvilkit.control.v1.Attempt.deadline:type_name -> google.protobuf.Timestamp
+	9,   // 51: anvilkit.control.v1.PhysicalInstance.phase:type_name -> anvilkit.control.v1.InstancePhase
+	63,  // 52: anvilkit.control.v1.PhysicalInstance.registered_at:type_name -> google.protobuf.Timestamp
+	63,  // 53: anvilkit.control.v1.PhysicalInstance.observed_at:type_name -> google.protobuf.Timestamp
+	10,  // 54: anvilkit.control.v1.AcceptedStage.verdict:type_name -> anvilkit.control.v1.Verdict
+	63,  // 55: anvilkit.control.v1.AcceptedStage.accepted_at:type_name -> google.protobuf.Timestamp
+	41,  // 56: anvilkit.control.v1.AcceptedStage.artifacts:type_name -> anvilkit.control.v1.ArtifactReference
+	12,  // 57: anvilkit.control.v1.RecordAttemptProgressRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	25,  // 58: anvilkit.control.v1.RecordAttemptProgressResponse.event:type_name -> anvilkit.control.v1.OperationEvent
+	12,  // 59: anvilkit.control.v1.OpenAttemptRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	39,  // 60: anvilkit.control.v1.OpenAttemptResponse.attempt:type_name -> anvilkit.control.v1.Attempt
+	12,  // 61: anvilkit.control.v1.PrepareLaunchRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	63,  // 62: anvilkit.control.v1.PrepareLaunchRequest.deadline:type_name -> google.protobuf.Timestamp
+	12,  // 63: anvilkit.control.v1.RegisterInstanceRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	40,  // 64: anvilkit.control.v1.RegisterInstanceResponse.instance:type_name -> anvilkit.control.v1.PhysicalInstance
+	9,   // 65: anvilkit.control.v1.ObserveInstanceRequest.phase:type_name -> anvilkit.control.v1.InstancePhase
+	63,  // 66: anvilkit.control.v1.ObserveInstanceRequest.observed_at:type_name -> google.protobuf.Timestamp
+	40,  // 67: anvilkit.control.v1.ObserveInstanceResponse.instance:type_name -> anvilkit.control.v1.PhysicalInstance
+	12,  // 68: anvilkit.control.v1.AcceptResultRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	10,  // 69: anvilkit.control.v1.AcceptResultRequest.verdict:type_name -> anvilkit.control.v1.Verdict
+	42,  // 70: anvilkit.control.v1.AcceptResultResponse.stage:type_name -> anvilkit.control.v1.AcceptedStage
+	42,  // 71: anvilkit.control.v1.GetAcceptedStageResponse.stage:type_name -> anvilkit.control.v1.AcceptedStage
+	40,  // 72: anvilkit.control.v1.GetInstanceResponse.instance:type_name -> anvilkit.control.v1.PhysicalInstance
+	39,  // 73: anvilkit.control.v1.GetInstanceResponse.attempt:type_name -> anvilkit.control.v1.Attempt
+	22,  // 74: anvilkit.control.v1.GetInstanceResponse.operation:type_name -> anvilkit.control.v1.OperationView
+	14,  // 75: anvilkit.control.v1.GetInstanceResponse.budget_headroom:type_name -> anvilkit.control.v1.Money
+	12,  // 76: anvilkit.control.v1.CloseAttemptRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	8,   // 77: anvilkit.control.v1.CloseAttemptRequest.outcome:type_name -> anvilkit.control.v1.AttemptOutcome
+	3,   // 78: anvilkit.control.v1.CloseAttemptRequest.cleanup:type_name -> anvilkit.control.v1.CleanupState
+	39,  // 79: anvilkit.control.v1.CloseAttemptResponse.attempt:type_name -> anvilkit.control.v1.Attempt
+	22,  // 80: anvilkit.control.v1.CloseAttemptResponse.operation:type_name -> anvilkit.control.v1.OperationView
+	12,  // 81: anvilkit.control.v1.SettleOperationRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	11,  // 82: anvilkit.control.v1.SettleOperationRequest.outcome:type_name -> anvilkit.control.v1.OperationOutcome
+	22,  // 83: anvilkit.control.v1.SettleOperationResponse.operation:type_name -> anvilkit.control.v1.OperationView
+	27,  // 84: anvilkit.control.v1.OperationService.CreateOperation:input_type -> anvilkit.control.v1.CreateOperationRequest
+	29,  // 85: anvilkit.control.v1.OperationService.GetOperation:input_type -> anvilkit.control.v1.GetOperationRequest
+	31,  // 86: anvilkit.control.v1.OperationService.ListOperationEvents:input_type -> anvilkit.control.v1.ListOperationEventsRequest
+	33,  // 87: anvilkit.control.v1.OperationService.StreamOperationEvents:input_type -> anvilkit.control.v1.StreamOperationEventsRequest
+	35,  // 88: anvilkit.control.v1.OperationService.SubmitCommand:input_type -> anvilkit.control.v1.SubmitCommandRequest
+	37,  // 89: anvilkit.control.v1.OperationService.GetCommand:input_type -> anvilkit.control.v1.GetCommandRequest
+	45,  // 90: anvilkit.control.v1.ExecutionService.OpenAttempt:input_type -> anvilkit.control.v1.OpenAttemptRequest
+	47,  // 91: anvilkit.control.v1.ExecutionService.PrepareLaunch:input_type -> anvilkit.control.v1.PrepareLaunchRequest
+	49,  // 92: anvilkit.control.v1.ExecutionService.RegisterInstance:input_type -> anvilkit.control.v1.RegisterInstanceRequest
+	51,  // 93: anvilkit.control.v1.ExecutionService.ObserveInstance:input_type -> anvilkit.control.v1.ObserveInstanceRequest
+	53,  // 94: anvilkit.control.v1.ExecutionService.AcceptResult:input_type -> anvilkit.control.v1.AcceptResultRequest
+	55,  // 95: anvilkit.control.v1.ExecutionService.GetAcceptedStage:input_type -> anvilkit.control.v1.GetAcceptedStageRequest
+	57,  // 96: anvilkit.control.v1.ExecutionService.GetInstance:input_type -> anvilkit.control.v1.GetInstanceRequest
+	59,  // 97: anvilkit.control.v1.ExecutionService.CloseAttempt:input_type -> anvilkit.control.v1.CloseAttemptRequest
+	61,  // 98: anvilkit.control.v1.ExecutionService.SettleOperation:input_type -> anvilkit.control.v1.SettleOperationRequest
+	43,  // 99: anvilkit.control.v1.ExecutionService.RecordAttemptProgress:input_type -> anvilkit.control.v1.RecordAttemptProgressRequest
+	28,  // 100: anvilkit.control.v1.OperationService.CreateOperation:output_type -> anvilkit.control.v1.CreateOperationResponse
+	30,  // 101: anvilkit.control.v1.OperationService.GetOperation:output_type -> anvilkit.control.v1.GetOperationResponse
+	32,  // 102: anvilkit.control.v1.OperationService.ListOperationEvents:output_type -> anvilkit.control.v1.ListOperationEventsResponse
+	34,  // 103: anvilkit.control.v1.OperationService.StreamOperationEvents:output_type -> anvilkit.control.v1.StreamOperationEventsResponse
+	36,  // 104: anvilkit.control.v1.OperationService.SubmitCommand:output_type -> anvilkit.control.v1.SubmitCommandResponse
+	38,  // 105: anvilkit.control.v1.OperationService.GetCommand:output_type -> anvilkit.control.v1.GetCommandResponse
+	46,  // 106: anvilkit.control.v1.ExecutionService.OpenAttempt:output_type -> anvilkit.control.v1.OpenAttemptResponse
+	48,  // 107: anvilkit.control.v1.ExecutionService.PrepareLaunch:output_type -> anvilkit.control.v1.PrepareLaunchResponse
+	50,  // 108: anvilkit.control.v1.ExecutionService.RegisterInstance:output_type -> anvilkit.control.v1.RegisterInstanceResponse
+	52,  // 109: anvilkit.control.v1.ExecutionService.ObserveInstance:output_type -> anvilkit.control.v1.ObserveInstanceResponse
+	54,  // 110: anvilkit.control.v1.ExecutionService.AcceptResult:output_type -> anvilkit.control.v1.AcceptResultResponse
+	56,  // 111: anvilkit.control.v1.ExecutionService.GetAcceptedStage:output_type -> anvilkit.control.v1.GetAcceptedStageResponse
+	58,  // 112: anvilkit.control.v1.ExecutionService.GetInstance:output_type -> anvilkit.control.v1.GetInstanceResponse
+	60,  // 113: anvilkit.control.v1.ExecutionService.CloseAttempt:output_type -> anvilkit.control.v1.CloseAttemptResponse
+	62,  // 114: anvilkit.control.v1.ExecutionService.SettleOperation:output_type -> anvilkit.control.v1.SettleOperationResponse
+	44,  // 115: anvilkit.control.v1.ExecutionService.RecordAttemptProgress:output_type -> anvilkit.control.v1.RecordAttemptProgressResponse
+	100, // [100:116] is the sub-list for method output_type
+	84,  // [84:100] is the sub-list for method input_type
+	84,  // [84:84] is the sub-list for extension type_name
+	84,  // [84:84] is the sub-list for extension extendee
+	0,   // [0:84] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_control_proto_init() }
@@ -5101,27 +5510,29 @@ func file_anvilkit_control_v1_control_proto_init() {
 	file_anvilkit_control_v1_control_proto_msgTypes[8].OneofWrappers = []any{}
 	file_anvilkit_control_v1_control_proto_msgTypes[10].OneofWrappers = []any{}
 	file_anvilkit_control_v1_control_proto_msgTypes[11].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[12].OneofWrappers = []any{
+	file_anvilkit_control_v1_control_proto_msgTypes[12].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[13].OneofWrappers = []any{
 		(*OperationEvent_OperationChanged)(nil),
 	}
-	file_anvilkit_control_v1_control_proto_msgTypes[13].OneofWrappers = []any{}
 	file_anvilkit_control_v1_control_proto_msgTypes[14].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[22].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[26].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[15].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[23].OneofWrappers = []any{}
 	file_anvilkit_control_v1_control_proto_msgTypes[27].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[29].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[36].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[38].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[43].OneofWrappers = []any{}
-	file_anvilkit_control_v1_control_proto_msgTypes[44].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[28].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[30].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[31].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[39].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[41].OneofWrappers = []any{}
 	file_anvilkit_control_v1_control_proto_msgTypes[46].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[47].OneofWrappers = []any{}
+	file_anvilkit_control_v1_control_proto_msgTypes[49].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_anvilkit_control_v1_control_proto_rawDesc), len(file_anvilkit_control_v1_control_proto_rawDesc)),
 			NumEnums:      12,
-			NumMessages:   48,
+			NumMessages:   51,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

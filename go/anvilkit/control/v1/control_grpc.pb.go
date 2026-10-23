@@ -339,15 +339,16 @@ var OperationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ExecutionService_OpenAttempt_FullMethodName      = "/anvilkit.control.v1.ExecutionService/OpenAttempt"
-	ExecutionService_PrepareLaunch_FullMethodName    = "/anvilkit.control.v1.ExecutionService/PrepareLaunch"
-	ExecutionService_RegisterInstance_FullMethodName = "/anvilkit.control.v1.ExecutionService/RegisterInstance"
-	ExecutionService_ObserveInstance_FullMethodName  = "/anvilkit.control.v1.ExecutionService/ObserveInstance"
-	ExecutionService_AcceptResult_FullMethodName     = "/anvilkit.control.v1.ExecutionService/AcceptResult"
-	ExecutionService_GetAcceptedStage_FullMethodName = "/anvilkit.control.v1.ExecutionService/GetAcceptedStage"
-	ExecutionService_GetInstance_FullMethodName      = "/anvilkit.control.v1.ExecutionService/GetInstance"
-	ExecutionService_CloseAttempt_FullMethodName     = "/anvilkit.control.v1.ExecutionService/CloseAttempt"
-	ExecutionService_SettleOperation_FullMethodName  = "/anvilkit.control.v1.ExecutionService/SettleOperation"
+	ExecutionService_OpenAttempt_FullMethodName           = "/anvilkit.control.v1.ExecutionService/OpenAttempt"
+	ExecutionService_PrepareLaunch_FullMethodName         = "/anvilkit.control.v1.ExecutionService/PrepareLaunch"
+	ExecutionService_RegisterInstance_FullMethodName      = "/anvilkit.control.v1.ExecutionService/RegisterInstance"
+	ExecutionService_ObserveInstance_FullMethodName       = "/anvilkit.control.v1.ExecutionService/ObserveInstance"
+	ExecutionService_AcceptResult_FullMethodName          = "/anvilkit.control.v1.ExecutionService/AcceptResult"
+	ExecutionService_GetAcceptedStage_FullMethodName      = "/anvilkit.control.v1.ExecutionService/GetAcceptedStage"
+	ExecutionService_GetInstance_FullMethodName           = "/anvilkit.control.v1.ExecutionService/GetInstance"
+	ExecutionService_CloseAttempt_FullMethodName          = "/anvilkit.control.v1.ExecutionService/CloseAttempt"
+	ExecutionService_SettleOperation_FullMethodName       = "/anvilkit.control.v1.ExecutionService/SettleOperation"
+	ExecutionService_RecordAttemptProgress_FullMethodName = "/anvilkit.control.v1.ExecutionService/RecordAttemptProgress"
 )
 
 // ExecutionServiceClient is the client API for ExecutionService service.
@@ -388,6 +389,16 @@ type ExecutionServiceClient interface {
 	// Temporal closure stay separate facts). The same command returns the
 	// original; a terminal operation answers its state.
 	SettleOperation(ctx context.Context, in *SettleOperationRequest, opts ...grpc.CallOption) (*SettleOperationResponse, error)
+	// Records an intra-Job progress fact of the current attempt (plan 0005
+	// Phase 2): the trusted coordinator's node boundary, submitted through the
+	// trusted access sidecar under the attempt, instance and execution epoch
+	// the sidecar confirmed. One operation.changed event with the node fields
+	// and the attempt unchanged (no phase, lifecycle, budget or verdict
+	// effect); the same command returns the recorded event; a closed attempt,
+	// a non-current instance, a moved epoch or a terminal/reconciling operation
+	// refuses with STALE_EXECUTION. Progress never reopens or advances an
+	// operation.
+	RecordAttemptProgress(ctx context.Context, in *RecordAttemptProgressRequest, opts ...grpc.CallOption) (*RecordAttemptProgressResponse, error)
 }
 
 type executionServiceClient struct {
@@ -488,6 +499,16 @@ func (c *executionServiceClient) SettleOperation(ctx context.Context, in *Settle
 	return out, nil
 }
 
+func (c *executionServiceClient) RecordAttemptProgress(ctx context.Context, in *RecordAttemptProgressRequest, opts ...grpc.CallOption) (*RecordAttemptProgressResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecordAttemptProgressResponse)
+	err := c.cc.Invoke(ctx, ExecutionService_RecordAttemptProgress_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ExecutionServiceServer is the server API for ExecutionService service.
 // All implementations must embed UnimplementedExecutionServiceServer
 // for forward compatibility.
@@ -526,6 +547,16 @@ type ExecutionServiceServer interface {
 	// Temporal closure stay separate facts). The same command returns the
 	// original; a terminal operation answers its state.
 	SettleOperation(context.Context, *SettleOperationRequest) (*SettleOperationResponse, error)
+	// Records an intra-Job progress fact of the current attempt (plan 0005
+	// Phase 2): the trusted coordinator's node boundary, submitted through the
+	// trusted access sidecar under the attempt, instance and execution epoch
+	// the sidecar confirmed. One operation.changed event with the node fields
+	// and the attempt unchanged (no phase, lifecycle, budget or verdict
+	// effect); the same command returns the recorded event; a closed attempt,
+	// a non-current instance, a moved epoch or a terminal/reconciling operation
+	// refuses with STALE_EXECUTION. Progress never reopens or advances an
+	// operation.
+	RecordAttemptProgress(context.Context, *RecordAttemptProgressRequest) (*RecordAttemptProgressResponse, error)
 	mustEmbedUnimplementedExecutionServiceServer()
 }
 
@@ -562,6 +593,9 @@ func (UnimplementedExecutionServiceServer) CloseAttempt(context.Context, *CloseA
 }
 func (UnimplementedExecutionServiceServer) SettleOperation(context.Context, *SettleOperationRequest) (*SettleOperationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SettleOperation not implemented")
+}
+func (UnimplementedExecutionServiceServer) RecordAttemptProgress(context.Context, *RecordAttemptProgressRequest) (*RecordAttemptProgressResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecordAttemptProgress not implemented")
 }
 func (UnimplementedExecutionServiceServer) mustEmbedUnimplementedExecutionServiceServer() {}
 func (UnimplementedExecutionServiceServer) testEmbeddedByValue()                          {}
@@ -746,6 +780,24 @@ func _ExecutionService_SettleOperation_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ExecutionService_RecordAttemptProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordAttemptProgressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionServiceServer).RecordAttemptProgress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionService_RecordAttemptProgress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionServiceServer).RecordAttemptProgress(ctx, req.(*RecordAttemptProgressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ExecutionService_ServiceDesc is the grpc.ServiceDesc for ExecutionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -788,6 +840,10 @@ var ExecutionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SettleOperation",
 			Handler:    _ExecutionService_SettleOperation_Handler,
+		},
+		{
+			MethodName: "RecordAttemptProgress",
+			Handler:    _ExecutionService_RecordAttemptProgress_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

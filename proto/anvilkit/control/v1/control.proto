@@ -241,6 +241,9 @@ message OperationView {
   // (P0.8), resolved by Control for preview_build and release operations;
   // absent when the lineage has none (a release is refused then).
   optional ComponentIdentity lineage_identity = 21;
+  // progress is the latest attempt-bound fact (plan 0005 Phase 2); absent
+  // before the first attempt.
+  optional OperationProgress progress = 22;
 }
 
 // OperationChangedPayload is the reviewed small payload of operation.changed.
@@ -251,6 +254,46 @@ message OperationChangedPayload {
   CleanupState cleanup = 4;
   FinanceState finance = 5;
   optional string failure_code = 6;
+  // Attempt-bound facts (plan 0005 Phase 2): set on every transition Control
+  // commits for an attempt (open, launch prepared, instance running, result
+  // accepted, closed) and on an intra-Job progress report; absent on the
+  // other transitions. step is the attempt's step id (analysis, codegen,
+  // validate, register_candidate), visit the outer repair round ("0" first),
+  // attempt_ordinal the rerun of that visit ("1" first).
+  optional string step = 7;
+  optional string visit = 8;
+  optional string attempt_ordinal = 9;
+  // verdict and verdict_code describe an accepted result only (the
+  // observer's verdict and the stage's failure code); a codegen step's verdict
+  // is the team's own classification, a validate step's the independent
+  // Validator's. The operation's failure_code is unaffected by a repairable
+  // verdict.
+  Verdict verdict = 10;
+  optional string verdict_code = 11;
+  // node and node_state are the trusted coordinator's node boundary
+  // (planner, retrieve, code, review, validate; started, completed, failed,
+  // skipped) reported through RecordAttemptProgress; round the team's
+  // internal coding round ("1" first); outcome_code a controlled code of a
+  // failed or classified node. Progress is a projection for display and never
+  // a verdict.
+  optional string node = 12;
+  optional string node_state = 13;
+  optional string round = 14;
+  optional string outcome_code = 15;
+}
+
+// OperationProgress is the latest attempt-bound fact of an operation as the
+// projection reports it (the payload fields above of the newest event that
+// carries a step), with the event sequence it comes from: a reconnecting
+// client that lost history still learns the current step and node.
+message OperationProgress {
+  string step = 1;
+  string visit = 2;
+  string attempt_ordinal = 3;
+  optional string node = 4;
+  optional string node_state = 5;
+  optional string round = 6;
+  string event_seq = 7;
 }
 
 message OperationEvent {
@@ -551,6 +594,44 @@ service ExecutionService {
   // Temporal closure stay separate facts). The same command returns the
   // original; a terminal operation answers its state.
   rpc SettleOperation(SettleOperationRequest) returns (SettleOperationResponse);
+  // Records an intra-Job progress fact of the current attempt (plan 0005
+  // Phase 2): the trusted coordinator's node boundary, submitted through the
+  // trusted access sidecar under the attempt, instance and execution epoch
+  // the sidecar confirmed. One operation.changed event with the node fields
+  // and the attempt unchanged (no phase, lifecycle, budget or verdict
+  // effect); the same command returns the recorded event; a closed attempt,
+  // a non-current instance, a moved epoch or a terminal/reconciling operation
+  // refuses with STALE_EXECUTION. Progress never reopens or advances an
+  // operation.
+  rpc RecordAttemptProgress(RecordAttemptProgressRequest) returns (RecordAttemptProgressResponse);
+}
+
+message RecordAttemptProgressRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  string attempt_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string instance_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string execution_epoch = 4 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string node = 5 [(buf.validate.field).string = {
+    in: ["planner", "retrieve", "code", "review", "validate"]
+  }];
+  string state = 6 [(buf.validate.field).string = {
+    in: ["started", "completed", "failed", "skipped"]
+  }];
+  // round is the team's internal coding round the node belongs to; empty for
+  // the planner and the retrieval specialist.
+  string round = 7 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+  optional string outcome_code = 8 [(buf.validate.field).string = {max_len: 64}];
+}
+
+message RecordAttemptProgressResponse {
+  OperationEvent event = 1;
+  bool existing = 2;
 }
 
 message OpenAttemptRequest {

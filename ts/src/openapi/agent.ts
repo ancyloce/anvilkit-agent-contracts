@@ -752,6 +752,7 @@ export interface components {
             failureCode?: string;
             activeDeadline?: components["schemas"]["Timestamp"];
             clarification?: components["schemas"]["Clarification"];
+            progress?: components["schemas"]["OperationProgress"];
         };
         Question: {
             questionId: components["schemas"]["Id"];
@@ -814,7 +815,32 @@ export interface components {
                 cleanup: components["schemas"]["CleanupState"];
                 finance: components["schemas"]["FinanceState"];
                 failureCode?: string;
+                step?: string;
+                visit?: components["schemas"]["Sequence"];
+                attemptOrdinal?: components["schemas"]["Sequence"];
+                verdict?: components["schemas"]["StageVerdict"];
+                verdictCode?: string;
+                node?: components["schemas"]["ProgressNode"];
+                nodeState?: components["schemas"]["ProgressNodeState"];
+                round?: components["schemas"]["Sequence"];
+                outcomeCode?: string;
             };
+        };
+        /** @enum {string} */
+        StageVerdict: "certified" | "repairable" | "invalid" | "infrastructure_failed" | "canceled";
+        /** @enum {string} */
+        ProgressNode: "planner" | "retrieve" | "code" | "review" | "validate";
+        /** @enum {string} */
+        ProgressNodeState: "started" | "completed" | "failed" | "skipped";
+        /** @description The latest attempt-bound fact of the operation (the newest event carrying a step) and the event sequence it comes from, so a client that lost history still learns the current step and node. */
+        OperationProgress: {
+            step: string;
+            visit: components["schemas"]["Sequence"];
+            attemptOrdinal: components["schemas"]["Sequence"];
+            node?: components["schemas"]["ProgressNode"];
+            nodeState?: components["schemas"]["ProgressNodeState"];
+            round?: components["schemas"]["Sequence"];
+            eventSeq: components["schemas"]["Sequence"];
         };
         /** @description The `data` of an SSE `reset_required` event. */
         ResetFrame: {

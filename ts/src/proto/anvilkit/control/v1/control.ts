@@ -904,7 +904,14 @@ export interface OperationView {
    * (P0.8), resolved by Control for preview_build and release operations;
    * absent when the lineage has none (a release is refused then).
    */
-  lineageIdentity?: ComponentIdentity | undefined;
+  lineageIdentity?:
+    | ComponentIdentity
+    | undefined;
+  /**
+   * progress is the latest attempt-bound fact (plan 0005 Phase 2); absent
+   * before the first attempt.
+   */
+  progress?: OperationProgress | undefined;
 }
 
 /** OperationChangedPayload is the reviewed small payload of operation.changed. */
@@ -915,7 +922,62 @@ export interface OperationChangedPayload {
   control: ControlState;
   cleanup: CleanupState;
   finance: FinanceState;
-  failureCode?: string | undefined;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * Attempt-bound facts (plan 0005 Phase 2): set on every transition Control
+   * commits for an attempt (open, launch prepared, instance running, result
+   * accepted, closed) and on an intra-Job progress report; absent on the
+   * other transitions. step is the attempt's step id (analysis, codegen,
+   * validate, register_candidate), visit the outer repair round ("0" first),
+   * attempt_ordinal the rerun of that visit ("1" first).
+   */
+  step?: string | undefined;
+  visit?: string | undefined;
+  attemptOrdinal?:
+    | string
+    | undefined;
+  /**
+   * verdict and verdict_code describe an accepted result only (the
+   * observer's verdict and the stage's failure code); a codegen step's verdict
+   * is the team's own classification, a validate step's the independent
+   * Validator's. The operation's failure_code is unaffected by a repairable
+   * verdict.
+   */
+  verdict: Verdict;
+  verdictCode?:
+    | string
+    | undefined;
+  /**
+   * node and node_state are the trusted coordinator's node boundary
+   * (planner, retrieve, code, review, validate; started, completed, failed,
+   * skipped) reported through RecordAttemptProgress; round the team's
+   * internal coding round ("1" first); outcome_code a controlled code of a
+   * failed or classified node. Progress is a projection for display and never
+   * a verdict.
+   */
+  node?: string | undefined;
+  nodeState?: string | undefined;
+  round?: string | undefined;
+  outcomeCode?: string | undefined;
+}
+
+/**
+ * OperationProgress is the latest attempt-bound fact of an operation as the
+ * projection reports it (the payload fields above of the newest event that
+ * carries a step), with the event sequence it comes from: a reconnecting
+ * client that lost history still learns the current step and node.
+ */
+export interface OperationProgress {
+  $type: "anvilkit.control.v1.OperationProgress";
+  step: string;
+  visit: string;
+  attemptOrdinal: string;
+  node?: string | undefined;
+  nodeState?: string | undefined;
+  round?: string | undefined;
+  eventSeq: string;
 }
 
 export interface OperationEvent {
@@ -1098,6 +1160,28 @@ export interface AcceptedStage {
   executionEpoch: string;
   recoveryEpoch: string;
   artifacts: ArtifactReference[];
+}
+
+export interface RecordAttemptProgressRequest {
+  $type: "anvilkit.control.v1.RecordAttemptProgressRequest";
+  command: CommandIdentity | undefined;
+  attemptId: string;
+  instanceId: string;
+  executionEpoch: string;
+  node: string;
+  state: string;
+  /**
+   * round is the team's internal coding round the node belongs to; empty for
+   * the planner and the retrieval specialist.
+   */
+  round: string;
+  outcomeCode?: string | undefined;
+}
+
+export interface RecordAttemptProgressResponse {
+  $type: "anvilkit.control.v1.RecordAttemptProgressResponse";
+  event: OperationEvent | undefined;
+  existing: boolean;
 }
 
 export interface OpenAttemptRequest {
@@ -2588,6 +2672,7 @@ function createBaseOperationView(): OperationView {
     activeDeadline: undefined,
     clarification: undefined,
     lineageIdentity: undefined,
+    progress: undefined,
   };
 }
 
@@ -2657,6 +2742,9 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     }
     if (message.lineageIdentity !== undefined) {
       ComponentIdentity.encode(message.lineageIdentity, writer.uint32(170).fork()).join();
+    }
+    if (message.progress !== undefined) {
+      OperationProgress.encode(message.progress, writer.uint32(178).fork()).join();
     }
     return writer;
   },
@@ -2842,6 +2930,14 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
             message.lineageIdentity = ComponentIdentity.decode(reader, reader.uint32());
             continue;
           }
+          case 22: {
+            if (tag !== 178) {
+              break;
+            }
+
+            message.progress = OperationProgress.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2922,6 +3018,7 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
         : isSet(object.lineage_identity)
         ? ComponentIdentity.fromJSON(object.lineage_identity)
         : undefined,
+      progress: isSet(object.progress) ? OperationProgress.fromJSON(object.progress) : undefined,
     };
   },
 
@@ -2990,6 +3087,9 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     if (message.lineageIdentity !== undefined) {
       obj.lineageIdentity = ComponentIdentity.toJSON(message.lineageIdentity);
     }
+    if (message.progress !== undefined) {
+      obj.progress = OperationProgress.toJSON(message.progress);
+    }
     return obj;
   },
 
@@ -3025,6 +3125,9 @@ export const OperationView: MessageFns<OperationView, "anvilkit.control.v1.Opera
     message.lineageIdentity = (object.lineageIdentity !== undefined && object.lineageIdentity !== null)
       ? ComponentIdentity.fromPartial(object.lineageIdentity)
       : undefined;
+    message.progress = (object.progress !== undefined && object.progress !== null)
+      ? OperationProgress.fromPartial(object.progress)
+      : undefined;
     return message;
   },
 };
@@ -3040,6 +3143,15 @@ function createBaseOperationChangedPayload(): OperationChangedPayload {
     cleanup: 0,
     finance: 0,
     failureCode: undefined,
+    step: undefined,
+    visit: undefined,
+    attemptOrdinal: undefined,
+    verdict: 0,
+    verdictCode: undefined,
+    node: undefined,
+    nodeState: undefined,
+    round: undefined,
+    outcomeCode: undefined,
   };
 }
 
@@ -3067,6 +3179,33 @@ export const OperationChangedPayload: MessageFns<
     }
     if (message.failureCode !== undefined) {
       writer.uint32(50).string(message.failureCode);
+    }
+    if (message.step !== undefined) {
+      writer.uint32(58).string(message.step);
+    }
+    if (message.visit !== undefined) {
+      writer.uint32(66).string(message.visit);
+    }
+    if (message.attemptOrdinal !== undefined) {
+      writer.uint32(74).string(message.attemptOrdinal);
+    }
+    if (message.verdict !== 0) {
+      writer.uint32(80).int32(message.verdict);
+    }
+    if (message.verdictCode !== undefined) {
+      writer.uint32(90).string(message.verdictCode);
+    }
+    if (message.node !== undefined) {
+      writer.uint32(98).string(message.node);
+    }
+    if (message.nodeState !== undefined) {
+      writer.uint32(106).string(message.nodeState);
+    }
+    if (message.round !== undefined) {
+      writer.uint32(114).string(message.round);
+    }
+    if (message.outcomeCode !== undefined) {
+      writer.uint32(122).string(message.outcomeCode);
     }
     return writer;
   },
@@ -3132,6 +3271,78 @@ export const OperationChangedPayload: MessageFns<
             message.failureCode = reader.string();
             continue;
           }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.step = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.visit = reader.string();
+            continue;
+          }
+          case 9: {
+            if (tag !== 74) {
+              break;
+            }
+
+            message.attemptOrdinal = reader.string();
+            continue;
+          }
+          case 10: {
+            if (tag !== 80) {
+              break;
+            }
+
+            message.verdict = reader.int32() as any;
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.verdictCode = reader.string();
+            continue;
+          }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.node = reader.string();
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.nodeState = reader.string();
+            continue;
+          }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.round = reader.string();
+            continue;
+          }
+          case 15: {
+            if (tag !== 122) {
+              break;
+            }
+
+            message.outcomeCode = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -3157,6 +3368,31 @@ export const OperationChangedPayload: MessageFns<
         : isSet(object.failure_code)
         ? globalThis.String(object.failure_code)
         : undefined,
+      step: isSet(object.step) ? globalThis.String(object.step) : undefined,
+      visit: isSet(object.visit) ? globalThis.String(object.visit) : undefined,
+      attemptOrdinal: isSet(object.attemptOrdinal)
+        ? globalThis.String(object.attemptOrdinal)
+        : isSet(object.attempt_ordinal)
+        ? globalThis.String(object.attempt_ordinal)
+        : undefined,
+      verdict: isSet(object.verdict) ? verdictFromJSON(object.verdict) : 0,
+      verdictCode: isSet(object.verdictCode)
+        ? globalThis.String(object.verdictCode)
+        : isSet(object.verdict_code)
+        ? globalThis.String(object.verdict_code)
+        : undefined,
+      node: isSet(object.node) ? globalThis.String(object.node) : undefined,
+      nodeState: isSet(object.nodeState)
+        ? globalThis.String(object.nodeState)
+        : isSet(object.node_state)
+        ? globalThis.String(object.node_state)
+        : undefined,
+      round: isSet(object.round) ? globalThis.String(object.round) : undefined,
+      outcomeCode: isSet(object.outcomeCode)
+        ? globalThis.String(object.outcomeCode)
+        : isSet(object.outcome_code)
+        ? globalThis.String(object.outcome_code)
+        : undefined,
     };
   },
 
@@ -3180,6 +3416,33 @@ export const OperationChangedPayload: MessageFns<
     if (message.failureCode !== undefined) {
       obj.failureCode = message.failureCode;
     }
+    if (message.step !== undefined) {
+      obj.step = message.step;
+    }
+    if (message.visit !== undefined) {
+      obj.visit = message.visit;
+    }
+    if (message.attemptOrdinal !== undefined) {
+      obj.attemptOrdinal = message.attemptOrdinal;
+    }
+    if (message.verdict !== 0) {
+      obj.verdict = verdictToJSON(message.verdict);
+    }
+    if (message.verdictCode !== undefined) {
+      obj.verdictCode = message.verdictCode;
+    }
+    if (message.node !== undefined) {
+      obj.node = message.node;
+    }
+    if (message.nodeState !== undefined) {
+      obj.nodeState = message.nodeState;
+    }
+    if (message.round !== undefined) {
+      obj.round = message.round;
+    }
+    if (message.outcomeCode !== undefined) {
+      obj.outcomeCode = message.outcomeCode;
+    }
     return obj;
   },
 
@@ -3194,11 +3457,211 @@ export const OperationChangedPayload: MessageFns<
     message.cleanup = object.cleanup ?? 0;
     message.finance = object.finance ?? 0;
     message.failureCode = object.failureCode ?? undefined;
+    message.step = object.step ?? undefined;
+    message.visit = object.visit ?? undefined;
+    message.attemptOrdinal = object.attemptOrdinal ?? undefined;
+    message.verdict = object.verdict ?? 0;
+    message.verdictCode = object.verdictCode ?? undefined;
+    message.node = object.node ?? undefined;
+    message.nodeState = object.nodeState ?? undefined;
+    message.round = object.round ?? undefined;
+    message.outcomeCode = object.outcomeCode ?? undefined;
     return message;
   },
 };
 
 messageTypeRegistry.set(OperationChangedPayload.$type, OperationChangedPayload);
+
+function createBaseOperationProgress(): OperationProgress {
+  return {
+    $type: "anvilkit.control.v1.OperationProgress",
+    step: "",
+    visit: "",
+    attemptOrdinal: "",
+    node: undefined,
+    nodeState: undefined,
+    round: undefined,
+    eventSeq: "",
+  };
+}
+
+export const OperationProgress: MessageFns<OperationProgress, "anvilkit.control.v1.OperationProgress"> = {
+  $type: "anvilkit.control.v1.OperationProgress" as const,
+
+  encode(message: OperationProgress, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.step !== "") {
+      writer.uint32(10).string(message.step);
+    }
+    if (message.visit !== "") {
+      writer.uint32(18).string(message.visit);
+    }
+    if (message.attemptOrdinal !== "") {
+      writer.uint32(26).string(message.attemptOrdinal);
+    }
+    if (message.node !== undefined) {
+      writer.uint32(34).string(message.node);
+    }
+    if (message.nodeState !== undefined) {
+      writer.uint32(42).string(message.nodeState);
+    }
+    if (message.round !== undefined) {
+      writer.uint32(50).string(message.round);
+    }
+    if (message.eventSeq !== "") {
+      writer.uint32(58).string(message.eventSeq);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): OperationProgress {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseOperationProgress();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.step = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.visit = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.attemptOrdinal = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.node = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.nodeState = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.round = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.eventSeq = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): OperationProgress {
+    return {
+      $type: OperationProgress.$type,
+      step: isSet(object.step) ? globalThis.String(object.step) : "",
+      visit: isSet(object.visit) ? globalThis.String(object.visit) : "",
+      attemptOrdinal: isSet(object.attemptOrdinal)
+        ? globalThis.String(object.attemptOrdinal)
+        : isSet(object.attempt_ordinal)
+        ? globalThis.String(object.attempt_ordinal)
+        : "",
+      node: isSet(object.node) ? globalThis.String(object.node) : undefined,
+      nodeState: isSet(object.nodeState)
+        ? globalThis.String(object.nodeState)
+        : isSet(object.node_state)
+        ? globalThis.String(object.node_state)
+        : undefined,
+      round: isSet(object.round) ? globalThis.String(object.round) : undefined,
+      eventSeq: isSet(object.eventSeq)
+        ? globalThis.String(object.eventSeq)
+        : isSet(object.event_seq)
+        ? globalThis.String(object.event_seq)
+        : "",
+    };
+  },
+
+  toJSON(message: OperationProgress): unknown {
+    const obj: any = {};
+    if (message.step !== "") {
+      obj.step = message.step;
+    }
+    if (message.visit !== "") {
+      obj.visit = message.visit;
+    }
+    if (message.attemptOrdinal !== "") {
+      obj.attemptOrdinal = message.attemptOrdinal;
+    }
+    if (message.node !== undefined) {
+      obj.node = message.node;
+    }
+    if (message.nodeState !== undefined) {
+      obj.nodeState = message.nodeState;
+    }
+    if (message.round !== undefined) {
+      obj.round = message.round;
+    }
+    if (message.eventSeq !== "") {
+      obj.eventSeq = message.eventSeq;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<OperationProgress>, I>>(base?: I): OperationProgress {
+    return OperationProgress.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<OperationProgress>, I>>(object: I): OperationProgress {
+    const message = createBaseOperationProgress();
+    message.step = object.step ?? "";
+    message.visit = object.visit ?? "";
+    message.attemptOrdinal = object.attemptOrdinal ?? "";
+    message.node = object.node ?? undefined;
+    message.nodeState = object.nodeState ?? undefined;
+    message.round = object.round ?? undefined;
+    message.eventSeq = object.eventSeq ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(OperationProgress.$type, OperationProgress);
 
 function createBaseOperationEvent(): OperationEvent {
   return {
@@ -6088,6 +6551,320 @@ export const AcceptedStage: MessageFns<AcceptedStage, "anvilkit.control.v1.Accep
 
 messageTypeRegistry.set(AcceptedStage.$type, AcceptedStage);
 
+function createBaseRecordAttemptProgressRequest(): RecordAttemptProgressRequest {
+  return {
+    $type: "anvilkit.control.v1.RecordAttemptProgressRequest",
+    command: undefined,
+    attemptId: "",
+    instanceId: "",
+    executionEpoch: "",
+    node: "",
+    state: "",
+    round: "",
+    outcomeCode: undefined,
+  };
+}
+
+export const RecordAttemptProgressRequest: MessageFns<
+  RecordAttemptProgressRequest,
+  "anvilkit.control.v1.RecordAttemptProgressRequest"
+> = {
+  $type: "anvilkit.control.v1.RecordAttemptProgressRequest" as const,
+
+  encode(message: RecordAttemptProgressRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.attemptId !== "") {
+      writer.uint32(18).string(message.attemptId);
+    }
+    if (message.instanceId !== "") {
+      writer.uint32(26).string(message.instanceId);
+    }
+    if (message.executionEpoch !== "") {
+      writer.uint32(34).string(message.executionEpoch);
+    }
+    if (message.node !== "") {
+      writer.uint32(42).string(message.node);
+    }
+    if (message.state !== "") {
+      writer.uint32(50).string(message.state);
+    }
+    if (message.round !== "") {
+      writer.uint32(58).string(message.round);
+    }
+    if (message.outcomeCode !== undefined) {
+      writer.uint32(66).string(message.outcomeCode);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordAttemptProgressRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRecordAttemptProgressRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.attemptId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.instanceId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.executionEpoch = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.node = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.state = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.round = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.outcomeCode = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RecordAttemptProgressRequest {
+    return {
+      $type: RecordAttemptProgressRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      attemptId: isSet(object.attemptId)
+        ? globalThis.String(object.attemptId)
+        : isSet(object.attempt_id)
+        ? globalThis.String(object.attempt_id)
+        : "",
+      instanceId: isSet(object.instanceId)
+        ? globalThis.String(object.instanceId)
+        : isSet(object.instance_id)
+        ? globalThis.String(object.instance_id)
+        : "",
+      executionEpoch: isSet(object.executionEpoch)
+        ? globalThis.String(object.executionEpoch)
+        : isSet(object.execution_epoch)
+        ? globalThis.String(object.execution_epoch)
+        : "",
+      node: isSet(object.node) ? globalThis.String(object.node) : "",
+      state: isSet(object.state) ? globalThis.String(object.state) : "",
+      round: isSet(object.round) ? globalThis.String(object.round) : "",
+      outcomeCode: isSet(object.outcomeCode)
+        ? globalThis.String(object.outcomeCode)
+        : isSet(object.outcome_code)
+        ? globalThis.String(object.outcome_code)
+        : undefined,
+    };
+  },
+
+  toJSON(message: RecordAttemptProgressRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.attemptId !== "") {
+      obj.attemptId = message.attemptId;
+    }
+    if (message.instanceId !== "") {
+      obj.instanceId = message.instanceId;
+    }
+    if (message.executionEpoch !== "") {
+      obj.executionEpoch = message.executionEpoch;
+    }
+    if (message.node !== "") {
+      obj.node = message.node;
+    }
+    if (message.state !== "") {
+      obj.state = message.state;
+    }
+    if (message.round !== "") {
+      obj.round = message.round;
+    }
+    if (message.outcomeCode !== undefined) {
+      obj.outcomeCode = message.outcomeCode;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordAttemptProgressRequest>, I>>(base?: I): RecordAttemptProgressRequest {
+    return RecordAttemptProgressRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordAttemptProgressRequest>, I>>(object: I): RecordAttemptProgressRequest {
+    const message = createBaseRecordAttemptProgressRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.attemptId = object.attemptId ?? "";
+    message.instanceId = object.instanceId ?? "";
+    message.executionEpoch = object.executionEpoch ?? "";
+    message.node = object.node ?? "";
+    message.state = object.state ?? "";
+    message.round = object.round ?? "";
+    message.outcomeCode = object.outcomeCode ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RecordAttemptProgressRequest.$type, RecordAttemptProgressRequest);
+
+function createBaseRecordAttemptProgressResponse(): RecordAttemptProgressResponse {
+  return { $type: "anvilkit.control.v1.RecordAttemptProgressResponse", event: undefined, existing: false };
+}
+
+export const RecordAttemptProgressResponse: MessageFns<
+  RecordAttemptProgressResponse,
+  "anvilkit.control.v1.RecordAttemptProgressResponse"
+> = {
+  $type: "anvilkit.control.v1.RecordAttemptProgressResponse" as const,
+
+  encode(message: RecordAttemptProgressResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.event !== undefined) {
+      OperationEvent.encode(message.event, writer.uint32(10).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(16).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordAttemptProgressResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRecordAttemptProgressResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.event = OperationEvent.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RecordAttemptProgressResponse {
+    return {
+      $type: RecordAttemptProgressResponse.$type,
+      event: isSet(object.event) ? OperationEvent.fromJSON(object.event) : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: RecordAttemptProgressResponse): unknown {
+    const obj: any = {};
+    if (message.event !== undefined) {
+      obj.event = OperationEvent.toJSON(message.event);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordAttemptProgressResponse>, I>>(base?: I): RecordAttemptProgressResponse {
+    return RecordAttemptProgressResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordAttemptProgressResponse>, I>>(
+    object: I,
+  ): RecordAttemptProgressResponse {
+    const message = createBaseRecordAttemptProgressResponse();
+    message.event = (object.event !== undefined && object.event !== null)
+      ? OperationEvent.fromPartial(object.event)
+      : undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RecordAttemptProgressResponse.$type, RecordAttemptProgressResponse);
+
 function createBaseOpenAttemptRequest(): OpenAttemptRequest {
   return {
     $type: "anvilkit.control.v1.OpenAttemptRequest",
@@ -8976,6 +9753,28 @@ export const ExecutionServiceService = {
       Buffer.from(SettleOperationResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): SettleOperationResponse => SettleOperationResponse.decode(value),
   },
+  /**
+   * Records an intra-Job progress fact of the current attempt (plan 0005
+   * Phase 2): the trusted coordinator's node boundary, submitted through the
+   * trusted access sidecar under the attempt, instance and execution epoch
+   * the sidecar confirmed. One operation.changed event with the node fields
+   * and the attempt unchanged (no phase, lifecycle, budget or verdict
+   * effect); the same command returns the recorded event; a closed attempt,
+   * a non-current instance, a moved epoch or a terminal/reconciling operation
+   * refuses with STALE_EXECUTION. Progress never reopens or advances an
+   * operation.
+   */
+  recordAttemptProgress: {
+    path: "/anvilkit.control.v1.ExecutionService/RecordAttemptProgress" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RecordAttemptProgressRequest): Buffer =>
+      Buffer.from(RecordAttemptProgressRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RecordAttemptProgressRequest => RecordAttemptProgressRequest.decode(value),
+    responseSerialize: (value: RecordAttemptProgressResponse): Buffer =>
+      Buffer.from(RecordAttemptProgressResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RecordAttemptProgressResponse => RecordAttemptProgressResponse.decode(value),
+  },
 } as const;
 
 export interface ExecutionServiceServer extends UntypedServiceImplementation {
@@ -9025,6 +9824,18 @@ export interface ExecutionServiceServer extends UntypedServiceImplementation {
    * original; a terminal operation answers its state.
    */
   settleOperation: handleUnaryCall<SettleOperationRequest, SettleOperationResponse>;
+  /**
+   * Records an intra-Job progress fact of the current attempt (plan 0005
+   * Phase 2): the trusted coordinator's node boundary, submitted through the
+   * trusted access sidecar under the attempt, instance and execution epoch
+   * the sidecar confirmed. One operation.changed event with the node fields
+   * and the attempt unchanged (no phase, lifecycle, budget or verdict
+   * effect); the same command returns the recorded event; a closed attempt,
+   * a non-current instance, a moved epoch or a terminal/reconciling operation
+   * refuses with STALE_EXECUTION. Progress never reopens or advances an
+   * operation.
+   */
+  recordAttemptProgress: handleUnaryCall<RecordAttemptProgressRequest, RecordAttemptProgressResponse>;
 }
 
 export interface ExecutionServiceClient extends Client {
@@ -9199,6 +10010,32 @@ export interface ExecutionServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: SettleOperationResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Records an intra-Job progress fact of the current attempt (plan 0005
+   * Phase 2): the trusted coordinator's node boundary, submitted through the
+   * trusted access sidecar under the attempt, instance and execution epoch
+   * the sidecar confirmed. One operation.changed event with the node fields
+   * and the attempt unchanged (no phase, lifecycle, budget or verdict
+   * effect); the same command returns the recorded event; a closed attempt,
+   * a non-current instance, a moved epoch or a terminal/reconciling operation
+   * refuses with STALE_EXECUTION. Progress never reopens or advances an
+   * operation.
+   */
+  recordAttemptProgress(
+    request: RecordAttemptProgressRequest,
+    callback: (error: ServiceError | null, response: RecordAttemptProgressResponse) => void,
+  ): ClientUnaryCall;
+  recordAttemptProgress(
+    request: RecordAttemptProgressRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RecordAttemptProgressResponse) => void,
+  ): ClientUnaryCall;
+  recordAttemptProgress(
+    request: RecordAttemptProgressRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RecordAttemptProgressResponse) => void,
   ): ClientUnaryCall;
 }
 

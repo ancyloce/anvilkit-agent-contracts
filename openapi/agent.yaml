@@ -1244,6 +1244,8 @@ components:
         activeDeadline: { $ref: "#/components/schemas/Timestamp" }
         clarification:
           $ref: "#/components/schemas/Clarification"
+        progress:
+          $ref: "#/components/schemas/OperationProgress"
     Question:
       type: object
       additionalProperties: false
@@ -1354,6 +1356,56 @@ components:
             failureCode:
               type: string
               maxLength: 64
+            # Attempt-bound facts (plan 0005 Phase 2), present on the transitions
+            # Control commits for an attempt and on intra-Job progress reports,
+            # absent elsewhere: the step id, the outer repair round (visit, "0"
+            # first) and the rerun of that visit (attemptOrdinal, "1" first).
+            step:
+              type: string
+              maxLength: 64
+            visit: { $ref: "#/components/schemas/Sequence" }
+            attemptOrdinal: { $ref: "#/components/schemas/Sequence" }
+            # verdict and verdictCode describe an accepted result only: a codegen
+            # step's verdict is the team's own classification, a validate step's
+            # the independent Validator's. Never a completion signal by itself.
+            verdict: { $ref: "#/components/schemas/StageVerdict" }
+            verdictCode:
+              type: string
+              maxLength: 64
+            # The trusted coordinator's node boundary inside a codegen attempt
+            # (progress for display, never a verdict), its internal coding round
+            # ("1" first) and a controlled outcome code of a failed or classified
+            # node.
+            node: { $ref: "#/components/schemas/ProgressNode" }
+            nodeState: { $ref: "#/components/schemas/ProgressNodeState" }
+            round: { $ref: "#/components/schemas/Sequence" }
+            outcomeCode:
+              type: string
+              maxLength: 64
+    StageVerdict:
+      type: string
+      enum: [certified, repairable, invalid, infrastructure_failed, canceled]
+    ProgressNode:
+      type: string
+      enum: [planner, retrieve, code, review, validate]
+    ProgressNodeState:
+      type: string
+      enum: [started, completed, failed, skipped]
+    OperationProgress:
+      description: The latest attempt-bound fact of the operation (the newest event carrying a step) and the event sequence it comes from, so a client that lost history still learns the current step and node.
+      type: object
+      additionalProperties: false
+      required: [step, visit, attemptOrdinal, eventSeq]
+      properties:
+        step:
+          type: string
+          maxLength: 64
+        visit: { $ref: "#/components/schemas/Sequence" }
+        attemptOrdinal: { $ref: "#/components/schemas/Sequence" }
+        node: { $ref: "#/components/schemas/ProgressNode" }
+        nodeState: { $ref: "#/components/schemas/ProgressNodeState" }
+        round: { $ref: "#/components/schemas/Sequence" }
+        eventSeq: { $ref: "#/components/schemas/Sequence" }
     ResetFrame:
       description: The `data` of an SSE `reset_required` event.
       type: object

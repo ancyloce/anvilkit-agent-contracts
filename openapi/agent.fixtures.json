@@ -146,6 +146,42 @@
       "instance": { "operationId": "op_01J9ABCDEF", "eventSeq": "3", "transitionId": "t", "eventType": "operation.changed", "revision": "3", "occurredAt": "2026-09-14T12:00:01Z", "payload": { "lifecycle": "retrying", "phase": "x", "control": "none", "cleanup": "not_required", "finance": "not_funded" } }
     },
     {
+      "name": "operation.changed SSE frame of an accepted validator result carries step, visit, attemptOrdinal and the verdict (plan 0005)",
+      "schema": "OperationEventFrame",
+      "valid": true,
+      "instance": {"operationId": "op_01J9ABCDEF", "eventSeq": "15", "transitionId": "stage:stg_1", "eventType": "operation.changed", "revision": "15", "occurredAt": "2026-10-23T12:00:01.250Z", "payload": {"lifecycle": "running", "phase": "result_accepted", "control": "none", "cleanup": "pending", "finance": "funded", "step": "validate", "visit": "0", "attemptOrdinal": "1", "verdict": "repairable", "verdictCode": "CANDIDATE_TEST_FAILED"}}
+    },
+    {
+      "name": "operation.changed SSE frame of an intra-Job progress report carries node, nodeState and round",
+      "schema": "OperationEventFrame",
+      "valid": true,
+      "instance": {"operationId": "op_01J9ABCDEF", "eventSeq": "10", "transitionId": "progress:att_1:code:1:started", "eventType": "operation.changed", "revision": "10", "occurredAt": "2026-10-23T12:00:01.250Z", "payload": {"lifecycle": "running", "phase": "running", "control": "none", "cleanup": "pending", "finance": "funded", "step": "codegen", "visit": "0", "attemptOrdinal": "1", "node": "code", "nodeState": "started", "round": "1"}}
+    },
+    {
+      "name": "SSE frame with a nodeState outside the enum is rejected",
+      "schema": "OperationEventFrame",
+      "valid": false,
+      "instance": {"operationId": "op_01J9ABCDEF", "eventSeq": "10", "transitionId": "progress:att_1:code:1:running", "eventType": "operation.changed", "revision": "10", "occurredAt": "2026-10-23T12:00:01.250Z", "payload": {"lifecycle": "running", "phase": "running", "control": "none", "cleanup": "pending", "finance": "funded", "step": "codegen", "visit": "0", "attemptOrdinal": "1", "node": "code", "nodeState": "running", "round": "1"}}
+    },
+    {
+      "name": "SSE frame with a non-canonical visit is rejected",
+      "schema": "OperationEventFrame",
+      "valid": false,
+      "instance": {"operationId": "op_01J9ABCDEF", "eventSeq": "7", "transitionId": "attempt:att_1:opened", "eventType": "operation.changed", "revision": "7", "occurredAt": "2026-10-23T12:00:01.250Z", "payload": {"lifecycle": "running", "phase": "attempt_open", "control": "none", "cleanup": "pending", "finance": "funded", "step": "codegen", "visit": "01", "attemptOrdinal": "1"}}
+    },
+    {
+      "name": "operation progress projection",
+      "schema": "OperationProgress",
+      "valid": true,
+      "instance": {"step": "codegen", "visit": "1", "attemptOrdinal": "1", "node": "review", "nodeState": "completed", "round": "2", "eventSeq": "33"}
+    },
+    {
+      "name": "operation progress without its event sequence is rejected",
+      "schema": "OperationProgress",
+      "valid": false,
+      "instance": {"step": "codegen", "visit": "1", "attemptOrdinal": "1"}
+    },
+    {
       "name": "reset_required SSE frame",
       "schema": "ResetFrame",
       "valid": true,

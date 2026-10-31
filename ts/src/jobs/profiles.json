@@ -192,13 +192,13 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-dev-v1",
-      "revision": "18",
+      "revision": "19",
       "jobKind": "codegen",
       "state": "development",
       "description": "P2.4 DEVELOPMENT_ONLY: codegen-team-v1 on the development foundation's containerd runtime (no gVisor): the same image, layout, sidecar placements and identity binding, labelled candidate code, so the complete in-Job team path is exercised there; it qualifies no isolation and every launcher refuses it outside its development guard.",
       "image": {
         "repository": "anvilkit-codegen-team",
-        "digest": "sha256:c9a7dd3d291ef03367a75a787168568917fc11f3fe768342e92a39ebe90fc617"
+        "digest": "sha256:e32cebe85f967f817e59f2e280ac9276421f4b5e46532b0ea2e2069ef8781493"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
@@ -219,13 +219,13 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-v1",
-      "revision": "9",
+      "revision": "10",
       "jobKind": "codegen",
       "state": "disabled",
       "description": "P2.4: the bounded LangGraph/Pi coding team (P12) as the production profile: the trusted supervisor runs the team coordinator and the Pi coder as the candidate under the gVisor RuntimeClass, with the access sidecar's Model Proxy, MCP and Knowledge placements. DISABLED until its negative tests pass on the target runtime (G-04/G-05); enabling it is a values change of the environment's enabled profiles.",
       "image": {
         "repository": "anvilkit-codegen-team",
-        "digest": "sha256:c9a7dd3d291ef03367a75a787168568917fc11f3fe768342e92a39ebe90fc617"
+        "digest": "sha256:e32cebe85f967f817e59f2e280ac9276421f4b5e46532b0ea2e2069ef8781493"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",

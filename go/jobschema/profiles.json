@@ -83,13 +83,13 @@
     {
       "schemaVersion": 1,
       "profileId": "validator-fixture-v1",
-      "revision": "7",
+      "revision": "8",
       "jobKind": "validator",
       "state": "development",
       "description": "P0.8: the fixed validator fixture (P10d, LocalCheck and fixtures): the anvilkit-job-validator image runs the complete-source, protected-build and certification chain on the fixed Hero component baked into it only (SSR and browser checks in the Pod's Chromium headless shell) and submits through the access sidecar. It never executes bound source (no bindsSource: the launcher and the Job refuse a source input). Harness layout without RuntimeClass; development only.",
       "image": {
         "repository": "anvilkit-job-validator",
-        "digest": "sha256:87458f7da41a64a847e1bbd94da67f263e76f0d352fe6772d2effdb2b9e12ec8"
+        "digest": "sha256:daa3a502374392055ac8ef499610cf2d7509794bda0385aa988ee4590584d73a"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
@@ -109,13 +109,13 @@
     {
       "schemaVersion": 1,
       "profileId": "validator-source-v1",
-      "revision": "7",
+      "revision": "8",
       "jobKind": "validator",
       "state": "disabled",
       "description": "P0.8: the validator on a launch-bound source archive (generated or edited component source, P20 preview, release): candidate code, so the harness layout under the gVisor RuntimeClass with the access sidecar; the allocated identity in the launch envelope binds the certification. DISABLED until its negative tests pass on the target runtime (G-04).",
       "image": {
         "repository": "anvilkit-job-validator",
-        "digest": "sha256:87458f7da41a64a847e1bbd94da67f263e76f0d352fe6772d2effdb2b9e12ec8"
+        "digest": "sha256:daa3a502374392055ac8ef499610cf2d7509794bda0385aa988ee4590584d73a"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
@@ -137,13 +137,13 @@
     {
       "schemaVersion": 1,
       "profileId": "preview-build-v1",
-      "revision": "6",
+      "revision": "7",
       "jobKind": "validator",
       "state": "disabled",
       "description": "P2.4: the preview build of a saved source revision (P20) as its own production profile: the validator image building the launch-bound source as candidate code under the gVisor RuntimeClass with the access sidecar, compute only. DISABLED until G-04 qualifies the runtime; the development foundation builds previews under validator-source-dev-v1.",
       "image": {
         "repository": "anvilkit-job-validator",
-        "digest": "sha256:87458f7da41a64a847e1bbd94da67f263e76f0d352fe6772d2effdb2b9e12ec8"
+        "digest": "sha256:daa3a502374392055ac8ef499610cf2d7509794bda0385aa988ee4590584d73a"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
@@ -165,13 +165,13 @@
     {
       "schemaVersion": 1,
       "profileId": "validator-source-dev-v1",
-      "revision": "7",
+      "revision": "8",
       "jobKind": "validator",
       "state": "development",
       "description": "P0.8 DEVELOPMENT_ONLY: validator-source-v1 on the development foundation's containerd runtime (no gVisor): the same image, layout and identity binding, labelled candidate code, so the complete bound-source path is exercised there; it qualifies no isolation and every launcher refuses it outside its development guard.",
       "image": {
         "repository": "anvilkit-job-validator",
-        "digest": "sha256:87458f7da41a64a847e1bbd94da67f263e76f0d352fe6772d2effdb2b9e12ec8"
+        "digest": "sha256:daa3a502374392055ac8ef499610cf2d7509794bda0385aa988ee4590584d73a"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
@@ -192,13 +192,13 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-dev-v1",
-      "revision": "21",
+      "revision": "22",
       "jobKind": "codegen",
       "state": "development",
       "description": "P2.4 DEVELOPMENT_ONLY: codegen-team-v1 on the development foundation's containerd runtime (no gVisor): the same image, layout, sidecar placements and identity binding, labelled candidate code, so the complete in-Job team path is exercised there; it qualifies no isolation and every launcher refuses it outside its development guard.",
       "image": {
         "repository": "anvilkit-codegen-team",
-        "digest": "sha256:a76f5434cdeed01e6353a19706e2f483a2ae0d2e8082e9e0a81d094ad827a3af"
+        "digest": "sha256:bfbb344b9ca1aba130644bccc955e5daf40c1151450a77039971af53c1d524f6"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",
@@ -219,13 +219,13 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-v1",
-      "revision": "12",
+      "revision": "13",
       "jobKind": "codegen",
       "state": "disabled",
       "description": "P2.4: the bounded LangGraph/Pi coding team (P12) as the production profile: the trusted supervisor runs the team coordinator and the Pi coder as the candidate under the gVisor RuntimeClass, with the access sidecar's Model Proxy, MCP and Knowledge placements. DISABLED until its negative tests pass on the target runtime (G-04/G-05); enabling it is a values change of the environment's enabled profiles.",
       "image": {
         "repository": "anvilkit-codegen-team",
-        "digest": "sha256:a76f5434cdeed01e6353a19706e2f483a2ae0d2e8082e9e0a81d094ad827a3af"
+        "digest": "sha256:bfbb344b9ca1aba130644bccc955e5daf40c1151450a77039971af53c1d524f6"
       },
       "sidecarImage": {
         "repository": "anvilkit-job-access-sidecar",

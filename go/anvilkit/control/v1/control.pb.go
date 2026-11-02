@@ -1642,9 +1642,9 @@ type OperationChangedPayload struct {
 	// Attempt-bound facts (plan 0005 Phase 2): set on every transition Control
 	// commits for an attempt (open, launch prepared, instance running, result
 	// accepted, closed) and on an intra-Job progress report; absent on the
-	// other transitions. step is the attempt's step id (analysis, codegen,
-	// validate, register_candidate), visit the outer repair round ("0" first),
-	// attempt_ordinal the rerun of that visit ("1" first).
+	// other transitions. step is the attempt's step id (for example analysis,
+	// codegen, validate, register_candidate), visit the outer repair round
+	// ("0" first), attempt_ordinal the rerun of that visit ("1" first).
 	Step           *string `protobuf:"bytes,7,opt,name=step,proto3,oneof" json:"step,omitempty"`
 	Visit          *string `protobuf:"bytes,8,opt,name=visit,proto3,oneof" json:"visit,omitempty"`
 	AttemptOrdinal *string `protobuf:"bytes,9,opt,name=attempt_ordinal,json=attemptOrdinal,proto3,oneof" json:"attempt_ordinal,omitempty"`
@@ -4051,8 +4051,8 @@ type AcceptResultRequest struct {
 	ObserverIdentity string  `protobuf:"bytes,8,opt,name=observer_identity,json=observerIdentity,proto3" json:"observer_identity,omitempty"`
 	FailureCode      *string `protobuf:"bytes,9,opt,name=failure_code,json=failureCode,proto3,oneof" json:"failure_code,omitempty"`
 	// The execution epoch the observer acted under; a stage is accepted only
-	// under the operation's current epoch. Empty keeps the pre-P08 behavior
-	// (the attempt's own epoch is compared with the operation's).
+	// under the operation's current epoch. Empty compares only the attempt's
+	// own epoch with the operation's.
 	ExecutionEpoch string `protobuf:"bytes,10,opt,name=execution_epoch,json=executionEpoch,proto3" json:"execution_epoch,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

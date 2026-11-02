@@ -379,10 +379,11 @@ type ExecutionServiceClient interface {
 	// is NOT_FOUND, and an instance that is not current carries no authority.
 	GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error)
 	// Closes the attempt with its outcome and cleanup evidence and settles the
-	// operation lifecycle for single-attempt profiles. For a multi-step
-	// profile (Preparation, Generation) a definite close settles the attempt
-	// only; the operation stays running until SettleOperation, an applied
-	// cancel or an unknown outcome/cleanup (reconciling) ends it.
+	// operation lifecycle for single-attempt profiles (the local_check
+	// fixture). For a multi-step profile (Preparation, Generation,
+	// preview_build, release) a definite close settles the attempt only; the
+	// operation stays running until SettleOperation, an applied cancel or an
+	// unknown outcome/cleanup (reconciling) ends it.
 	CloseAttempt(ctx context.Context, in *CloseAttemptRequest, opts ...grpc.CallOption) (*CloseAttemptResponse, error)
 	// Settles the business outcome of a multi-step operation (DD-01 §2: the
 	// Workflow states the business completion; cleanup, settlement and
@@ -537,10 +538,11 @@ type ExecutionServiceServer interface {
 	// is NOT_FOUND, and an instance that is not current carries no authority.
 	GetInstance(context.Context, *GetInstanceRequest) (*GetInstanceResponse, error)
 	// Closes the attempt with its outcome and cleanup evidence and settles the
-	// operation lifecycle for single-attempt profiles. For a multi-step
-	// profile (Preparation, Generation) a definite close settles the attempt
-	// only; the operation stays running until SettleOperation, an applied
-	// cancel or an unknown outcome/cleanup (reconciling) ends it.
+	// operation lifecycle for single-attempt profiles (the local_check
+	// fixture). For a multi-step profile (Preparation, Generation,
+	// preview_build, release) a definite close settles the attempt only; the
+	// operation stays running until SettleOperation, an applied cancel or an
+	// unknown outcome/cleanup (reconciling) ends it.
 	CloseAttempt(context.Context, *CloseAttemptRequest) (*CloseAttemptResponse, error)
 	// Settles the business outcome of a multi-step operation (DD-01 §2: the
 	// Workflow states the business completion; cleanup, settlement and

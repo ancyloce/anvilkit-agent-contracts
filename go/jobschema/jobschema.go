@@ -1,6 +1,6 @@
 // Package jobschema exposes the jobs contract (contracts/jobs) to Go
-// consumers. job.schema.json and profiles.json are verbatim copies refreshed
-// by tools/generate-contracts.py; edit the sources under contracts/, never
+// consumers. job.schema.json and profiles.json are verbatim copies of
+// jobs/ refreshed by tools/generate.py; edit the sources under jobs/, never
 // these copies.
 package jobschema
 
@@ -150,7 +150,7 @@ func Profiles() ([]Profile, error) {
 	return out, nil
 }
 
-// Profile returns one reviewed profile by id.
+// ProfileByID returns one reviewed profile by id.
 func ProfileByID(id string) (Profile, error) {
 	all, err := Profiles()
 	if err != nil {

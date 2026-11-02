@@ -1,7 +1,7 @@
 # Generation template driven by tools/generate.py, which passes the base
 # output directory (go/, the generated Go module) with `buf generate -o`.
 # Managed mode sets go_package so the .proto sources stay language-neutral for
-# the later ts-proto/grpc-js consumers.
+# the ts-proto/grpc-js consumers (buf.gen.ts.yaml).
 version: v2
 managed:
   enabled: true

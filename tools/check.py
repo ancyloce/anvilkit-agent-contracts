@@ -208,7 +208,8 @@ def check_schemas() -> None:
             fail("jobs/profiles.json lacks the local-check-v1 fixture profile")
         # P0.8 negatives: the schema itself refuses a profile that executes bound
         # source without being candidate code, candidate code outside the
-        # development state without its RuntimeClass, and a profile without a state.
+        # development state without its RuntimeClass, and a profile without a state
+        # or with an unknown one.
         base = next((p for p in doc.get("profiles", []) if p.get("profileId") == "validator-source-v1"), None)
         if base is None:
             fail("jobs/profiles.json lacks validator-source-v1")

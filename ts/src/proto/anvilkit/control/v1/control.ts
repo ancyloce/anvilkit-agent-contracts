@@ -929,9 +929,9 @@ export interface OperationChangedPayload {
    * Attempt-bound facts (plan 0005 Phase 2): set on every transition Control
    * commits for an attempt (open, launch prepared, instance running, result
    * accepted, closed) and on an intra-Job progress report; absent on the
-   * other transitions. step is the attempt's step id (analysis, codegen,
-   * validate, register_candidate), visit the outer repair round ("0" first),
-   * attempt_ordinal the rerun of that visit ("1" first).
+   * other transitions. step is the attempt's step id (for example analysis,
+   * codegen, validate, register_candidate), visit the outer repair round
+   * ("0" first), attempt_ordinal the rerun of that visit ("1" first).
    */
   step?: string | undefined;
   visit?: string | undefined;
@@ -1273,8 +1273,8 @@ export interface AcceptResultRequest {
     | undefined;
   /**
    * The execution epoch the observer acted under; a stage is accepted only
-   * under the operation's current epoch. Empty keeps the pre-P08 behavior
-   * (the attempt's own epoch is compared with the operation's).
+   * under the operation's current epoch. Empty compares only the attempt's
+   * own epoch with the operation's.
    */
   executionEpoch: string;
 }
@@ -9721,10 +9721,11 @@ export const ExecutionServiceService = {
   },
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
-   * operation lifecycle for single-attempt profiles. For a multi-step
-   * profile (Preparation, Generation) a definite close settles the attempt
-   * only; the operation stays running until SettleOperation, an applied
-   * cancel or an unknown outcome/cleanup (reconciling) ends it.
+   * operation lifecycle for single-attempt profiles (the local_check
+   * fixture). For a multi-step profile (Preparation, Generation,
+   * preview_build, release) a definite close settles the attempt only; the
+   * operation stays running until SettleOperation, an applied cancel or an
+   * unknown outcome/cleanup (reconciling) ends it.
    */
   closeAttempt: {
     path: "/anvilkit.control.v1.ExecutionService/CloseAttempt" as const,
@@ -9811,10 +9812,11 @@ export interface ExecutionServiceServer extends UntypedServiceImplementation {
   getInstance: handleUnaryCall<GetInstanceRequest, GetInstanceResponse>;
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
-   * operation lifecycle for single-attempt profiles. For a multi-step
-   * profile (Preparation, Generation) a definite close settles the attempt
-   * only; the operation stays running until SettleOperation, an applied
-   * cancel or an unknown outcome/cleanup (reconciling) ends it.
+   * operation lifecycle for single-attempt profiles (the local_check
+   * fixture). For a multi-step profile (Preparation, Generation,
+   * preview_build, release) a definite close settles the attempt only; the
+   * operation stays running until SettleOperation, an applied cancel or an
+   * unknown outcome/cleanup (reconciling) ends it.
    */
   closeAttempt: handleUnaryCall<CloseAttemptRequest, CloseAttemptResponse>;
   /**
@@ -9970,10 +9972,11 @@ export interface ExecutionServiceClient extends Client {
   ): ClientUnaryCall;
   /**
    * Closes the attempt with its outcome and cleanup evidence and settles the
-   * operation lifecycle for single-attempt profiles. For a multi-step
-   * profile (Preparation, Generation) a definite close settles the attempt
-   * only; the operation stays running until SettleOperation, an applied
-   * cancel or an unknown outcome/cleanup (reconciling) ends it.
+   * operation lifecycle for single-attempt profiles (the local_check
+   * fixture). For a multi-step profile (Preparation, Generation,
+   * preview_build, release) a definite close settles the attempt only; the
+   * operation stays running until SettleOperation, an applied cancel or an
+   * unknown outcome/cleanup (reconciling) ends it.
    */
   closeAttempt(
     request: CloseAttemptRequest,

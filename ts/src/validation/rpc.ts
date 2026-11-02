@@ -3,11 +3,12 @@
 // rules of contracts/proto evaluated by @bufbuild/protovalidate over the
 // generated descriptors, after strict ProtoJSON parsing by @bufbuild/protobuf
 // (duplicate members, unknown fields and unknown enum names rejected;
-// contracts.md §4). A TypeScript provider (Knowledge) runs `validateMessage`
-// on every decoded request before its handler, a TypeScript caller of
-// Control or MCP runs it before a send; `validateJson` is the JSON entry of
-// the same boundary. The ts-proto bindings serialize; they never decide
-// acceptance.
+// contracts.md §4). A TypeScript provider (Knowledge) runs the boundary on
+// every decoded request before its handler and a TypeScript caller of an
+// internal service runs it before a send, both through `validateJson` on
+// the ts-proto message's ProtoJSON form; `validateMessage` is the entry for
+// an already decoded protobuf-es message. The ts-proto bindings serialize;
+// they never decide acceptance.
 import {
 	createFileRegistry,
 	type DescMessage,

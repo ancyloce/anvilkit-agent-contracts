@@ -35,7 +35,7 @@ export const protobufPackage = "anvilkit.control.v1";
  * an effect, lost responses, lease expiry, retries and restarts never return a
  * second permit; an unknown outcome keeps the original identity until an
  * observation, an original-identity query or an evidence-bound operator
- * disposition (RecoveryService.Dispose) resolves it.
+ * disposition (RecoveryService.DisposeObligation) resolves it.
  */
 
 export enum EffectKind {

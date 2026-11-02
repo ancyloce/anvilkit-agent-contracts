@@ -86,8 +86,9 @@ func TestSchemaFixturesAgree(t *testing.T) {
 	require.GreaterOrEqual(t, total, 20)
 }
 
-// TestJobProfilesValidate proves every launchable profile is a valid Job
-// profile and that the P05 fixture profile exists and runs no candidate code.
+// TestJobProfilesValidate proves every profile of jobs/profiles.json is a
+// valid Job profile and that the P05 fixture profile (local-check-v1) exists,
+// runs no candidate code and binds its expected result.
 func TestJobProfilesValidate(t *testing.T) {
 	c := compileSchemas(t)
 	schema, err := c.Compile("urn:anvilkit:jobs:v1#/$defs/profile")
@@ -217,7 +218,8 @@ func TestPublicAPIVectors(t *testing.T) {
 }
 
 // TestModelProxyVectors validates model-proxy.fixtures.json against the
-// embedded spec of the generated Go client (the Workflow/sidecar consumer).
+// embedded spec of the generated Go client (the Workflow, Control and
+// sidecar consumers).
 func TestModelProxyVectors(t *testing.T) {
 	spec, err := modelproxyapi.GetSwagger()
 	require.NoError(t, err)

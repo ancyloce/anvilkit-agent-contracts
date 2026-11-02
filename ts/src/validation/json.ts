@@ -2,9 +2,10 @@
 // members, trailing data, non-finite numbers and numbers a JavaScript number
 // cannot hold without loss are rejected before any schema validation. The
 // Model Proxy provider parses request bodies of model-proxy.yaml with it,
-// Knowledge parses Inference responses with it and the Studio client parses
-// API responses with it. Schema validation of the returned document is the
-// next step of each boundary, not part of parsing.
+// Knowledge parses Inference responses and parser results with it and the
+// background worker parses event envelopes and task inputs with it. Schema
+// validation of the returned document is the next step of each boundary,
+// not part of parsing.
 //
 // lossless-json parses the grammar and the numbers. It reports a repeated
 // member name only when the second value differs (an equal-value repeat is

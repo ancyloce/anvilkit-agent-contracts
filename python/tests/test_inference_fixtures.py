@@ -1,9 +1,9 @@
 """Consumer/provider agreement of the generated pydantic models with the
 cross-runtime vectors of openapi/inference.fixtures.json: every
 `instance` case validates (or is rejected) by the model the Python provider
-will enforce, exactly as tools/check.py (jsonschema), tests/go
+(Inference) enforces, exactly as tools/check.py (jsonschema), tests/go
 (Go, kin-openapi) and the TypeScript package (Ajv) decide; every `raw` case is
-rejected by the strict loader the provider must use before validation
+rejected by the strict loader the provider uses before validation
 (duplicate members, trailing data, non-finite numbers; contracts.md §4)."""
 from __future__ import annotations
 

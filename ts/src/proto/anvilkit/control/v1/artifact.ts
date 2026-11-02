@@ -2332,11 +2332,12 @@ export const ArtifactServiceService = {
    * Issues a trusted reader the scoped download capability of a finalized
    * artifact under an authorized relationship to the reading operation
    * (P13): the artifact is the operation's own prompt, an accepted answer,
-   * the brief its subject binds, or an artifact bound by an accepted stage
-   * of one of its attempts. A reading physical instance must be the
-   * current one of an executing attempt of that operation. The capability
-   * names the exact object version; the reader verifies the bytes against
-   * the digest and size answered here. Candidates never see it.
+   * the brief its subject binds, the source a preview_build or release
+   * operation names, or an artifact bound by an accepted stage of one of
+   * its attempts. A reading physical instance must be the current one of
+   * an executing attempt of that operation. The capability names the exact
+   * object version; the reader verifies the bytes against the digest and
+   * size answered here. Candidates never see it.
    */
   readArtifact: {
     path: "/anvilkit.control.v1.ArtifactService/ReadArtifact" as const,
@@ -2360,11 +2361,12 @@ export interface ArtifactServiceServer extends UntypedServiceImplementation {
    * Issues a trusted reader the scoped download capability of a finalized
    * artifact under an authorized relationship to the reading operation
    * (P13): the artifact is the operation's own prompt, an accepted answer,
-   * the brief its subject binds, or an artifact bound by an accepted stage
-   * of one of its attempts. A reading physical instance must be the
-   * current one of an executing attempt of that operation. The capability
-   * names the exact object version; the reader verifies the bytes against
-   * the digest and size answered here. Candidates never see it.
+   * the brief its subject binds, the source a preview_build or release
+   * operation names, or an artifact bound by an accepted stage of one of
+   * its attempts. A reading physical instance must be the current one of
+   * an executing attempt of that operation. The capability names the exact
+   * object version; the reader verifies the bytes against the digest and
+   * size answered here. Candidates never see it.
    */
   readArtifact: handleUnaryCall<ReadArtifactRequest, ReadArtifactResponse>;
 }
@@ -2435,11 +2437,12 @@ export interface ArtifactServiceClient extends Client {
    * Issues a trusted reader the scoped download capability of a finalized
    * artifact under an authorized relationship to the reading operation
    * (P13): the artifact is the operation's own prompt, an accepted answer,
-   * the brief its subject binds, or an artifact bound by an accepted stage
-   * of one of its attempts. A reading physical instance must be the
-   * current one of an executing attempt of that operation. The capability
-   * names the exact object version; the reader verifies the bytes against
-   * the digest and size answered here. Candidates never see it.
+   * the brief its subject binds, the source a preview_build or release
+   * operation names, or an artifact bound by an accepted stage of one of
+   * its attempts. A reading physical instance must be the current one of
+   * an executing attempt of that operation. The capability names the exact
+   * object version; the reader verifies the bytes against the digest and
+   * size answered here. Candidates never see it.
    */
   readArtifact(
     request: ReadArtifactRequest,

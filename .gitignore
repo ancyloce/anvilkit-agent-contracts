@@ -36,6 +36,9 @@ node_modules/
 __pycache__/
 *.egg-info/
 .pytest_cache/
+# setuptools output of an in-tree build of the Python consumer; the generated
+# source is python/anvilkit_generated_clients/ only
+/python/build/
 
 # Pinned Python verification environment created by tools/verification-env.sh
 /.local/

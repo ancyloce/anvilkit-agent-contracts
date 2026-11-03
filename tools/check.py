@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import pathlib
 import shutil
 import subprocess

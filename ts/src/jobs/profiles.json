@@ -109,10 +109,10 @@
     {
       "schemaVersion": 1,
       "profileId": "validator-source-v1",
-      "revision": "9",
+      "revision": "10",
       "jobKind": "validator",
-      "state": "disabled",
-      "description": "P0.8: the validator on a launch-bound source archive (generated or edited component source, P20 preview, release): candidate code, so the harness layout under the gVisor RuntimeClass with the access sidecar; the allocated identity in the launch envelope binds the certification. DISABLED until its negative tests pass on the target runtime (G-04).",
+      "state": "enabled",
+      "description": "P0.8: the validator on a launch-bound source archive (generated or edited component source, P20 preview, release): candidate code, so the harness layout under the gVisor RuntimeClass with the access sidecar; the allocated identity in the launch envelope binds the certification. ENABLED 2026-11-03 (DEC-044) for the DEVELOPMENT_ONLY Compose Jobs node, where the gVisor RuntimeClass exists; its negative tests on a qualified target runtime (G-04) remain NOT_RUN.",
       "image": {
         "repository": "anvilkit-job-validator",
         "digest": "sha256:a186686f002b80005654aca30a301e6ae60b3eb2530309040ce1391198e6e5e8"
@@ -219,10 +219,10 @@
     {
       "schemaVersion": 1,
       "profileId": "codegen-team-v1",
-      "revision": "14",
+      "revision": "15",
       "jobKind": "codegen",
-      "state": "disabled",
-      "description": "P2.4: the bounded LangGraph/Pi coding team (P12) as the production profile: the trusted supervisor runs the team coordinator and the Pi coder as the candidate under the gVisor RuntimeClass, with the access sidecar's Model Proxy, MCP and Knowledge placements. DISABLED until its negative tests pass on the target runtime (G-04/G-05); enabling it is a values change of the environment's enabled profiles.",
+      "state": "enabled",
+      "description": "P2.4: the bounded LangGraph/Pi coding team (P12) as the production profile: the trusted supervisor runs the team coordinator and the Pi coder as the candidate under the gVisor RuntimeClass, with the access sidecar's Model Proxy, MCP and Knowledge placements. ENABLED 2026-11-03 (DEC-044) for the DEVELOPMENT_ONLY Compose Jobs node, where the gVisor RuntimeClass exists; its negative tests on a qualified target runtime (G-04/G-05) remain NOT_RUN.",
       "image": {
         "repository": "anvilkit-codegen-team",
         "digest": "sha256:50c8a48ba030d24e11faecd46c26ddc939f117cf277c94f22784cba25c9a51e3"

@@ -14,12 +14,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"buf.build/go/protovalidate"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -306,4 +308,68 @@ func TestReleaseSubjectDigests(t *testing.T) {
 		checked++
 	}
 	require.Positive(t, checked)
+}
+
+// TestStatusDetailVectors (RB-A23): the google.rpc.ErrorInfo detail of a
+// Control revision conflict is a convention outside the .proto files, so its
+// vectors are the contract. Every detail parses strictly as ErrorInfo
+// (ProtoJSON, unknown fields rejected), and the rule the file states decides
+// each case: both revisions are copied only from a detail with the fixed
+// reason and domain whose two values are canonical uint64 decimals; the
+// producer emits such a detail with exactly the two keys.
+func TestStatusDetailVectors(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(contractsDir, "proto", "status-details.fixtures.json"))
+	require.NoError(t, err)
+	var vectors struct {
+		ErrorInfo struct {
+			Code, MessagePrefix, Reason, Domain, ExpectedKey, CurrentKey string
+		} `json:"errorInfo"`
+		Cases []struct {
+			Name      string            `json:"name"`
+			Detail    json.RawMessage   `json:"detail"`
+			Revisions map[string]string `json:"revisions"`
+			Produced  bool              `json:"produced"`
+		} `json:"cases"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	var probe struct {
+		Comment   string          `json:"$comment"`
+		ErrorInfo json.RawMessage `json:"errorInfo"`
+		Cases     json.RawMessage `json:"cases"`
+	}
+	require.NoError(t, dec.Decode(&probe), "only $comment, errorInfo and cases")
+	require.NoError(t, json.Unmarshal(raw, &vectors))
+	info := vectors.ErrorInfo
+	require.Equal(t, "ABORTED", info.Code)
+	require.Equal(t, "REVISION_CONFLICT: ", info.MessagePrefix)
+	require.Equal(t, "REVISION_CONFLICT", info.Reason)
+	require.Equal(t, "anvilkit.control.v1", info.Domain)
+	require.Equal(t, "expectedRevision", info.ExpectedKey)
+	require.Equal(t, "currentRevision", info.CurrentKey)
+	canonical := func(s string) bool {
+		v, err := strconv.ParseUint(s, 10, 64)
+		return err == nil && strconv.FormatUint(v, 10) == s
+	}
+	accepted, produced := 0, 0
+	require.NotEmpty(t, vectors.Cases)
+	for _, cs := range vectors.Cases {
+		var detail errdetails.ErrorInfo
+		require.NoError(t, (protojson.UnmarshalOptions{DiscardUnknown: false}).Unmarshal(cs.Detail, &detail), "%s: the detail is strict ProtoJSON of google.rpc.ErrorInfo", cs.Name)
+		md := detail.GetMetadata()
+		ok := detail.GetReason() == info.Reason && detail.GetDomain() == info.Domain && canonical(md[info.ExpectedKey]) && canonical(md[info.CurrentKey])
+		if ok {
+			accepted++
+			require.Equal(t, map[string]string{info.ExpectedKey: md[info.ExpectedKey], info.CurrentKey: md[info.CurrentKey]}, cs.Revisions, cs.Name)
+		} else {
+			require.Nil(t, cs.Revisions, "%s: the rule copies no revision", cs.Name)
+		}
+		if cs.Produced {
+			produced++
+			require.True(t, ok && len(md) == 2, "%s: the producer emits the two keys and nothing more", cs.Name)
+		}
+	}
+	require.Positive(t, produced, "a case the producer emits")
+	require.Greater(t, accepted, produced, "an accepted case the producer does not emit (an ignored key)")
+	require.Less(t, accepted, len(vectors.Cases), "a refused case")
 }

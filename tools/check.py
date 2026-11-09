@@ -20,6 +20,9 @@ Checks, each failing loudly when its input is missing:
   5. Proto vectors: proto/messages.fixtures.json names existing messages of the Buf module; the
      protovalidate positive/negative outcomes themselves are asserted by tests/go (Go), the
      runtime that enforces them.
+  6. Status-detail vectors: proto/status-details.fixtures.json (the google.rpc.ErrorInfo detail of
+     a Control revision conflict, RB-A23) has only its known members, every detail has only
+     ErrorInfo's members, and the rule the file states decides every case as the case declares.
 
 The same fixture files are consumed by the Go (tests/go), TypeScript (ts/test) and Python
 (python/tests) consumer tests so every runtime agrees. This script writes nothing and
@@ -312,6 +315,63 @@ def check_proto_vectors() -> None:
             count("proto_vectors")
 
 
+def check_status_detail_vectors() -> None:
+    """The ErrorInfo detail of a Control revision conflict (RB-A23): a convention outside the
+    .proto files, so its vectors are the contract. The rule: the consumer copies both revisions
+    only from a detail with the file's reason and domain whose two values are canonical uint64
+    decimals; the producer emits nothing but such a detail with exactly the two keys."""
+    import re
+
+    label = "proto/status-details.fixtures.json"
+    path = CONTRACTS / "proto" / "status-details.fixtures.json"
+    if not require(path):
+        return
+    doc = strict_loads(path.read_text(encoding="utf-8"))
+    if set(doc) != {"$comment", "errorInfo", "cases"}:
+        fail(f"{label}: members {sorted(doc)} (expected $comment, errorInfo, cases)")
+        return
+    info = doc["errorInfo"]
+    fixed = {"code": "ABORTED", "messagePrefix": "REVISION_CONFLICT: ", "reason": "REVISION_CONFLICT",
+             "domain": "anvilkit.control.v1", "expectedKey": "expectedRevision", "currentKey": "currentRevision"}
+    if info != fixed:
+        fail(f"{label}: errorInfo is {info}; the convention is {fixed} (a change is a protocol evolution, contracts.md §7)")
+        return
+    keys = (info["expectedKey"], info["currentKey"])
+
+    def canonical(value) -> bool:
+        return isinstance(value, str) and re.fullmatch(r"0|[1-9][0-9]*", value) is not None and int(value) <= 2**64 - 1
+
+    names: set[str] = set()
+    accepted = produced = 0
+    for case in doc["cases"]:
+        name = case.get("name")
+        where = f"{label} {name!r}"
+        if set(case) != {"name", "detail", "revisions", "produced"} or not isinstance(name, str) or name in names:
+            fail(f"{where}: a case has exactly name (unique), detail, revisions and produced")
+            continue
+        names.add(name)
+        detail = case["detail"]
+        metadata = detail.get("metadata", {}) if isinstance(detail, dict) else None
+        if (not isinstance(detail, dict) or not set(detail) <= {"reason", "domain", "metadata"} or not isinstance(metadata, dict)
+                or not all(isinstance(v, str) for v in [detail.get("reason", ""), detail.get("domain", ""), *metadata.values()])):
+            fail(f"{where}: detail is not the ProtoJSON form of google.rpc.ErrorInfo (reason, domain, metadata of strings)")
+            continue
+        ok = (detail.get("reason") == info["reason"] and detail.get("domain") == info["domain"]
+              and all(canonical(metadata.get(k)) for k in keys))
+        want = {k: metadata[k] for k in keys} if ok else None
+        if case["revisions"] != want:
+            fail(f"{where}: revisions is {case['revisions']}; the rule gives {want}")
+            continue
+        if not isinstance(case["produced"], bool) or (case["produced"] and not (ok and set(metadata) == set(keys))):
+            fail(f"{where}: produced is true only for a detail the producer emits (the two keys, nothing more)")
+            continue
+        accepted += ok
+        produced += case["produced"]
+        count("status_detail_vectors")
+    if not produced or accepted == len(names) or accepted == produced:
+        fail(f"{label}: the vectors need a produced case, a refused case and an accepted case the producer does not emit")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--against", help="git ref holding the recorded new-system baseline for buf breaking and the OpenAPI breaking diff")
@@ -326,6 +386,7 @@ def main() -> int:
     check_schemas()
     check_api_vectors(specs)
     check_proto_vectors()
+    check_status_detail_vectors()
     for f in FAILURES:
         print("FAIL", f)
     print("counts:", json.dumps(COUNTS, sort_keys=True))

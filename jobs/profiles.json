@@ -247,13 +247,13 @@
     {
       "schemaVersion": 1,
       "profileId": "parser-docling-dev-v1",
-      "revision": "7",
+      "revision": "8",
       "jobKind": "parser",
       "state": "development",
       "description": "DEVELOPMENT_ONLY fixed Docling parser (P15): the anvilkit-parser image with the pinned layout weights, OCR, tables, remote services and plugins off; the trusted stager moves one input and one output through presigned URLs. Knowledge launches it in anvilkit-parsing on an unqualified runtime (no RuntimeClass); it qualifies no parser isolation and is never enabled outside development.",
       "image": {
         "repository": "anvilkit-parser",
-        "digest": "sha256:c7d3ccfe2f0334cac18bd87d2767d7227d44181fb88c8823ff436fac1fe32e11"
+        "digest": "sha256:8861751bfcabbfc91b496f516a365bad1b80afa29c4caff634d941ad81342631"
       },
       "entrypoint": [
         "/usr/local/bin/anvilkit-parse"
@@ -291,13 +291,13 @@
     {
       "schemaVersion": 1,
       "profileId": "parser-docling-v1",
-      "revision": "7",
+      "revision": "8",
       "jobKind": "parser",
       "state": "disabled",
       "description": "The same fixed Docling parser and stager under the gVisor RuntimeClass in the anvilkit-parsing namespace (SEC-10). DISABLED until its negative tests pass on the target runtime (malicious archives, path escapes, plugin/model downloads, egress) and ENV-04 measures its resources.",
       "image": {
         "repository": "anvilkit-parser",
-        "digest": "sha256:c7d3ccfe2f0334cac18bd87d2767d7227d44181fb88c8823ff436fac1fe32e11"
+        "digest": "sha256:8861751bfcabbfc91b496f516a365bad1b80afa29c4caff634d941ad81342631"
       },
       "entrypoint": [
         "/usr/local/bin/anvilkit-parse"

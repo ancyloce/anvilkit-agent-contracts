@@ -53,7 +53,7 @@
             "required": ["name", "type"],
             "properties": {
               "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]{0,63}$" },
-              "type": { "type": "string", "enum": ["text", "textarea", "number", "select", "radio", "array", "object", "external", "custom"] },
+              "type": { "type": "string", "enum": ["text", "textarea", "richtext", "number", "select", "radio", "checkbox", "array", "object", "external", "custom", "slot"] },
               "default": {}
             }
           }

@@ -726,7 +726,7 @@ export interface components {
             sourceRevision?: components["schemas"]["Revision"];
             /** @description preview_build only - the finalized source artifact holding the edited source; subjectDigest names the component source lineage it edits and sourceRevision the revision the edit was based on. */
             sourceHandle?: components["schemas"]["Handle"];
-            /** @description release only - the preview_build or generation operation whose saved or registered source is released; subjectDigest and sourceRevision must be that operation's lineage and source revision. Control binds the source artifact itself. */
+            /** @description release and refinement - the operation whose saved or registered source is released (a preview_build, generation or refinement) or is the base a refinement changes; subjectDigest and sourceRevision must be that operation's lineage and source revision. Control binds the source artifact itself. A refinement's briefId must be the brief of a preparation that named the same base. */
             sourceOperationId?: components["schemas"]["Id"];
             /** @description release only - the exact package version released; the certified source must declare it. */
             packageVersion?: string;
@@ -772,6 +772,14 @@ export interface components {
             prompt: components["schemas"]["ArtifactBinding"];
             brandReferences?: components["schemas"]["SourceReference"][];
             assetReferences?: components["schemas"]["SourceReference"][];
+            refinementBase?: components["schemas"]["RefinementBase"];
+        };
+        /** @description The delivered component a preparation analyzes a change of. The brief it freezes keeps that component's identity, declares the base's version with the patch number raised by one, and starts only a refinement that names the same base. The analysis reads the base's frozen requirements as data. */
+        RefinementBase: {
+            /** @description The generation or refinement operation whose registered source is the base. */
+            sourceOperationId: components["schemas"]["Id"];
+            /** @description The exact revision the source authority registered for that operation's source. */
+            sourceRevision: components["schemas"]["Revision"];
         };
         CreateOperationRequest: {
             commandId: components["schemas"]["Id"];

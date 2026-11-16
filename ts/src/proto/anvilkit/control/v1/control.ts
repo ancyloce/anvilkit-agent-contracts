@@ -835,8 +835,8 @@ export interface OperationSubject {
     | string
     | undefined;
   /**
-   * release: the preview_build or generation operation whose saved or
-   * registered source is released. subject_digest and source_revision must
+   * release: the preview_build, generation or refinement operation whose
+   * saved or registered source is released. subject_digest and source_revision must
    * be that operation's lineage and the revision its source authority named
    * for the bytes; Control binds the source artifact (source_handle) itself.
    */
@@ -847,7 +847,27 @@ export interface OperationSubject {
    * release: the package version the requester releases; the certified
    * source must declare exactly this version.
    */
-  packageVersion?: string | undefined;
+  packageVersion?:
+    | string
+    | undefined;
+  /**
+   * refinement, and the preparation that analyzes its change: the base.
+   * For a refinement subject_digest must be the base's lineage; Control
+   * binds the base's source artifact (source_handle) itself. source_revision
+   * and source_operation_id keep their meanings above and are not set.
+   */
+  refinementBase?: RefinementBase | undefined;
+}
+
+/**
+ * RefinementBase names the delivered component a refinement changes: the
+ * generation or refinement operation whose registered source is the base,
+ * and the exact revision the source authority named for that source.
+ */
+export interface RefinementBase {
+  $type: "anvilkit.control.v1.RefinementBase";
+  sourceOperationId: string;
+  sourceRevision: string;
 }
 
 /**
@@ -2333,6 +2353,7 @@ function createBaseOperationSubject(): OperationSubject {
     sourceHandle: undefined,
     sourceOperationId: undefined,
     packageVersion: undefined,
+    refinementBase: undefined,
   };
 }
 
@@ -2360,6 +2381,9 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
     }
     if (message.packageVersion !== undefined) {
       writer.uint32(58).string(message.packageVersion);
+    }
+    if (message.refinementBase !== undefined) {
+      RefinementBase.encode(message.refinementBase, writer.uint32(66).fork()).join();
     }
     return writer;
   },
@@ -2433,6 +2457,14 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
             message.packageVersion = reader.string();
             continue;
           }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.refinementBase = RefinementBase.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2483,6 +2515,11 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
         : isSet(object.package_version)
         ? globalThis.String(object.package_version)
         : undefined,
+      refinementBase: isSet(object.refinementBase)
+        ? RefinementBase.fromJSON(object.refinementBase)
+        : isSet(object.refinement_base)
+        ? RefinementBase.fromJSON(object.refinement_base)
+        : undefined,
     };
   },
 
@@ -2509,6 +2546,9 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
     if (message.packageVersion !== undefined) {
       obj.packageVersion = message.packageVersion;
     }
+    if (message.refinementBase !== undefined) {
+      obj.refinementBase = RefinementBase.toJSON(message.refinementBase);
+    }
     return obj;
   },
 
@@ -2524,11 +2564,112 @@ export const OperationSubject: MessageFns<OperationSubject, "anvilkit.control.v1
     message.sourceHandle = object.sourceHandle ?? undefined;
     message.sourceOperationId = object.sourceOperationId ?? undefined;
     message.packageVersion = object.packageVersion ?? undefined;
+    message.refinementBase = (object.refinementBase !== undefined && object.refinementBase !== null)
+      ? RefinementBase.fromPartial(object.refinementBase)
+      : undefined;
     return message;
   },
 };
 
 messageTypeRegistry.set(OperationSubject.$type, OperationSubject);
+
+function createBaseRefinementBase(): RefinementBase {
+  return { $type: "anvilkit.control.v1.RefinementBase", sourceOperationId: "", sourceRevision: "" };
+}
+
+export const RefinementBase: MessageFns<RefinementBase, "anvilkit.control.v1.RefinementBase"> = {
+  $type: "anvilkit.control.v1.RefinementBase" as const,
+
+  encode(message: RefinementBase, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.sourceOperationId !== "") {
+      writer.uint32(10).string(message.sourceOperationId);
+    }
+    if (message.sourceRevision !== "") {
+      writer.uint32(18).string(message.sourceRevision);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RefinementBase {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRefinementBase();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.sourceOperationId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.sourceRevision = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RefinementBase {
+    return {
+      $type: RefinementBase.$type,
+      sourceOperationId: isSet(object.sourceOperationId)
+        ? globalThis.String(object.sourceOperationId)
+        : isSet(object.source_operation_id)
+        ? globalThis.String(object.source_operation_id)
+        : "",
+      sourceRevision: isSet(object.sourceRevision)
+        ? globalThis.String(object.sourceRevision)
+        : isSet(object.source_revision)
+        ? globalThis.String(object.source_revision)
+        : "",
+    };
+  },
+
+  toJSON(message: RefinementBase): unknown {
+    const obj: any = {};
+    if (message.sourceOperationId !== "") {
+      obj.sourceOperationId = message.sourceOperationId;
+    }
+    if (message.sourceRevision !== "") {
+      obj.sourceRevision = message.sourceRevision;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RefinementBase>, I>>(base?: I): RefinementBase {
+    return RefinementBase.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RefinementBase>, I>>(object: I): RefinementBase {
+    const message = createBaseRefinementBase();
+    message.sourceOperationId = object.sourceOperationId ?? "";
+    message.sourceRevision = object.sourceRevision ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RefinementBase.$type, RefinementBase);
 
 function createBaseComponentIdentity(): ComponentIdentity {
   return { $type: "anvilkit.control.v1.ComponentIdentity", componentId: "", puckType: "", packageName: "" };

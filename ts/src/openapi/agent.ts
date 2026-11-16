@@ -726,10 +726,12 @@ export interface components {
             sourceRevision?: components["schemas"]["Revision"];
             /** @description preview_build only - the finalized source artifact holding the edited source; subjectDigest names the component source lineage it edits and sourceRevision the revision the edit was based on. */
             sourceHandle?: components["schemas"]["Handle"];
-            /** @description release and refinement - the operation whose saved or registered source is released (a preview_build, generation or refinement) or is the base a refinement changes; subjectDigest and sourceRevision must be that operation's lineage and source revision. Control binds the source artifact itself. A refinement's briefId must be the brief of a preparation that named the same base. */
+            /** @description release only - the preview_build, generation or refinement operation whose saved or registered source is released; subjectDigest and sourceRevision must be that operation's lineage and source revision. Control binds the source artifact itself. */
             sourceOperationId?: components["schemas"]["Id"];
             /** @description release only - the exact package version released; the certified source must declare it. */
             packageVersion?: string;
+            /** @description refinement, and the view of a preparation that analyzes a change - the base. A refinement's subjectDigest must be the base's lineage and its briefId the brief of a preparation that named the same base; Control binds the base's source artifact itself. sourceRevision and sourceOperationId are not set with it. */
+            refinementBase?: components["schemas"]["RefinementBase"];
         };
         OperationView: {
             operationId: components["schemas"]["Id"];
@@ -774,7 +776,7 @@ export interface components {
             assetReferences?: components["schemas"]["SourceReference"][];
             refinementBase?: components["schemas"]["RefinementBase"];
         };
-        /** @description The delivered component a preparation analyzes a change of. The brief it freezes keeps that component's identity, declares the base's version with the patch number raised by one, and starts only a refinement that names the same base. The analysis reads the base's frozen requirements as data. */
+        /** @description The delivered component a change starts from, named the same way by the preparation that analyzes the change and by the refinement that makes it. The brief such a preparation freezes keeps that component's identity, declares the base's version with the patch number raised by one, and starts only a refinement that names the same base. The analysis reads the base's frozen requirements as data. */
         RefinementBase: {
             /** @description The generation or refinement operation whose registered source is the base. */
             sourceOperationId: components["schemas"]["Id"];

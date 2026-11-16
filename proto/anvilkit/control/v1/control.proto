@@ -187,14 +187,33 @@ message OperationSubject {
   // its candidate was registered under) and source_revision the revision
   // the edit was based on, saved conditionally before the build.
   optional string source_handle = 5 [(buf.validate.field).string = {max_len: 256}];
-  // release: the preview_build or generation operation whose saved or
-  // registered source is released. subject_digest and source_revision must
+  // release: the preview_build, generation or refinement operation whose
+  // saved or registered source is released. subject_digest and source_revision must
   // be that operation's lineage and the revision its source authority named
   // for the bytes; Control binds the source artifact (source_handle) itself.
   optional string source_operation_id = 6 [(buf.validate.field).string = {max_len: 128}];
   // release: the package version the requester releases; the certified
   // source must declare exactly this version.
   optional string package_version = 7 [(buf.validate.field).string = {max_len: 64}];
+  // refinement, and the preparation that analyzes its change: the base.
+  // For a refinement subject_digest must be the base's lineage; Control
+  // binds the base's source artifact (source_handle) itself. source_revision
+  // and source_operation_id keep their meanings above and are not set.
+  optional RefinementBase refinement_base = 8;
+}
+
+// RefinementBase names the delivered component a refinement changes: the
+// generation or refinement operation whose registered source is the base,
+// and the exact revision the source authority named for that source.
+message RefinementBase {
+  string source_operation_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string source_revision = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
 }
 
 // ComponentIdentity is the identity a Generation's frozen brief allocated to

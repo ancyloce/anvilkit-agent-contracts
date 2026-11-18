@@ -219,11 +219,15 @@ var PriceAdminService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	BudgetPoolService_CreatePool_FullMethodName = "/anvilkit.control.v1.BudgetPoolService/CreatePool"
-	BudgetPoolService_AdjustPool_FullMethodName = "/anvilkit.control.v1.BudgetPoolService/AdjustPool"
-	BudgetPoolService_GetPool_FullMethodName    = "/anvilkit.control.v1.BudgetPoolService/GetPool"
-	BudgetPoolService_SetCostCap_FullMethodName = "/anvilkit.control.v1.BudgetPoolService/SetCostCap"
-	BudgetPoolService_GetCostCap_FullMethodName = "/anvilkit.control.v1.BudgetPoolService/GetCostCap"
+	BudgetPoolService_CreatePool_FullMethodName       = "/anvilkit.control.v1.BudgetPoolService/CreatePool"
+	BudgetPoolService_AdjustPool_FullMethodName       = "/anvilkit.control.v1.BudgetPoolService/AdjustPool"
+	BudgetPoolService_GetPool_FullMethodName          = "/anvilkit.control.v1.BudgetPoolService/GetPool"
+	BudgetPoolService_FindPool_FullMethodName         = "/anvilkit.control.v1.BudgetPoolService/FindPool"
+	BudgetPoolService_SetCostCap_FullMethodName       = "/anvilkit.control.v1.BudgetPoolService/SetCostCap"
+	BudgetPoolService_GetCostCap_FullMethodName       = "/anvilkit.control.v1.BudgetPoolService/GetCostCap"
+	BudgetPoolService_CreateCreditPool_FullMethodName = "/anvilkit.control.v1.BudgetPoolService/CreateCreditPool"
+	BudgetPoolService_AdjustCreditPool_FullMethodName = "/anvilkit.control.v1.BudgetPoolService/AdjustCreditPool"
+	BudgetPoolService_FindCreditPool_FullMethodName   = "/anvilkit.control.v1.BudgetPoolService/FindCreditPool"
 )
 
 // BudgetPoolServiceClient is the client API for BudgetPoolService service.
@@ -237,10 +241,21 @@ type BudgetPoolServiceClient interface {
 	// the allocated amount fences new allocations only.
 	AdjustPool(ctx context.Context, in *AdjustPoolRequest, opts ...grpc.CallOption) (*AdjustPoolResponse, error)
 	GetPool(ctx context.Context, in *GetPoolRequest, opts ...grpc.CallOption) (*GetPoolResponse, error)
+	// FindPool reads the pool of one scope and period start (the key CreatePool
+	// is idempotent on); NOT_FOUND when there is none.
+	FindPool(ctx context.Context, in *FindPoolRequest, opts ...grpc.CallOption) (*FindPoolResponse, error)
 	// SetCostCap creates or changes a cost cap (conditionally on its
 	// revision when one is named); lowering it fences the next admission.
 	SetCostCap(ctx context.Context, in *SetCostCapRequest, opts ...grpc.CallOption) (*SetCostCapResponse, error)
 	GetCostCap(ctx context.Context, in *GetCostCapRequest, opts ...grpc.CallOption) (*GetCostCapResponse, error)
+	// CreateCreditPool creates a tenant or actor credit pool; the same scope,
+	// period and limit returns the existing pool, a different one is
+	// IDEMPOTENCY_CONFLICT.
+	CreateCreditPool(ctx context.Context, in *CreateCreditPoolRequest, opts ...grpc.CallOption) (*CreateCreditPoolResponse, error)
+	// AdjustCreditPool sets a credit pool's limit conditionally on its revision.
+	AdjustCreditPool(ctx context.Context, in *AdjustCreditPoolRequest, opts ...grpc.CallOption) (*AdjustCreditPoolResponse, error)
+	// FindCreditPool reads the credit pool of one scope and period start.
+	FindCreditPool(ctx context.Context, in *FindCreditPoolRequest, opts ...grpc.CallOption) (*FindCreditPoolResponse, error)
 }
 
 type budgetPoolServiceClient struct {
@@ -281,6 +296,16 @@ func (c *budgetPoolServiceClient) GetPool(ctx context.Context, in *GetPoolReques
 	return out, nil
 }
 
+func (c *budgetPoolServiceClient) FindPool(ctx context.Context, in *FindPoolRequest, opts ...grpc.CallOption) (*FindPoolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindPoolResponse)
+	err := c.cc.Invoke(ctx, BudgetPoolService_FindPool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *budgetPoolServiceClient) SetCostCap(ctx context.Context, in *SetCostCapRequest, opts ...grpc.CallOption) (*SetCostCapResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetCostCapResponse)
@@ -301,6 +326,36 @@ func (c *budgetPoolServiceClient) GetCostCap(ctx context.Context, in *GetCostCap
 	return out, nil
 }
 
+func (c *budgetPoolServiceClient) CreateCreditPool(ctx context.Context, in *CreateCreditPoolRequest, opts ...grpc.CallOption) (*CreateCreditPoolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateCreditPoolResponse)
+	err := c.cc.Invoke(ctx, BudgetPoolService_CreateCreditPool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *budgetPoolServiceClient) AdjustCreditPool(ctx context.Context, in *AdjustCreditPoolRequest, opts ...grpc.CallOption) (*AdjustCreditPoolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdjustCreditPoolResponse)
+	err := c.cc.Invoke(ctx, BudgetPoolService_AdjustCreditPool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *budgetPoolServiceClient) FindCreditPool(ctx context.Context, in *FindCreditPoolRequest, opts ...grpc.CallOption) (*FindCreditPoolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindCreditPoolResponse)
+	err := c.cc.Invoke(ctx, BudgetPoolService_FindCreditPool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BudgetPoolServiceServer is the server API for BudgetPoolService service.
 // All implementations must embed UnimplementedBudgetPoolServiceServer
 // for forward compatibility.
@@ -312,10 +367,21 @@ type BudgetPoolServiceServer interface {
 	// the allocated amount fences new allocations only.
 	AdjustPool(context.Context, *AdjustPoolRequest) (*AdjustPoolResponse, error)
 	GetPool(context.Context, *GetPoolRequest) (*GetPoolResponse, error)
+	// FindPool reads the pool of one scope and period start (the key CreatePool
+	// is idempotent on); NOT_FOUND when there is none.
+	FindPool(context.Context, *FindPoolRequest) (*FindPoolResponse, error)
 	// SetCostCap creates or changes a cost cap (conditionally on its
 	// revision when one is named); lowering it fences the next admission.
 	SetCostCap(context.Context, *SetCostCapRequest) (*SetCostCapResponse, error)
 	GetCostCap(context.Context, *GetCostCapRequest) (*GetCostCapResponse, error)
+	// CreateCreditPool creates a tenant or actor credit pool; the same scope,
+	// period and limit returns the existing pool, a different one is
+	// IDEMPOTENCY_CONFLICT.
+	CreateCreditPool(context.Context, *CreateCreditPoolRequest) (*CreateCreditPoolResponse, error)
+	// AdjustCreditPool sets a credit pool's limit conditionally on its revision.
+	AdjustCreditPool(context.Context, *AdjustCreditPoolRequest) (*AdjustCreditPoolResponse, error)
+	// FindCreditPool reads the credit pool of one scope and period start.
+	FindCreditPool(context.Context, *FindCreditPoolRequest) (*FindCreditPoolResponse, error)
 	mustEmbedUnimplementedBudgetPoolServiceServer()
 }
 
@@ -335,11 +401,23 @@ func (UnimplementedBudgetPoolServiceServer) AdjustPool(context.Context, *AdjustP
 func (UnimplementedBudgetPoolServiceServer) GetPool(context.Context, *GetPoolRequest) (*GetPoolResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPool not implemented")
 }
+func (UnimplementedBudgetPoolServiceServer) FindPool(context.Context, *FindPoolRequest) (*FindPoolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FindPool not implemented")
+}
 func (UnimplementedBudgetPoolServiceServer) SetCostCap(context.Context, *SetCostCapRequest) (*SetCostCapResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetCostCap not implemented")
 }
 func (UnimplementedBudgetPoolServiceServer) GetCostCap(context.Context, *GetCostCapRequest) (*GetCostCapResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetCostCap not implemented")
+}
+func (UnimplementedBudgetPoolServiceServer) CreateCreditPool(context.Context, *CreateCreditPoolRequest) (*CreateCreditPoolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateCreditPool not implemented")
+}
+func (UnimplementedBudgetPoolServiceServer) AdjustCreditPool(context.Context, *AdjustCreditPoolRequest) (*AdjustCreditPoolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdjustCreditPool not implemented")
+}
+func (UnimplementedBudgetPoolServiceServer) FindCreditPool(context.Context, *FindCreditPoolRequest) (*FindCreditPoolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FindCreditPool not implemented")
 }
 func (UnimplementedBudgetPoolServiceServer) mustEmbedUnimplementedBudgetPoolServiceServer() {}
 func (UnimplementedBudgetPoolServiceServer) testEmbeddedByValue()                           {}
@@ -416,6 +494,24 @@ func _BudgetPoolService_GetPool_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BudgetPoolService_FindPool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindPoolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BudgetPoolServiceServer).FindPool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BudgetPoolService_FindPool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BudgetPoolServiceServer).FindPool(ctx, req.(*FindPoolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BudgetPoolService_SetCostCap_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetCostCapRequest)
 	if err := dec(in); err != nil {
@@ -452,6 +548,60 @@ func _BudgetPoolService_GetCostCap_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BudgetPoolService_CreateCreditPool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCreditPoolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BudgetPoolServiceServer).CreateCreditPool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BudgetPoolService_CreateCreditPool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BudgetPoolServiceServer).CreateCreditPool(ctx, req.(*CreateCreditPoolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BudgetPoolService_AdjustCreditPool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdjustCreditPoolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BudgetPoolServiceServer).AdjustCreditPool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BudgetPoolService_AdjustCreditPool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BudgetPoolServiceServer).AdjustCreditPool(ctx, req.(*AdjustCreditPoolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BudgetPoolService_FindCreditPool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindCreditPoolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BudgetPoolServiceServer).FindCreditPool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BudgetPoolService_FindCreditPool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BudgetPoolServiceServer).FindCreditPool(ctx, req.(*FindCreditPoolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BudgetPoolService_ServiceDesc is the grpc.ServiceDesc for BudgetPoolService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -472,12 +622,28 @@ var BudgetPoolService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BudgetPoolService_GetPool_Handler,
 		},
 		{
+			MethodName: "FindPool",
+			Handler:    _BudgetPoolService_FindPool_Handler,
+		},
+		{
 			MethodName: "SetCostCap",
 			Handler:    _BudgetPoolService_SetCostCap_Handler,
 		},
 		{
 			MethodName: "GetCostCap",
 			Handler:    _BudgetPoolService_GetCostCap_Handler,
+		},
+		{
+			MethodName: "CreateCreditPool",
+			Handler:    _BudgetPoolService_CreateCreditPool_Handler,
+		},
+		{
+			MethodName: "AdjustCreditPool",
+			Handler:    _BudgetPoolService_AdjustCreditPool_Handler,
+		},
+		{
+			MethodName: "FindCreditPool",
+			Handler:    _BudgetPoolService_FindCreditPool_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

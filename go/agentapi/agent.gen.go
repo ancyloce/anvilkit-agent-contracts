@@ -133,6 +133,27 @@ func (e ArtifactClass) Valid() bool {
 	}
 }
 
+// Defines values for BudgetLevel.
+const (
+	BudgetLevelActor    BudgetLevel = "actor"
+	BudgetLevelPlatform BudgetLevel = "platform"
+	BudgetLevelTenant   BudgetLevel = "tenant"
+)
+
+// Valid indicates whether the value is a known member of the BudgetLevel enum.
+func (e BudgetLevel) Valid() bool {
+	switch e {
+	case BudgetLevelActor:
+		return true
+	case BudgetLevelPlatform:
+		return true
+	case BudgetLevelTenant:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CallState.
 const (
 	CallStateAccepted  CallState = "accepted"
@@ -340,6 +361,24 @@ func (e CreateOperationRequestKind) Valid() bool {
 	case CreateOperationRequestKindRefinement:
 		return true
 	case CreateOperationRequestKindRelease:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreditLevel.
+const (
+	CreditLevelActor  CreditLevel = "actor"
+	CreditLevelTenant CreditLevel = "tenant"
+)
+
+// Valid indicates whether the value is a known member of the CreditLevel enum.
+func (e CreditLevel) Valid() bool {
+	switch e {
+	case CreditLevelActor:
+		return true
+	case CreditLevelTenant:
 		return true
 	default:
 		return false
@@ -1149,6 +1188,26 @@ type AccessEntryPermission string
 // AccessEntryPrincipalType defines model for AccessEntry.PrincipalType.
 type AccessEntryPrincipalType string
 
+// AdjustBudgetPoolRequest defines model for AdjustBudgetPoolRequest.
+type AdjustBudgetPoolRequest struct {
+	Cap       Money `json:"cap"`
+	CommandId Id    `json:"commandId"`
+
+	// ExpectedRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	ExpectedRevision Revision `json:"expectedRevision"`
+}
+
+// AdjustCreditPoolRequest defines model for AdjustCreditPoolRequest.
+type AdjustCreditPoolRequest struct {
+	CommandId Id `json:"commandId"`
+
+	// ExpectedRevision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	ExpectedRevision Revision `json:"expectedRevision"`
+
+	// Limit A whole number of credits.
+	Limit Credits `json:"limit"`
+}
+
 // AnswerReceipt defines model for AnswerReceipt.
 type AnswerReceipt struct {
 	AcceptedAt    Timestamp `json:"acceptedAt"`
@@ -1216,6 +1275,25 @@ type BeginTransferRequest struct {
 	ExpectedSize Sequence `json:"expectedSize"`
 	MediaType    string   `json:"mediaType"`
 	OperationId  *Id      `json:"operationId,omitempty"`
+}
+
+// BudgetLevel defines model for BudgetLevel.
+type BudgetLevel string
+
+// BudgetPool A USD funding limit of one level for one period. Allocations to operations draw from it; settlement returns the unspent part.
+type BudgetPool struct {
+	ActorId     *Id         `json:"actorId,omitempty"`
+	Allocated   Money       `json:"allocated"`
+	Available   Money       `json:"available"`
+	Cap         Money       `json:"cap"`
+	Level       BudgetLevel `json:"level"`
+	PeriodEnd   Timestamp   `json:"periodEnd"`
+	PeriodStart Timestamp   `json:"periodStart"`
+	PoolId      Id          `json:"poolId"`
+
+	// Revision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	Revision Revision `json:"revision"`
+	TenantId *Id      `json:"tenantId,omitempty"`
 }
 
 // CallState defines model for CallState.
@@ -1299,6 +1377,30 @@ type ContextItem struct {
 // ControlState defines model for ControlState.
 type ControlState string
 
+// CreateBudgetPoolRequest tenantId is required for a tenant or actor pool and absent for a platform pool; actorId is present for an actor pool only.
+type CreateBudgetPoolRequest struct {
+	ActorId     *Id         `json:"actorId,omitempty"`
+	Cap         Money       `json:"cap"`
+	CommandId   Id          `json:"commandId"`
+	Level       BudgetLevel `json:"level"`
+	PeriodEnd   Timestamp   `json:"periodEnd"`
+	PeriodStart Timestamp   `json:"periodStart"`
+	TenantId    *Id         `json:"tenantId,omitempty"`
+}
+
+// CreateCreditPoolRequest actorId is required for an actor pool and absent for a tenant pool.
+type CreateCreditPoolRequest struct {
+	ActorId   *Id         `json:"actorId,omitempty"`
+	CommandId Id          `json:"commandId"`
+	Level     CreditLevel `json:"level"`
+
+	// Limit A whole number of credits.
+	Limit       Credits   `json:"limit"`
+	PeriodEnd   Timestamp `json:"periodEnd"`
+	PeriodStart Timestamp `json:"periodStart"`
+	TenantId    Id        `json:"tenantId"`
+}
+
 // CreateGrantRequest defines model for CreateGrantRequest.
 type CreateGrantRequest struct {
 	CommandId        Id     `json:"commandId"`
@@ -1363,6 +1465,34 @@ type CreateToolCallRequest struct {
 	Method        string   `json:"method"`
 	OperationId   Id       `json:"operationId"`
 }
+
+// CreditLevel defines model for CreditLevel.
+type CreditLevel string
+
+// CreditPool A limit on how many operations of one tenant or actor are funded in one period (DEC-066). Debited credits are never refunded.
+type CreditPool struct {
+	ActorId *Id `json:"actorId,omitempty"`
+
+	// Available A whole number of credits.
+	Available    Credits     `json:"available"`
+	CreditPoolId Id          `json:"creditPoolId"`
+	Level        CreditLevel `json:"level"`
+
+	// Limit A whole number of credits.
+	Limit       Credits   `json:"limit"`
+	PeriodEnd   Timestamp `json:"periodEnd"`
+	PeriodStart Timestamp `json:"periodStart"`
+
+	// Revision Canonical unsigned decimal string, no leading zeros, bounded by uint64.
+	Revision Revision `json:"revision"`
+	TenantId Id       `json:"tenantId"`
+
+	// Used A whole number of credits.
+	Used Credits `json:"used"`
+}
+
+// Credits A whole number of credits.
+type Credits = int
 
 // DeleteSourceRequest defines model for DeleteSourceRequest.
 type DeleteSourceRequest struct {
@@ -2205,6 +2335,12 @@ type TransferUploadMethod string
 // TransferState defines model for TransferState.
 type TransferState string
 
+// CreditPoolId defines model for creditPoolId.
+type CreditPoolId = Id
+
+// CreditTenantId defines model for creditTenantId.
+type CreditTenantId = Id
+
 // Cursor defines model for cursor.
 type Cursor = string
 
@@ -2216,6 +2352,18 @@ type Limit = int
 
 // OperationId defines model for operationId.
 type OperationId = Id
+
+// PeriodStart defines model for periodStart.
+type PeriodStart = Timestamp
+
+// PoolActorId defines model for poolActorId.
+type PoolActorId = Id
+
+// PoolId defines model for poolId.
+type PoolId = Id
+
+// PoolTenantId defines model for poolTenantId.
+type PoolTenantId = Id
 
 // RunId defines model for runId.
 type RunId = Id
@@ -2243,6 +2391,28 @@ type Unauthenticated = ErrorEnvelope
 
 // Unavailable defines model for Unavailable.
 type Unavailable = ErrorEnvelope
+
+// FindBudgetPoolParams defines parameters for FindBudgetPool.
+type FindBudgetPoolParams struct {
+	Level BudgetLevel `form:"level" json:"level"`
+
+	// TenantId The pool's tenant; absent for a platform pool.
+	TenantId *PoolTenantId `form:"tenantId,omitempty" json:"tenantId,omitempty"`
+
+	// ActorId The pool's actor; present only for an actor pool.
+	ActorId     *PoolActorId `form:"actorId,omitempty" json:"actorId,omitempty"`
+	PeriodStart PeriodStart  `form:"periodStart" json:"periodStart"`
+}
+
+// FindCreditPoolParams defines parameters for FindCreditPool.
+type FindCreditPoolParams struct {
+	Level    CreditLevel    `form:"level" json:"level"`
+	TenantId CreditTenantId `form:"tenantId" json:"tenantId"`
+
+	// ActorId The pool's actor; present only for an actor pool.
+	ActorId     *PoolActorId `form:"actorId,omitempty" json:"actorId,omitempty"`
+	PeriodStart PeriodStart  `form:"periodStart" json:"periodStart"`
+}
 
 // ListSourcesParams defines parameters for ListSources.
 type ListSourcesParams struct {
@@ -2285,6 +2455,18 @@ type BeginTransferJSONRequestBody = BeginTransferRequest
 
 // FinalizeTransferJSONRequestBody defines body for FinalizeTransfer for application/json ContentType.
 type FinalizeTransferJSONRequestBody = FinalizeTransferRequest
+
+// CreateBudgetPoolJSONRequestBody defines body for CreateBudgetPool for application/json ContentType.
+type CreateBudgetPoolJSONRequestBody = CreateBudgetPoolRequest
+
+// AdjustBudgetPoolJSONRequestBody defines body for AdjustBudgetPool for application/json ContentType.
+type AdjustBudgetPoolJSONRequestBody = AdjustBudgetPoolRequest
+
+// CreateCreditPoolJSONRequestBody defines body for CreateCreditPool for application/json ContentType.
+type CreateCreditPoolJSONRequestBody = CreateCreditPoolRequest
+
+// AdjustCreditPoolJSONRequestBody defines body for AdjustCreditPool for application/json ContentType.
+type AdjustCreditPoolJSONRequestBody = AdjustCreditPoolRequest
 
 // SearchJSONRequestBody defines body for Search for application/json ContentType.
 type SearchJSONRequestBody = SearchRequest
@@ -2354,6 +2536,24 @@ type ServerInterface interface {
 	// FinalizeTransfer API-12 finalize after verifying actual bytes, size, hash and object version
 	// (POST /artifacts/{handle}/finalizations)
 	FinalizeTransfer(c *gin.Context, handle Handle)
+	// FindBudgetPool Read the budget pool of one scope and period start
+	// (GET /budget-pools)
+	FindBudgetPool(c *gin.Context, params FindBudgetPoolParams)
+	// CreateBudgetPool Create a USD budget pool of one level and period (DEC-066)
+	// (POST /budget-pools)
+	CreateBudgetPool(c *gin.Context)
+	// AdjustBudgetPool Set a budget pool's cap conditionally on its revision
+	// (POST /budget-pools/{poolId}/adjustments)
+	AdjustBudgetPool(c *gin.Context, poolId PoolId)
+	// FindCreditPool Read the credit pool of one scope and period start
+	// (GET /credit-pools)
+	FindCreditPool(c *gin.Context, params FindCreditPoolParams)
+	// CreateCreditPool Create a credit pool of one tenant or actor and period (DEC-066)
+	// (POST /credit-pools)
+	CreateCreditPool(c *gin.Context)
+	// AdjustCreditPool Set a credit pool's limit conditionally on its revision
+	// (POST /credit-pools/{creditPoolId}/adjustments)
+	AdjustCreditPool(c *gin.Context, creditPoolId CreditPoolId)
 	// Search API-08 cited context under current authorization
 	// (POST /knowledge/searches)
 	Search(c *gin.Context)
@@ -2515,6 +2715,184 @@ func (siw *ServerInterfaceWrapper) FinalizeTransfer(c *gin.Context) {
 	}
 
 	siw.Handler.FinalizeTransfer(c, handle)
+}
+
+// FindBudgetPool operation middleware
+func (siw *ServerInterfaceWrapper) FindBudgetPool(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FindBudgetPoolParams
+
+	// ------------- Required query parameter "level" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "level", c.Request.URL.Query(), &params.Level, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter level: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "tenantId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tenantId", c.Request.URL.Query(), &params.TenantId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter tenantId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "actorId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actorId", c.Request.URL.Query(), &params.ActorId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter actorId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "periodStart" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "periodStart", c.Request.URL.Query(), &params.PeriodStart, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter periodStart: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.FindBudgetPool(c, params)
+}
+
+// CreateBudgetPool operation middleware
+func (siw *ServerInterfaceWrapper) CreateBudgetPool(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateBudgetPool(c)
+}
+
+// AdjustBudgetPool operation middleware
+func (siw *ServerInterfaceWrapper) AdjustBudgetPool(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "poolId" -------------
+	var poolId PoolId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "poolId", c.Param("poolId"), &poolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter poolId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AdjustBudgetPool(c, poolId)
+}
+
+// FindCreditPool operation middleware
+func (siw *ServerInterfaceWrapper) FindCreditPool(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FindCreditPoolParams
+
+	// ------------- Required query parameter "level" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "level", c.Request.URL.Query(), &params.Level, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter level: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "tenantId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "tenantId", c.Request.URL.Query(), &params.TenantId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter tenantId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "actorId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actorId", c.Request.URL.Query(), &params.ActorId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter actorId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "periodStart" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "periodStart", c.Request.URL.Query(), &params.PeriodStart, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter periodStart: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.FindCreditPool(c, params)
+}
+
+// CreateCreditPool operation middleware
+func (siw *ServerInterfaceWrapper) CreateCreditPool(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateCreditPool(c)
+}
+
+// AdjustCreditPool operation middleware
+func (siw *ServerInterfaceWrapper) AdjustCreditPool(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "creditPoolId" -------------
+	var creditPoolId CreditPoolId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "creditPoolId", c.Param("creditPoolId"), &creditPoolId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter creditPoolId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AdjustCreditPool(c, creditPoolId)
 }
 
 // Search operation middleware
@@ -3515,6 +3893,12 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/recoveries/:runId", wrapper.GetRecovery)
 	router.GET(options.BaseURL+"/recoveries/:runId/findings", wrapper.ListRecoveryFindings)
 	router.POST(options.BaseURL+"/recoveries/:runId/dispositions", wrapper.DisposeObligation)
+	router.GET(options.BaseURL+"/budget-pools", wrapper.FindBudgetPool)
+	router.POST(options.BaseURL+"/budget-pools", wrapper.CreateBudgetPool)
+	router.POST(options.BaseURL+"/budget-pools/:poolId/adjustments", wrapper.AdjustBudgetPool)
+	router.GET(options.BaseURL+"/credit-pools", wrapper.FindCreditPool)
+	router.POST(options.BaseURL+"/credit-pools", wrapper.CreateCreditPool)
+	router.POST(options.BaseURL+"/credit-pools/:creditPoolId/adjustments", wrapper.AdjustCreditPool)
 }
 
 type ConflictJSONResponse ErrorEnvelope
@@ -3719,6 +4103,616 @@ func (response FinalizeTransfer409JSONResponse) VisitFinalizeTransferResponse(w 
 type FinalizeTransfer503JSONResponse struct{ UnavailableJSONResponse }
 
 func (response FinalizeTransfer503JSONResponse) VisitFinalizeTransferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindBudgetPoolRequestObject struct {
+	Params FindBudgetPoolParams
+}
+
+type FindBudgetPoolResponseObject interface {
+	VisitFindBudgetPoolResponse(w http.ResponseWriter) error
+}
+
+type FindBudgetPool200JSONResponse BudgetPool
+
+func (response FindBudgetPool200JSONResponse) VisitFindBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindBudgetPool400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response FindBudgetPool400JSONResponse) VisitFindBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindBudgetPool401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response FindBudgetPool401JSONResponse) VisitFindBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindBudgetPool403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response FindBudgetPool403JSONResponse) VisitFindBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindBudgetPool404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response FindBudgetPool404JSONResponse) VisitFindBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindBudgetPool503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response FindBudgetPool503JSONResponse) VisitFindBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBudgetPoolRequestObject struct {
+	Body *CreateBudgetPoolJSONRequestBody
+}
+
+type CreateBudgetPoolResponseObject interface {
+	VisitCreateBudgetPoolResponse(w http.ResponseWriter) error
+}
+
+type CreateBudgetPool200JSONResponse BudgetPool
+
+func (response CreateBudgetPool200JSONResponse) VisitCreateBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBudgetPool201JSONResponse BudgetPool
+
+func (response CreateBudgetPool201JSONResponse) VisitCreateBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBudgetPool400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response CreateBudgetPool400JSONResponse) VisitCreateBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBudgetPool401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response CreateBudgetPool401JSONResponse) VisitCreateBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBudgetPool403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateBudgetPool403JSONResponse) VisitCreateBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBudgetPool409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateBudgetPool409JSONResponse) VisitCreateBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBudgetPool503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response CreateBudgetPool503JSONResponse) VisitCreateBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustBudgetPoolRequestObject struct {
+	PoolId PoolId `json:"poolId"`
+	Body   *AdjustBudgetPoolJSONRequestBody
+}
+
+type AdjustBudgetPoolResponseObject interface {
+	VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error
+}
+
+type AdjustBudgetPool200JSONResponse BudgetPool
+
+func (response AdjustBudgetPool200JSONResponse) VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustBudgetPool400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response AdjustBudgetPool400JSONResponse) VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustBudgetPool401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response AdjustBudgetPool401JSONResponse) VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustBudgetPool403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AdjustBudgetPool403JSONResponse) VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustBudgetPool404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AdjustBudgetPool404JSONResponse) VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustBudgetPool409JSONResponse struct{ ConflictJSONResponse }
+
+func (response AdjustBudgetPool409JSONResponse) VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustBudgetPool503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response AdjustBudgetPool503JSONResponse) VisitAdjustBudgetPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindCreditPoolRequestObject struct {
+	Params FindCreditPoolParams
+}
+
+type FindCreditPoolResponseObject interface {
+	VisitFindCreditPoolResponse(w http.ResponseWriter) error
+}
+
+type FindCreditPool200JSONResponse CreditPool
+
+func (response FindCreditPool200JSONResponse) VisitFindCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindCreditPool400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response FindCreditPool400JSONResponse) VisitFindCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindCreditPool401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response FindCreditPool401JSONResponse) VisitFindCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindCreditPool403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response FindCreditPool403JSONResponse) VisitFindCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindCreditPool404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response FindCreditPool404JSONResponse) VisitFindCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FindCreditPool503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response FindCreditPool503JSONResponse) VisitFindCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCreditPoolRequestObject struct {
+	Body *CreateCreditPoolJSONRequestBody
+}
+
+type CreateCreditPoolResponseObject interface {
+	VisitCreateCreditPoolResponse(w http.ResponseWriter) error
+}
+
+type CreateCreditPool200JSONResponse CreditPool
+
+func (response CreateCreditPool200JSONResponse) VisitCreateCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCreditPool201JSONResponse CreditPool
+
+func (response CreateCreditPool201JSONResponse) VisitCreateCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCreditPool400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response CreateCreditPool400JSONResponse) VisitCreateCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCreditPool401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response CreateCreditPool401JSONResponse) VisitCreateCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCreditPool403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateCreditPool403JSONResponse) VisitCreateCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCreditPool409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateCreditPool409JSONResponse) VisitCreateCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCreditPool503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response CreateCreditPool503JSONResponse) VisitCreateCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCreditPoolRequestObject struct {
+	CreditPoolId CreditPoolId `json:"creditPoolId"`
+	Body         *AdjustCreditPoolJSONRequestBody
+}
+
+type AdjustCreditPoolResponseObject interface {
+	VisitAdjustCreditPoolResponse(w http.ResponseWriter) error
+}
+
+type AdjustCreditPool200JSONResponse CreditPool
+
+func (response AdjustCreditPool200JSONResponse) VisitAdjustCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCreditPool400JSONResponse struct{ InvalidArgumentJSONResponse }
+
+func (response AdjustCreditPool400JSONResponse) VisitAdjustCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCreditPool401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response AdjustCreditPool401JSONResponse) VisitAdjustCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCreditPool403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AdjustCreditPool403JSONResponse) VisitAdjustCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCreditPool404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AdjustCreditPool404JSONResponse) VisitAdjustCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCreditPool409JSONResponse struct{ ConflictJSONResponse }
+
+func (response AdjustCreditPool409JSONResponse) VisitAdjustCreditPoolResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCreditPool503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response AdjustCreditPool503JSONResponse) VisitAdjustCreditPoolResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -7233,6 +8227,24 @@ type StrictServerInterface interface {
 	// FinalizeTransfer API-12 finalize after verifying actual bytes, size, hash and object version
 	// (POST /artifacts/{handle}/finalizations)
 	FinalizeTransfer(ctx context.Context, request FinalizeTransferRequestObject) (FinalizeTransferResponseObject, error)
+	// FindBudgetPool Read the budget pool of one scope and period start
+	// (GET /budget-pools)
+	FindBudgetPool(ctx context.Context, request FindBudgetPoolRequestObject) (FindBudgetPoolResponseObject, error)
+	// CreateBudgetPool Create a USD budget pool of one level and period (DEC-066)
+	// (POST /budget-pools)
+	CreateBudgetPool(ctx context.Context, request CreateBudgetPoolRequestObject) (CreateBudgetPoolResponseObject, error)
+	// AdjustBudgetPool Set a budget pool's cap conditionally on its revision
+	// (POST /budget-pools/{poolId}/adjustments)
+	AdjustBudgetPool(ctx context.Context, request AdjustBudgetPoolRequestObject) (AdjustBudgetPoolResponseObject, error)
+	// FindCreditPool Read the credit pool of one scope and period start
+	// (GET /credit-pools)
+	FindCreditPool(ctx context.Context, request FindCreditPoolRequestObject) (FindCreditPoolResponseObject, error)
+	// CreateCreditPool Create a credit pool of one tenant or actor and period (DEC-066)
+	// (POST /credit-pools)
+	CreateCreditPool(ctx context.Context, request CreateCreditPoolRequestObject) (CreateCreditPoolResponseObject, error)
+	// AdjustCreditPool Set a credit pool's limit conditionally on its revision
+	// (POST /credit-pools/{creditPoolId}/adjustments)
+	AdjustCreditPool(ctx context.Context, request AdjustCreditPoolRequestObject) (AdjustCreditPoolResponseObject, error)
 	// Search API-08 cited context under current authorization
 	// (POST /knowledge/searches)
 	Search(ctx context.Context, request SearchRequestObject) (SearchResponseObject, error)
@@ -7463,6 +8475,186 @@ func (sh *strictHandler) FinalizeTransfer(ctx *gin.Context, handle Handle) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(FinalizeTransferResponseObject); ok {
 		if err := validResponse.VisitFinalizeTransferResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FindBudgetPool operation middleware
+func (sh *strictHandler) FindBudgetPool(ctx *gin.Context, params FindBudgetPoolParams) {
+	var request FindBudgetPoolRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.FindBudgetPool(ctx, request.(FindBudgetPoolRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FindBudgetPool")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(FindBudgetPoolResponseObject); ok {
+		if err := validResponse.VisitFindBudgetPoolResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateBudgetPool operation middleware
+func (sh *strictHandler) CreateBudgetPool(ctx *gin.Context) {
+	var request CreateBudgetPoolRequestObject
+
+	var body CreateBudgetPoolJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBudgetPool(ctx, request.(CreateBudgetPoolRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBudgetPool")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateBudgetPoolResponseObject); ok {
+		if err := validResponse.VisitCreateBudgetPoolResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AdjustBudgetPool operation middleware
+func (sh *strictHandler) AdjustBudgetPool(ctx *gin.Context, poolId PoolId) {
+	var request AdjustBudgetPoolRequestObject
+
+	request.PoolId = poolId
+
+	var body AdjustBudgetPoolJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AdjustBudgetPool(ctx, request.(AdjustBudgetPoolRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AdjustBudgetPool")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(AdjustBudgetPoolResponseObject); ok {
+		if err := validResponse.VisitAdjustBudgetPoolResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FindCreditPool operation middleware
+func (sh *strictHandler) FindCreditPool(ctx *gin.Context, params FindCreditPoolParams) {
+	var request FindCreditPoolRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.FindCreditPool(ctx, request.(FindCreditPoolRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FindCreditPool")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(FindCreditPoolResponseObject); ok {
+		if err := validResponse.VisitFindCreditPoolResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateCreditPool operation middleware
+func (sh *strictHandler) CreateCreditPool(ctx *gin.Context) {
+	var request CreateCreditPoolRequestObject
+
+	var body CreateCreditPoolJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCreditPool(ctx, request.(CreateCreditPoolRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCreditPool")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateCreditPoolResponseObject); ok {
+		if err := validResponse.VisitCreateCreditPoolResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AdjustCreditPool operation middleware
+func (sh *strictHandler) AdjustCreditPool(ctx *gin.Context, creditPoolId CreditPoolId) {
+	var request AdjustCreditPoolRequestObject
+
+	request.CreditPoolId = creditPoolId
+
+	var body AdjustCreditPoolJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AdjustCreditPool(ctx, request.(AdjustCreditPoolRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AdjustCreditPool")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(AdjustCreditPoolResponseObject); ok {
+		if err := validResponse.VisitAdjustCreditPoolResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
@@ -8582,202 +9774,226 @@ func (sh *strictHandler) ListRecoveryFindings(ctx *gin.Context, runId RunId, par
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"951rjnr/8f7/DgA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

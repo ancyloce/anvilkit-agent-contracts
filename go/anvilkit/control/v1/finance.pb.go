@@ -820,6 +820,129 @@ func (x *BudgetPool) GetRevision() string {
 	return ""
 }
 
+// CreditPool limits how many operations of one tenant or one actor are
+// funded in one period (DEC-066). Credits are whole numbers, separate from
+// the USD pools: funding debits a profile's credits from the current tenant
+// and actor credit pools beside its USD allocation, and a debited credit is
+// never refunded. Raising the limit is how an operator grants more; a limit
+// below the used count fences new debits only.
+type CreditPool struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	CreditPoolId string                 `protobuf:"bytes,1,opt,name=credit_pool_id,json=creditPoolId,proto3" json:"credit_pool_id,omitempty"`
+	// TENANT or ACTOR; there is no platform credit pool.
+	Level         BudgetLevel            `protobuf:"varint,2,opt,name=level,proto3,enum=anvilkit.control.v1.BudgetLevel" json:"level,omitempty"`
+	TenantId      string                 `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,4,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	PeriodStart   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
+	PeriodEnd     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=period_end,json=periodEnd,proto3" json:"period_end,omitempty"`
+	Limit         int64                  `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
+	Used          int64                  `protobuf:"varint,8,opt,name=used,proto3" json:"used,omitempty"`
+	Available     int64                  `protobuf:"varint,9,opt,name=available,proto3" json:"available,omitempty"`
+	Revision      string                 `protobuf:"bytes,10,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreditPool) Reset() {
+	*x = CreditPool{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreditPool) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreditPool) ProtoMessage() {}
+
+func (x *CreditPool) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreditPool.ProtoReflect.Descriptor instead.
+func (*CreditPool) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CreditPool) GetCreditPoolId() string {
+	if x != nil {
+		return x.CreditPoolId
+	}
+	return ""
+}
+
+func (x *CreditPool) GetLevel() BudgetLevel {
+	if x != nil {
+		return x.Level
+	}
+	return BudgetLevel_BUDGET_LEVEL_UNSPECIFIED
+}
+
+func (x *CreditPool) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreditPool) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *CreditPool) GetPeriodStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PeriodStart
+	}
+	return nil
+}
+
+func (x *CreditPool) GetPeriodEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PeriodEnd
+	}
+	return nil
+}
+
+func (x *CreditPool) GetLimit() int64 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *CreditPool) GetUsed() int64 {
+	if x != nil {
+		return x.Used
+	}
+	return 0
+}
+
+func (x *CreditPool) GetAvailable() int64 {
+	if x != nil {
+		return x.Available
+	}
+	return 0
+}
+
+func (x *CreditPool) GetRevision() string {
+	if x != nil {
+		return x.Revision
+	}
+	return ""
+}
+
 // CostCap is an actual-cost cap: reserved exposure plus consumed cost in its
 // scope never exceeds it at admission. Reserved and consumed are kept for
 // the tenant and project levels; an operation's are its allocation's.
@@ -839,7 +962,7 @@ type CostCap struct {
 
 func (x *CostCap) Reset() {
 	*x = CostCap{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[9]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -851,7 +974,7 @@ func (x *CostCap) String() string {
 func (*CostCap) ProtoMessage() {}
 
 func (x *CostCap) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[9]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -864,7 +987,7 @@ func (x *CostCap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CostCap.ProtoReflect.Descriptor instead.
 func (*CostCap) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{9}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CostCap) GetCapId() string {
@@ -939,7 +1062,7 @@ type CreatePoolRequest struct {
 
 func (x *CreatePoolRequest) Reset() {
 	*x = CreatePoolRequest{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[10]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -951,7 +1074,7 @@ func (x *CreatePoolRequest) String() string {
 func (*CreatePoolRequest) ProtoMessage() {}
 
 func (x *CreatePoolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[10]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -964,7 +1087,7 @@ func (x *CreatePoolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePoolRequest.ProtoReflect.Descriptor instead.
 func (*CreatePoolRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{10}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CreatePoolRequest) GetCommand() *CommandIdentity {
@@ -1033,7 +1156,7 @@ type CreatePoolResponse struct {
 
 func (x *CreatePoolResponse) Reset() {
 	*x = CreatePoolResponse{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[11]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1045,7 +1168,7 @@ func (x *CreatePoolResponse) String() string {
 func (*CreatePoolResponse) ProtoMessage() {}
 
 func (x *CreatePoolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[11]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1058,7 +1181,7 @@ func (x *CreatePoolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePoolResponse.ProtoReflect.Descriptor instead.
 func (*CreatePoolResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{11}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreatePoolResponse) GetPool() *BudgetPool {
@@ -1088,7 +1211,7 @@ type AdjustPoolRequest struct {
 
 func (x *AdjustPoolRequest) Reset() {
 	*x = AdjustPoolRequest{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[12]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1100,7 +1223,7 @@ func (x *AdjustPoolRequest) String() string {
 func (*AdjustPoolRequest) ProtoMessage() {}
 
 func (x *AdjustPoolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[12]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1113,7 +1236,7 @@ func (x *AdjustPoolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdjustPoolRequest.ProtoReflect.Descriptor instead.
 func (*AdjustPoolRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{12}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *AdjustPoolRequest) GetCommand() *CommandIdentity {
@@ -1160,7 +1283,7 @@ type AdjustPoolResponse struct {
 
 func (x *AdjustPoolResponse) Reset() {
 	*x = AdjustPoolResponse{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[13]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1172,7 +1295,7 @@ func (x *AdjustPoolResponse) String() string {
 func (*AdjustPoolResponse) ProtoMessage() {}
 
 func (x *AdjustPoolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[13]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1185,7 +1308,7 @@ func (x *AdjustPoolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdjustPoolResponse.ProtoReflect.Descriptor instead.
 func (*AdjustPoolResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{13}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *AdjustPoolResponse) GetPool() *BudgetPool {
@@ -1205,7 +1328,7 @@ type GetPoolRequest struct {
 
 func (x *GetPoolRequest) Reset() {
 	*x = GetPoolRequest{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[14]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1217,7 +1340,7 @@ func (x *GetPoolRequest) String() string {
 func (*GetPoolRequest) ProtoMessage() {}
 
 func (x *GetPoolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[14]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1230,7 +1353,7 @@ func (x *GetPoolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPoolRequest.ProtoReflect.Descriptor instead.
 func (*GetPoolRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{14}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetPoolRequest) GetScope() *Scope {
@@ -1256,7 +1379,7 @@ type GetPoolResponse struct {
 
 func (x *GetPoolResponse) Reset() {
 	*x = GetPoolResponse{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[15]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1268,7 +1391,7 @@ func (x *GetPoolResponse) String() string {
 func (*GetPoolResponse) ProtoMessage() {}
 
 func (x *GetPoolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[15]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1281,10 +1404,130 @@ func (x *GetPoolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPoolResponse.ProtoReflect.Descriptor instead.
 func (*GetPoolResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{15}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetPoolResponse) GetPool() *BudgetPool {
+	if x != nil {
+		return x.Pool
+	}
+	return nil
+}
+
+type FindPoolRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Scope         *Scope                 `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	Level         BudgetLevel            `protobuf:"varint,2,opt,name=level,proto3,enum=anvilkit.control.v1.BudgetLevel" json:"level,omitempty"`
+	TenantId      string                 `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,4,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	PeriodStart   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindPoolRequest) Reset() {
+	*x = FindPoolRequest{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindPoolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindPoolRequest) ProtoMessage() {}
+
+func (x *FindPoolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindPoolRequest.ProtoReflect.Descriptor instead.
+func (*FindPoolRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *FindPoolRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *FindPoolRequest) GetLevel() BudgetLevel {
+	if x != nil {
+		return x.Level
+	}
+	return BudgetLevel_BUDGET_LEVEL_UNSPECIFIED
+}
+
+func (x *FindPoolRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *FindPoolRequest) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *FindPoolRequest) GetPeriodStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PeriodStart
+	}
+	return nil
+}
+
+type FindPoolResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pool          *BudgetPool            `protobuf:"bytes,1,opt,name=pool,proto3" json:"pool,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindPoolResponse) Reset() {
+	*x = FindPoolResponse{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindPoolResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindPoolResponse) ProtoMessage() {}
+
+func (x *FindPoolResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindPoolResponse.ProtoReflect.Descriptor instead.
+func (*FindPoolResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *FindPoolResponse) GetPool() *BudgetPool {
 	if x != nil {
 		return x.Pool
 	}
@@ -1306,7 +1549,7 @@ type SetCostCapRequest struct {
 
 func (x *SetCostCapRequest) Reset() {
 	*x = SetCostCapRequest{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[16]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1318,7 +1561,7 @@ func (x *SetCostCapRequest) String() string {
 func (*SetCostCapRequest) ProtoMessage() {}
 
 func (x *SetCostCapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[16]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1331,7 +1574,7 @@ func (x *SetCostCapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCostCapRequest.ProtoReflect.Descriptor instead.
 func (*SetCostCapRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{16}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SetCostCapRequest) GetCommand() *CommandIdentity {
@@ -1392,7 +1635,7 @@ type SetCostCapResponse struct {
 
 func (x *SetCostCapResponse) Reset() {
 	*x = SetCostCapResponse{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[17]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1404,7 +1647,7 @@ func (x *SetCostCapResponse) String() string {
 func (*SetCostCapResponse) ProtoMessage() {}
 
 func (x *SetCostCapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[17]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1417,7 +1660,7 @@ func (x *SetCostCapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCostCapResponse.ProtoReflect.Descriptor instead.
 func (*SetCostCapResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{17}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SetCostCapResponse) GetCap() *CostCap {
@@ -1440,7 +1683,7 @@ type GetCostCapRequest struct {
 
 func (x *GetCostCapRequest) Reset() {
 	*x = GetCostCapRequest{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[18]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1452,7 +1695,7 @@ func (x *GetCostCapRequest) String() string {
 func (*GetCostCapRequest) ProtoMessage() {}
 
 func (x *GetCostCapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[18]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1465,7 +1708,7 @@ func (x *GetCostCapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCostCapRequest.ProtoReflect.Descriptor instead.
 func (*GetCostCapRequest) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{18}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetCostCapRequest) GetScope() *Scope {
@@ -1512,7 +1755,7 @@ type GetCostCapResponse struct {
 
 func (x *GetCostCapResponse) Reset() {
 	*x = GetCostCapResponse{}
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[19]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1524,7 +1767,7 @@ func (x *GetCostCapResponse) String() string {
 func (*GetCostCapResponse) ProtoMessage() {}
 
 func (x *GetCostCapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[19]
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1537,12 +1780,404 @@ func (x *GetCostCapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCostCapResponse.ProtoReflect.Descriptor instead.
 func (*GetCostCapResponse) Descriptor() ([]byte, []int) {
-	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{19}
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetCostCapResponse) GetCap() *CostCap {
 	if x != nil {
 		return x.Cap
+	}
+	return nil
+}
+
+type CreateCreditPoolRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Command       *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+	Scope         *Scope                 `protobuf:"bytes,2,opt,name=scope,proto3" json:"scope,omitempty"`
+	Level         BudgetLevel            `protobuf:"varint,3,opt,name=level,proto3,enum=anvilkit.control.v1.BudgetLevel" json:"level,omitempty"`
+	TenantId      string                 `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,5,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	PeriodStart   *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
+	PeriodEnd     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=period_end,json=periodEnd,proto3" json:"period_end,omitempty"`
+	Limit         int64                  `protobuf:"varint,8,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCreditPoolRequest) Reset() {
+	*x = CreateCreditPoolRequest{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCreditPoolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCreditPoolRequest) ProtoMessage() {}
+
+func (x *CreateCreditPoolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCreditPoolRequest.ProtoReflect.Descriptor instead.
+func (*CreateCreditPoolRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *CreateCreditPoolRequest) GetCommand() *CommandIdentity {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *CreateCreditPoolRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *CreateCreditPoolRequest) GetLevel() BudgetLevel {
+	if x != nil {
+		return x.Level
+	}
+	return BudgetLevel_BUDGET_LEVEL_UNSPECIFIED
+}
+
+func (x *CreateCreditPoolRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateCreditPoolRequest) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *CreateCreditPoolRequest) GetPeriodStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PeriodStart
+	}
+	return nil
+}
+
+func (x *CreateCreditPoolRequest) GetPeriodEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PeriodEnd
+	}
+	return nil
+}
+
+func (x *CreateCreditPoolRequest) GetLimit() int64 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type CreateCreditPoolResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pool          *CreditPool            `protobuf:"bytes,1,opt,name=pool,proto3" json:"pool,omitempty"`
+	Existing      bool                   `protobuf:"varint,2,opt,name=existing,proto3" json:"existing,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCreditPoolResponse) Reset() {
+	*x = CreateCreditPoolResponse{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCreditPoolResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCreditPoolResponse) ProtoMessage() {}
+
+func (x *CreateCreditPoolResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCreditPoolResponse.ProtoReflect.Descriptor instead.
+func (*CreateCreditPoolResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *CreateCreditPoolResponse) GetPool() *CreditPool {
+	if x != nil {
+		return x.Pool
+	}
+	return nil
+}
+
+func (x *CreateCreditPoolResponse) GetExisting() bool {
+	if x != nil {
+		return x.Existing
+	}
+	return false
+}
+
+type AdjustCreditPoolRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Command          *CommandIdentity       `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+	Scope            *Scope                 `protobuf:"bytes,2,opt,name=scope,proto3" json:"scope,omitempty"`
+	CreditPoolId     string                 `protobuf:"bytes,3,opt,name=credit_pool_id,json=creditPoolId,proto3" json:"credit_pool_id,omitempty"`
+	ExpectedRevision string                 `protobuf:"bytes,4,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	Limit            int64                  `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *AdjustCreditPoolRequest) Reset() {
+	*x = AdjustCreditPoolRequest{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdjustCreditPoolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdjustCreditPoolRequest) ProtoMessage() {}
+
+func (x *AdjustCreditPoolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdjustCreditPoolRequest.ProtoReflect.Descriptor instead.
+func (*AdjustCreditPoolRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *AdjustCreditPoolRequest) GetCommand() *CommandIdentity {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *AdjustCreditPoolRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *AdjustCreditPoolRequest) GetCreditPoolId() string {
+	if x != nil {
+		return x.CreditPoolId
+	}
+	return ""
+}
+
+func (x *AdjustCreditPoolRequest) GetExpectedRevision() string {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return ""
+}
+
+func (x *AdjustCreditPoolRequest) GetLimit() int64 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type AdjustCreditPoolResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pool          *CreditPool            `protobuf:"bytes,1,opt,name=pool,proto3" json:"pool,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdjustCreditPoolResponse) Reset() {
+	*x = AdjustCreditPoolResponse{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdjustCreditPoolResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdjustCreditPoolResponse) ProtoMessage() {}
+
+func (x *AdjustCreditPoolResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdjustCreditPoolResponse.ProtoReflect.Descriptor instead.
+func (*AdjustCreditPoolResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *AdjustCreditPoolResponse) GetPool() *CreditPool {
+	if x != nil {
+		return x.Pool
+	}
+	return nil
+}
+
+type FindCreditPoolRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Scope         *Scope                 `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	Level         BudgetLevel            `protobuf:"varint,2,opt,name=level,proto3,enum=anvilkit.control.v1.BudgetLevel" json:"level,omitempty"`
+	TenantId      string                 `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,4,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	PeriodStart   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindCreditPoolRequest) Reset() {
+	*x = FindCreditPoolRequest{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindCreditPoolRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindCreditPoolRequest) ProtoMessage() {}
+
+func (x *FindCreditPoolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindCreditPoolRequest.ProtoReflect.Descriptor instead.
+func (*FindCreditPoolRequest) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *FindCreditPoolRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *FindCreditPoolRequest) GetLevel() BudgetLevel {
+	if x != nil {
+		return x.Level
+	}
+	return BudgetLevel_BUDGET_LEVEL_UNSPECIFIED
+}
+
+func (x *FindCreditPoolRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *FindCreditPoolRequest) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *FindCreditPoolRequest) GetPeriodStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PeriodStart
+	}
+	return nil
+}
+
+type FindCreditPoolResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pool          *CreditPool            `protobuf:"bytes,1,opt,name=pool,proto3" json:"pool,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindCreditPoolResponse) Reset() {
+	*x = FindCreditPoolResponse{}
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindCreditPoolResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindCreditPoolResponse) ProtoMessage() {}
+
+func (x *FindCreditPoolResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_anvilkit_control_v1_finance_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindCreditPoolResponse.ProtoReflect.Descriptor instead.
+func (*FindCreditPoolResponse) Descriptor() ([]byte, []int) {
+	return file_anvilkit_control_v1_finance_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *FindCreditPoolResponse) GetPool() *CreditPool {
+	if x != nil {
+		return x.Pool
 	}
 	return nil
 }
@@ -1615,6 +2250,20 @@ const file_anvilkit_control_v1_finance_proto_rawDesc = "" +
 	"\tallocated\x18\b \x01(\v2\x1a.anvilkit.control.v1.MoneyR\tallocated\x128\n" +
 	"\tavailable\x18\t \x01(\v2\x1a.anvilkit.control.v1.MoneyR\tavailable\x12\x1a\n" +
 	"\brevision\x18\n" +
+	" \x01(\tR\brevision\"\x80\x03\n" +
+	"\n" +
+	"CreditPool\x12$\n" +
+	"\x0ecredit_pool_id\x18\x01 \x01(\tR\fcreditPoolId\x126\n" +
+	"\x05level\x18\x02 \x01(\x0e2 .anvilkit.control.v1.BudgetLevelR\x05level\x12\x1b\n" +
+	"\ttenant_id\x18\x03 \x01(\tR\btenantId\x12\x19\n" +
+	"\bactor_id\x18\x04 \x01(\tR\aactorId\x12=\n" +
+	"\fperiod_start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vperiodStart\x129\n" +
+	"\n" +
+	"period_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tperiodEnd\x12\x14\n" +
+	"\x05limit\x18\a \x01(\x03R\x05limit\x12\x12\n" +
+	"\x04used\x18\b \x01(\x03R\x04used\x12\x1c\n" +
+	"\tavailable\x18\t \x01(\x03R\tavailable\x12\x1a\n" +
+	"\brevision\x18\n" +
 	" \x01(\tR\brevision\"\xcf\x02\n" +
 	"\aCostCap\x12\x15\n" +
 	"\x06cap_id\x18\x01 \x01(\tR\x05capId\x127\n" +
@@ -1654,6 +2303,15 @@ const file_anvilkit_control_v1_finance_proto_rawDesc = "" +
 	"\apool_id\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06poolId\"F\n" +
 	"\x0fGetPoolResponse\x123\n" +
+	"\x04pool\x18\x01 \x01(\v2\x1f.anvilkit.control.v1.BudgetPoolR\x04pool\"\xa2\x02\n" +
+	"\x0fFindPoolRequest\x128\n" +
+	"\x05scope\x18\x01 \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12B\n" +
+	"\x05level\x18\x02 \x01(\x0e2 .anvilkit.control.v1.BudgetLevelB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x05level\x12%\n" +
+	"\ttenant_id\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\btenantId\x12#\n" +
+	"\bactor_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\aactorId\x12E\n" +
+	"\fperiod_start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\vperiodStart\"G\n" +
+	"\x10FindPoolResponse\x123\n" +
 	"\x04pool\x18\x01 \x01(\v2\x1f.anvilkit.control.v1.BudgetPoolR\x04pool\"\xc5\x03\n" +
 	"\x11SetCostCapRequest\x12F\n" +
 	"\acommand\x18\x01 \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x128\n" +
@@ -1680,7 +2338,41 @@ const file_anvilkit_control_v1_finance_proto_rawDesc = "" +
 	"\bcurrency\x18\x05 \x01(\tB\x11\xbaH\x0er\f2\n" +
 	"^[A-Z]{3}$R\bcurrency\"D\n" +
 	"\x12GetCostCapResponse\x12.\n" +
-	"\x03cap\x18\x01 \x01(\v2\x1c.anvilkit.control.v1.CostCapR\x03cap*w\n" +
+	"\x03cap\x18\x01 \x01(\v2\x1c.anvilkit.control.v1.CostCapR\x03cap\"\xde\x03\n" +
+	"\x17CreateCreditPoolRequest\x12F\n" +
+	"\acommand\x18\x01 \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x128\n" +
+	"\x05scope\x18\x02 \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12D\n" +
+	"\x05level\x18\x03 \x01(\x0e2 .anvilkit.control.v1.BudgetLevelB\f\xbaH\t\x82\x01\x06\x10\x01 \x00 \x01R\x05level\x12'\n" +
+	"\ttenant_id\x18\x04 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\btenantId\x12#\n" +
+	"\bactor_id\x18\x05 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\aactorId\x12E\n" +
+	"\fperiod_start\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\vperiodStart\x12A\n" +
+	"\n" +
+	"period_end\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tperiodEnd\x12#\n" +
+	"\x05limit\x18\b \x01(\x03B\r\xbaH\n" +
+	"\"\b\x18\x80\x94\xeb\xdc\x03(\x00R\x05limit\"k\n" +
+	"\x18CreateCreditPoolResponse\x123\n" +
+	"\x04pool\x18\x01 \x01(\v2\x1f.anvilkit.control.v1.CreditPoolR\x04pool\x12\x1a\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"\xba\x02\n" +
+	"\x17AdjustCreditPoolRequest\x12F\n" +
+	"\acommand\x18\x01 \x01(\v2$.anvilkit.control.v1.CommandIdentityB\x06\xbaH\x03\xc8\x01\x01R\acommand\x128\n" +
+	"\x05scope\x18\x02 \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x120\n" +
+	"\x0ecredit_pool_id\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\fcreditPoolId\x12F\n" +
+	"\x11expected_revision\x18\x04 \x01(\tB\x19\xbaH\x16r\x142\x12^[1-9][0-9]{0,19}$R\x10expectedRevision\x12#\n" +
+	"\x05limit\x18\x05 \x01(\x03B\r\xbaH\n" +
+	"\"\b\x18\x80\x94\xeb\xdc\x03(\x00R\x05limit\"O\n" +
+	"\x18AdjustCreditPoolResponse\x123\n" +
+	"\x04pool\x18\x01 \x01(\v2\x1f.anvilkit.control.v1.CreditPoolR\x04pool\"\xac\x02\n" +
+	"\x15FindCreditPoolRequest\x128\n" +
+	"\x05scope\x18\x01 \x01(\v2\x1a.anvilkit.control.v1.ScopeB\x06\xbaH\x03\xc8\x01\x01R\x05scope\x12D\n" +
+	"\x05level\x18\x02 \x01(\x0e2 .anvilkit.control.v1.BudgetLevelB\f\xbaH\t\x82\x01\x06\x10\x01 \x00 \x01R\x05level\x12'\n" +
+	"\ttenant_id\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\btenantId\x12#\n" +
+	"\bactor_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x01R\aactorId\x12E\n" +
+	"\fperiod_start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\vperiodStart\"M\n" +
+	"\x16FindCreditPoolResponse\x123\n" +
+	"\x04pool\x18\x01 \x01(\v2\x1f.anvilkit.control.v1.CreditPoolR\x04pool*w\n" +
 	"\vBudgetLevel\x12\x1c\n" +
 	"\x18BUDGET_LEVEL_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15BUDGET_LEVEL_PLATFORM\x10\x01\x12\x17\n" +
@@ -1694,17 +2386,21 @@ const file_anvilkit_control_v1_finance_proto_rawDesc = "" +
 	"\x11PriceAdminService\x12{\n" +
 	"\x14PublishPriceRevision\x120.anvilkit.control.v1.PublishPriceRevisionRequest\x1a1.anvilkit.control.v1.PublishPriceRevisionResponse\x12~\n" +
 	"\x15WithdrawPriceRevision\x121.anvilkit.control.v1.WithdrawPriceRevisionRequest\x1a2.anvilkit.control.v1.WithdrawPriceRevisionResponse\x12o\n" +
-	"\x10GetPriceRevision\x12,.anvilkit.control.v1.GetPriceRevisionRequest\x1a-.anvilkit.control.v1.GetPriceRevisionResponse2\xe5\x03\n" +
+	"\x10GetPriceRevision\x12,.anvilkit.control.v1.GetPriceRevisionRequest\x1a-.anvilkit.control.v1.GetPriceRevisionResponse2\x8b\a\n" +
 	"\x11BudgetPoolService\x12]\n" +
 	"\n" +
 	"CreatePool\x12&.anvilkit.control.v1.CreatePoolRequest\x1a'.anvilkit.control.v1.CreatePoolResponse\x12]\n" +
 	"\n" +
 	"AdjustPool\x12&.anvilkit.control.v1.AdjustPoolRequest\x1a'.anvilkit.control.v1.AdjustPoolResponse\x12T\n" +
-	"\aGetPool\x12#.anvilkit.control.v1.GetPoolRequest\x1a$.anvilkit.control.v1.GetPoolResponse\x12]\n" +
+	"\aGetPool\x12#.anvilkit.control.v1.GetPoolRequest\x1a$.anvilkit.control.v1.GetPoolResponse\x12W\n" +
+	"\bFindPool\x12$.anvilkit.control.v1.FindPoolRequest\x1a%.anvilkit.control.v1.FindPoolResponse\x12]\n" +
 	"\n" +
 	"SetCostCap\x12&.anvilkit.control.v1.SetCostCapRequest\x1a'.anvilkit.control.v1.SetCostCapResponse\x12]\n" +
 	"\n" +
-	"GetCostCap\x12&.anvilkit.control.v1.GetCostCapRequest\x1a'.anvilkit.control.v1.GetCostCapResponseB\xe4\x01\n" +
+	"GetCostCap\x12&.anvilkit.control.v1.GetCostCapRequest\x1a'.anvilkit.control.v1.GetCostCapResponse\x12o\n" +
+	"\x10CreateCreditPool\x12,.anvilkit.control.v1.CreateCreditPoolRequest\x1a-.anvilkit.control.v1.CreateCreditPoolResponse\x12o\n" +
+	"\x10AdjustCreditPool\x12,.anvilkit.control.v1.AdjustCreditPoolRequest\x1a-.anvilkit.control.v1.AdjustCreditPoolResponse\x12i\n" +
+	"\x0eFindCreditPool\x12*.anvilkit.control.v1.FindCreditPoolRequest\x1a+.anvilkit.control.v1.FindCreditPoolResponseB\xe4\x01\n" +
 	"\x17com.anvilkit.control.v1B\fFinanceProtoP\x01ZMgithub.com/ancyloce/anvilkit-agent-contracts/go/anvilkit/control/v1;controlv1\xa2\x02\x03ACX\xaa\x02\x13Anvilkit.Control.V1\xca\x02\x13Anvilkit\\Control\\V1\xe2\x02\x1fAnvilkit\\Control\\V1\\GPBMetadata\xea\x02\x15Anvilkit::Control::V1b\x06proto3"
 
 var (
@@ -1720,7 +2416,7 @@ func file_anvilkit_control_v1_finance_proto_rawDescGZIP() []byte {
 }
 
 var file_anvilkit_control_v1_finance_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_anvilkit_control_v1_finance_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_anvilkit_control_v1_finance_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_anvilkit_control_v1_finance_proto_goTypes = []any{
 	(BudgetLevel)(0),                      // 0: anvilkit.control.v1.BudgetLevel
 	(CostCapLevel)(0),                     // 1: anvilkit.control.v1.CostCapLevel
@@ -1733,89 +2429,126 @@ var file_anvilkit_control_v1_finance_proto_goTypes = []any{
 	(*GetPriceRevisionRequest)(nil),       // 8: anvilkit.control.v1.GetPriceRevisionRequest
 	(*GetPriceRevisionResponse)(nil),      // 9: anvilkit.control.v1.GetPriceRevisionResponse
 	(*BudgetPool)(nil),                    // 10: anvilkit.control.v1.BudgetPool
-	(*CostCap)(nil),                       // 11: anvilkit.control.v1.CostCap
-	(*CreatePoolRequest)(nil),             // 12: anvilkit.control.v1.CreatePoolRequest
-	(*CreatePoolResponse)(nil),            // 13: anvilkit.control.v1.CreatePoolResponse
-	(*AdjustPoolRequest)(nil),             // 14: anvilkit.control.v1.AdjustPoolRequest
-	(*AdjustPoolResponse)(nil),            // 15: anvilkit.control.v1.AdjustPoolResponse
-	(*GetPoolRequest)(nil),                // 16: anvilkit.control.v1.GetPoolRequest
-	(*GetPoolResponse)(nil),               // 17: anvilkit.control.v1.GetPoolResponse
-	(*SetCostCapRequest)(nil),             // 18: anvilkit.control.v1.SetCostCapRequest
-	(*SetCostCapResponse)(nil),            // 19: anvilkit.control.v1.SetCostCapResponse
-	(*GetCostCapRequest)(nil),             // 20: anvilkit.control.v1.GetCostCapRequest
-	(*GetCostCapResponse)(nil),            // 21: anvilkit.control.v1.GetCostCapResponse
-	(*timestamppb.Timestamp)(nil),         // 22: google.protobuf.Timestamp
-	(*CommandIdentity)(nil),               // 23: anvilkit.control.v1.CommandIdentity
-	(*Scope)(nil),                         // 24: anvilkit.control.v1.Scope
-	(*Money)(nil),                         // 25: anvilkit.control.v1.Money
+	(*CreditPool)(nil),                    // 11: anvilkit.control.v1.CreditPool
+	(*CostCap)(nil),                       // 12: anvilkit.control.v1.CostCap
+	(*CreatePoolRequest)(nil),             // 13: anvilkit.control.v1.CreatePoolRequest
+	(*CreatePoolResponse)(nil),            // 14: anvilkit.control.v1.CreatePoolResponse
+	(*AdjustPoolRequest)(nil),             // 15: anvilkit.control.v1.AdjustPoolRequest
+	(*AdjustPoolResponse)(nil),            // 16: anvilkit.control.v1.AdjustPoolResponse
+	(*GetPoolRequest)(nil),                // 17: anvilkit.control.v1.GetPoolRequest
+	(*GetPoolResponse)(nil),               // 18: anvilkit.control.v1.GetPoolResponse
+	(*FindPoolRequest)(nil),               // 19: anvilkit.control.v1.FindPoolRequest
+	(*FindPoolResponse)(nil),              // 20: anvilkit.control.v1.FindPoolResponse
+	(*SetCostCapRequest)(nil),             // 21: anvilkit.control.v1.SetCostCapRequest
+	(*SetCostCapResponse)(nil),            // 22: anvilkit.control.v1.SetCostCapResponse
+	(*GetCostCapRequest)(nil),             // 23: anvilkit.control.v1.GetCostCapRequest
+	(*GetCostCapResponse)(nil),            // 24: anvilkit.control.v1.GetCostCapResponse
+	(*CreateCreditPoolRequest)(nil),       // 25: anvilkit.control.v1.CreateCreditPoolRequest
+	(*CreateCreditPoolResponse)(nil),      // 26: anvilkit.control.v1.CreateCreditPoolResponse
+	(*AdjustCreditPoolRequest)(nil),       // 27: anvilkit.control.v1.AdjustCreditPoolRequest
+	(*AdjustCreditPoolResponse)(nil),      // 28: anvilkit.control.v1.AdjustCreditPoolResponse
+	(*FindCreditPoolRequest)(nil),         // 29: anvilkit.control.v1.FindCreditPoolRequest
+	(*FindCreditPoolResponse)(nil),        // 30: anvilkit.control.v1.FindCreditPoolResponse
+	(*timestamppb.Timestamp)(nil),         // 31: google.protobuf.Timestamp
+	(*CommandIdentity)(nil),               // 32: anvilkit.control.v1.CommandIdentity
+	(*Scope)(nil),                         // 33: anvilkit.control.v1.Scope
+	(*Money)(nil),                         // 34: anvilkit.control.v1.Money
 }
 var file_anvilkit_control_v1_finance_proto_depIdxs = []int32{
-	22, // 0: anvilkit.control.v1.PriceRevision.effective_from:type_name -> google.protobuf.Timestamp
-	22, // 1: anvilkit.control.v1.PriceRevision.effective_until:type_name -> google.protobuf.Timestamp
+	31, // 0: anvilkit.control.v1.PriceRevision.effective_from:type_name -> google.protobuf.Timestamp
+	31, // 1: anvilkit.control.v1.PriceRevision.effective_until:type_name -> google.protobuf.Timestamp
 	2,  // 2: anvilkit.control.v1.PriceRevision.per_million:type_name -> anvilkit.control.v1.UnitPrices
-	22, // 3: anvilkit.control.v1.PriceRevision.published_at:type_name -> google.protobuf.Timestamp
-	22, // 4: anvilkit.control.v1.PriceRevision.withdrawn_at:type_name -> google.protobuf.Timestamp
-	23, // 5: anvilkit.control.v1.PublishPriceRevisionRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	24, // 6: anvilkit.control.v1.PublishPriceRevisionRequest.scope:type_name -> anvilkit.control.v1.Scope
+	31, // 3: anvilkit.control.v1.PriceRevision.published_at:type_name -> google.protobuf.Timestamp
+	31, // 4: anvilkit.control.v1.PriceRevision.withdrawn_at:type_name -> google.protobuf.Timestamp
+	32, // 5: anvilkit.control.v1.PublishPriceRevisionRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	33, // 6: anvilkit.control.v1.PublishPriceRevisionRequest.scope:type_name -> anvilkit.control.v1.Scope
 	3,  // 7: anvilkit.control.v1.PublishPriceRevisionRequest.price:type_name -> anvilkit.control.v1.PriceRevision
 	3,  // 8: anvilkit.control.v1.PublishPriceRevisionResponse.price:type_name -> anvilkit.control.v1.PriceRevision
-	23, // 9: anvilkit.control.v1.WithdrawPriceRevisionRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	24, // 10: anvilkit.control.v1.WithdrawPriceRevisionRequest.scope:type_name -> anvilkit.control.v1.Scope
+	32, // 9: anvilkit.control.v1.WithdrawPriceRevisionRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	33, // 10: anvilkit.control.v1.WithdrawPriceRevisionRequest.scope:type_name -> anvilkit.control.v1.Scope
 	3,  // 11: anvilkit.control.v1.WithdrawPriceRevisionResponse.price:type_name -> anvilkit.control.v1.PriceRevision
-	24, // 12: anvilkit.control.v1.GetPriceRevisionRequest.scope:type_name -> anvilkit.control.v1.Scope
+	33, // 12: anvilkit.control.v1.GetPriceRevisionRequest.scope:type_name -> anvilkit.control.v1.Scope
 	3,  // 13: anvilkit.control.v1.GetPriceRevisionResponse.price:type_name -> anvilkit.control.v1.PriceRevision
 	0,  // 14: anvilkit.control.v1.BudgetPool.level:type_name -> anvilkit.control.v1.BudgetLevel
-	22, // 15: anvilkit.control.v1.BudgetPool.period_start:type_name -> google.protobuf.Timestamp
-	22, // 16: anvilkit.control.v1.BudgetPool.period_end:type_name -> google.protobuf.Timestamp
-	25, // 17: anvilkit.control.v1.BudgetPool.cap:type_name -> anvilkit.control.v1.Money
-	25, // 18: anvilkit.control.v1.BudgetPool.allocated:type_name -> anvilkit.control.v1.Money
-	25, // 19: anvilkit.control.v1.BudgetPool.available:type_name -> anvilkit.control.v1.Money
-	1,  // 20: anvilkit.control.v1.CostCap.level:type_name -> anvilkit.control.v1.CostCapLevel
-	25, // 21: anvilkit.control.v1.CostCap.cap:type_name -> anvilkit.control.v1.Money
-	25, // 22: anvilkit.control.v1.CostCap.reserved:type_name -> anvilkit.control.v1.Money
-	25, // 23: anvilkit.control.v1.CostCap.consumed:type_name -> anvilkit.control.v1.Money
-	23, // 24: anvilkit.control.v1.CreatePoolRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	24, // 25: anvilkit.control.v1.CreatePoolRequest.scope:type_name -> anvilkit.control.v1.Scope
-	0,  // 26: anvilkit.control.v1.CreatePoolRequest.level:type_name -> anvilkit.control.v1.BudgetLevel
-	22, // 27: anvilkit.control.v1.CreatePoolRequest.period_start:type_name -> google.protobuf.Timestamp
-	22, // 28: anvilkit.control.v1.CreatePoolRequest.period_end:type_name -> google.protobuf.Timestamp
-	25, // 29: anvilkit.control.v1.CreatePoolRequest.cap:type_name -> anvilkit.control.v1.Money
-	10, // 30: anvilkit.control.v1.CreatePoolResponse.pool:type_name -> anvilkit.control.v1.BudgetPool
-	23, // 31: anvilkit.control.v1.AdjustPoolRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	24, // 32: anvilkit.control.v1.AdjustPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
-	25, // 33: anvilkit.control.v1.AdjustPoolRequest.cap:type_name -> anvilkit.control.v1.Money
-	10, // 34: anvilkit.control.v1.AdjustPoolResponse.pool:type_name -> anvilkit.control.v1.BudgetPool
-	24, // 35: anvilkit.control.v1.GetPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
-	10, // 36: anvilkit.control.v1.GetPoolResponse.pool:type_name -> anvilkit.control.v1.BudgetPool
-	23, // 37: anvilkit.control.v1.SetCostCapRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
-	24, // 38: anvilkit.control.v1.SetCostCapRequest.scope:type_name -> anvilkit.control.v1.Scope
-	1,  // 39: anvilkit.control.v1.SetCostCapRequest.level:type_name -> anvilkit.control.v1.CostCapLevel
-	25, // 40: anvilkit.control.v1.SetCostCapRequest.cap:type_name -> anvilkit.control.v1.Money
-	11, // 41: anvilkit.control.v1.SetCostCapResponse.cap:type_name -> anvilkit.control.v1.CostCap
-	24, // 42: anvilkit.control.v1.GetCostCapRequest.scope:type_name -> anvilkit.control.v1.Scope
-	1,  // 43: anvilkit.control.v1.GetCostCapRequest.level:type_name -> anvilkit.control.v1.CostCapLevel
-	11, // 44: anvilkit.control.v1.GetCostCapResponse.cap:type_name -> anvilkit.control.v1.CostCap
-	4,  // 45: anvilkit.control.v1.PriceAdminService.PublishPriceRevision:input_type -> anvilkit.control.v1.PublishPriceRevisionRequest
-	6,  // 46: anvilkit.control.v1.PriceAdminService.WithdrawPriceRevision:input_type -> anvilkit.control.v1.WithdrawPriceRevisionRequest
-	8,  // 47: anvilkit.control.v1.PriceAdminService.GetPriceRevision:input_type -> anvilkit.control.v1.GetPriceRevisionRequest
-	12, // 48: anvilkit.control.v1.BudgetPoolService.CreatePool:input_type -> anvilkit.control.v1.CreatePoolRequest
-	14, // 49: anvilkit.control.v1.BudgetPoolService.AdjustPool:input_type -> anvilkit.control.v1.AdjustPoolRequest
-	16, // 50: anvilkit.control.v1.BudgetPoolService.GetPool:input_type -> anvilkit.control.v1.GetPoolRequest
-	18, // 51: anvilkit.control.v1.BudgetPoolService.SetCostCap:input_type -> anvilkit.control.v1.SetCostCapRequest
-	20, // 52: anvilkit.control.v1.BudgetPoolService.GetCostCap:input_type -> anvilkit.control.v1.GetCostCapRequest
-	5,  // 53: anvilkit.control.v1.PriceAdminService.PublishPriceRevision:output_type -> anvilkit.control.v1.PublishPriceRevisionResponse
-	7,  // 54: anvilkit.control.v1.PriceAdminService.WithdrawPriceRevision:output_type -> anvilkit.control.v1.WithdrawPriceRevisionResponse
-	9,  // 55: anvilkit.control.v1.PriceAdminService.GetPriceRevision:output_type -> anvilkit.control.v1.GetPriceRevisionResponse
-	13, // 56: anvilkit.control.v1.BudgetPoolService.CreatePool:output_type -> anvilkit.control.v1.CreatePoolResponse
-	15, // 57: anvilkit.control.v1.BudgetPoolService.AdjustPool:output_type -> anvilkit.control.v1.AdjustPoolResponse
-	17, // 58: anvilkit.control.v1.BudgetPoolService.GetPool:output_type -> anvilkit.control.v1.GetPoolResponse
-	19, // 59: anvilkit.control.v1.BudgetPoolService.SetCostCap:output_type -> anvilkit.control.v1.SetCostCapResponse
-	21, // 60: anvilkit.control.v1.BudgetPoolService.GetCostCap:output_type -> anvilkit.control.v1.GetCostCapResponse
-	53, // [53:61] is the sub-list for method output_type
-	45, // [45:53] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	31, // 15: anvilkit.control.v1.BudgetPool.period_start:type_name -> google.protobuf.Timestamp
+	31, // 16: anvilkit.control.v1.BudgetPool.period_end:type_name -> google.protobuf.Timestamp
+	34, // 17: anvilkit.control.v1.BudgetPool.cap:type_name -> anvilkit.control.v1.Money
+	34, // 18: anvilkit.control.v1.BudgetPool.allocated:type_name -> anvilkit.control.v1.Money
+	34, // 19: anvilkit.control.v1.BudgetPool.available:type_name -> anvilkit.control.v1.Money
+	0,  // 20: anvilkit.control.v1.CreditPool.level:type_name -> anvilkit.control.v1.BudgetLevel
+	31, // 21: anvilkit.control.v1.CreditPool.period_start:type_name -> google.protobuf.Timestamp
+	31, // 22: anvilkit.control.v1.CreditPool.period_end:type_name -> google.protobuf.Timestamp
+	1,  // 23: anvilkit.control.v1.CostCap.level:type_name -> anvilkit.control.v1.CostCapLevel
+	34, // 24: anvilkit.control.v1.CostCap.cap:type_name -> anvilkit.control.v1.Money
+	34, // 25: anvilkit.control.v1.CostCap.reserved:type_name -> anvilkit.control.v1.Money
+	34, // 26: anvilkit.control.v1.CostCap.consumed:type_name -> anvilkit.control.v1.Money
+	32, // 27: anvilkit.control.v1.CreatePoolRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	33, // 28: anvilkit.control.v1.CreatePoolRequest.scope:type_name -> anvilkit.control.v1.Scope
+	0,  // 29: anvilkit.control.v1.CreatePoolRequest.level:type_name -> anvilkit.control.v1.BudgetLevel
+	31, // 30: anvilkit.control.v1.CreatePoolRequest.period_start:type_name -> google.protobuf.Timestamp
+	31, // 31: anvilkit.control.v1.CreatePoolRequest.period_end:type_name -> google.protobuf.Timestamp
+	34, // 32: anvilkit.control.v1.CreatePoolRequest.cap:type_name -> anvilkit.control.v1.Money
+	10, // 33: anvilkit.control.v1.CreatePoolResponse.pool:type_name -> anvilkit.control.v1.BudgetPool
+	32, // 34: anvilkit.control.v1.AdjustPoolRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	33, // 35: anvilkit.control.v1.AdjustPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
+	34, // 36: anvilkit.control.v1.AdjustPoolRequest.cap:type_name -> anvilkit.control.v1.Money
+	10, // 37: anvilkit.control.v1.AdjustPoolResponse.pool:type_name -> anvilkit.control.v1.BudgetPool
+	33, // 38: anvilkit.control.v1.GetPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
+	10, // 39: anvilkit.control.v1.GetPoolResponse.pool:type_name -> anvilkit.control.v1.BudgetPool
+	33, // 40: anvilkit.control.v1.FindPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
+	0,  // 41: anvilkit.control.v1.FindPoolRequest.level:type_name -> anvilkit.control.v1.BudgetLevel
+	31, // 42: anvilkit.control.v1.FindPoolRequest.period_start:type_name -> google.protobuf.Timestamp
+	10, // 43: anvilkit.control.v1.FindPoolResponse.pool:type_name -> anvilkit.control.v1.BudgetPool
+	32, // 44: anvilkit.control.v1.SetCostCapRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	33, // 45: anvilkit.control.v1.SetCostCapRequest.scope:type_name -> anvilkit.control.v1.Scope
+	1,  // 46: anvilkit.control.v1.SetCostCapRequest.level:type_name -> anvilkit.control.v1.CostCapLevel
+	34, // 47: anvilkit.control.v1.SetCostCapRequest.cap:type_name -> anvilkit.control.v1.Money
+	12, // 48: anvilkit.control.v1.SetCostCapResponse.cap:type_name -> anvilkit.control.v1.CostCap
+	33, // 49: anvilkit.control.v1.GetCostCapRequest.scope:type_name -> anvilkit.control.v1.Scope
+	1,  // 50: anvilkit.control.v1.GetCostCapRequest.level:type_name -> anvilkit.control.v1.CostCapLevel
+	12, // 51: anvilkit.control.v1.GetCostCapResponse.cap:type_name -> anvilkit.control.v1.CostCap
+	32, // 52: anvilkit.control.v1.CreateCreditPoolRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	33, // 53: anvilkit.control.v1.CreateCreditPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
+	0,  // 54: anvilkit.control.v1.CreateCreditPoolRequest.level:type_name -> anvilkit.control.v1.BudgetLevel
+	31, // 55: anvilkit.control.v1.CreateCreditPoolRequest.period_start:type_name -> google.protobuf.Timestamp
+	31, // 56: anvilkit.control.v1.CreateCreditPoolRequest.period_end:type_name -> google.protobuf.Timestamp
+	11, // 57: anvilkit.control.v1.CreateCreditPoolResponse.pool:type_name -> anvilkit.control.v1.CreditPool
+	32, // 58: anvilkit.control.v1.AdjustCreditPoolRequest.command:type_name -> anvilkit.control.v1.CommandIdentity
+	33, // 59: anvilkit.control.v1.AdjustCreditPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
+	11, // 60: anvilkit.control.v1.AdjustCreditPoolResponse.pool:type_name -> anvilkit.control.v1.CreditPool
+	33, // 61: anvilkit.control.v1.FindCreditPoolRequest.scope:type_name -> anvilkit.control.v1.Scope
+	0,  // 62: anvilkit.control.v1.FindCreditPoolRequest.level:type_name -> anvilkit.control.v1.BudgetLevel
+	31, // 63: anvilkit.control.v1.FindCreditPoolRequest.period_start:type_name -> google.protobuf.Timestamp
+	11, // 64: anvilkit.control.v1.FindCreditPoolResponse.pool:type_name -> anvilkit.control.v1.CreditPool
+	4,  // 65: anvilkit.control.v1.PriceAdminService.PublishPriceRevision:input_type -> anvilkit.control.v1.PublishPriceRevisionRequest
+	6,  // 66: anvilkit.control.v1.PriceAdminService.WithdrawPriceRevision:input_type -> anvilkit.control.v1.WithdrawPriceRevisionRequest
+	8,  // 67: anvilkit.control.v1.PriceAdminService.GetPriceRevision:input_type -> anvilkit.control.v1.GetPriceRevisionRequest
+	13, // 68: anvilkit.control.v1.BudgetPoolService.CreatePool:input_type -> anvilkit.control.v1.CreatePoolRequest
+	15, // 69: anvilkit.control.v1.BudgetPoolService.AdjustPool:input_type -> anvilkit.control.v1.AdjustPoolRequest
+	17, // 70: anvilkit.control.v1.BudgetPoolService.GetPool:input_type -> anvilkit.control.v1.GetPoolRequest
+	19, // 71: anvilkit.control.v1.BudgetPoolService.FindPool:input_type -> anvilkit.control.v1.FindPoolRequest
+	21, // 72: anvilkit.control.v1.BudgetPoolService.SetCostCap:input_type -> anvilkit.control.v1.SetCostCapRequest
+	23, // 73: anvilkit.control.v1.BudgetPoolService.GetCostCap:input_type -> anvilkit.control.v1.GetCostCapRequest
+	25, // 74: anvilkit.control.v1.BudgetPoolService.CreateCreditPool:input_type -> anvilkit.control.v1.CreateCreditPoolRequest
+	27, // 75: anvilkit.control.v1.BudgetPoolService.AdjustCreditPool:input_type -> anvilkit.control.v1.AdjustCreditPoolRequest
+	29, // 76: anvilkit.control.v1.BudgetPoolService.FindCreditPool:input_type -> anvilkit.control.v1.FindCreditPoolRequest
+	5,  // 77: anvilkit.control.v1.PriceAdminService.PublishPriceRevision:output_type -> anvilkit.control.v1.PublishPriceRevisionResponse
+	7,  // 78: anvilkit.control.v1.PriceAdminService.WithdrawPriceRevision:output_type -> anvilkit.control.v1.WithdrawPriceRevisionResponse
+	9,  // 79: anvilkit.control.v1.PriceAdminService.GetPriceRevision:output_type -> anvilkit.control.v1.GetPriceRevisionResponse
+	14, // 80: anvilkit.control.v1.BudgetPoolService.CreatePool:output_type -> anvilkit.control.v1.CreatePoolResponse
+	16, // 81: anvilkit.control.v1.BudgetPoolService.AdjustPool:output_type -> anvilkit.control.v1.AdjustPoolResponse
+	18, // 82: anvilkit.control.v1.BudgetPoolService.GetPool:output_type -> anvilkit.control.v1.GetPoolResponse
+	20, // 83: anvilkit.control.v1.BudgetPoolService.FindPool:output_type -> anvilkit.control.v1.FindPoolResponse
+	22, // 84: anvilkit.control.v1.BudgetPoolService.SetCostCap:output_type -> anvilkit.control.v1.SetCostCapResponse
+	24, // 85: anvilkit.control.v1.BudgetPoolService.GetCostCap:output_type -> anvilkit.control.v1.GetCostCapResponse
+	26, // 86: anvilkit.control.v1.BudgetPoolService.CreateCreditPool:output_type -> anvilkit.control.v1.CreateCreditPoolResponse
+	28, // 87: anvilkit.control.v1.BudgetPoolService.AdjustCreditPool:output_type -> anvilkit.control.v1.AdjustCreditPoolResponse
+	30, // 88: anvilkit.control.v1.BudgetPoolService.FindCreditPool:output_type -> anvilkit.control.v1.FindCreditPoolResponse
+	77, // [77:89] is the sub-list for method output_type
+	65, // [65:77] is the sub-list for method input_type
+	65, // [65:65] is the sub-list for extension type_name
+	65, // [65:65] is the sub-list for extension extendee
+	0,  // [0:65] is the sub-list for field type_name
 }
 
 func init() { file_anvilkit_control_v1_finance_proto_init() }
@@ -1825,14 +2558,14 @@ func file_anvilkit_control_v1_finance_proto_init() {
 	}
 	file_anvilkit_control_v1_control_proto_init()
 	file_anvilkit_control_v1_finance_proto_msgTypes[1].OneofWrappers = []any{}
-	file_anvilkit_control_v1_finance_proto_msgTypes[16].OneofWrappers = []any{}
+	file_anvilkit_control_v1_finance_proto_msgTypes[19].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_anvilkit_control_v1_finance_proto_rawDesc), len(file_anvilkit_control_v1_finance_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   20,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

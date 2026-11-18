@@ -233,6 +233,29 @@ export interface BudgetPool {
 }
 
 /**
+ * CreditPool limits how many operations of one tenant or one actor are
+ * funded in one period (DEC-066). Credits are whole numbers, separate from
+ * the USD pools: funding debits a profile's credits from the current tenant
+ * and actor credit pools beside its USD allocation, and a debited credit is
+ * never refunded. Raising the limit is how an operator grants more; a limit
+ * below the used count fences new debits only.
+ */
+export interface CreditPool {
+  $type: "anvilkit.control.v1.CreditPool";
+  creditPoolId: string;
+  /** TENANT or ACTOR; there is no platform credit pool. */
+  level: BudgetLevel;
+  tenantId: string;
+  actorId: string;
+  periodStart: Date | undefined;
+  periodEnd: Date | undefined;
+  limit: number;
+  used: number;
+  available: number;
+  revision: string;
+}
+
+/**
  * CostCap is an actual-cost cap: reserved exposure plus consumed cost in its
  * scope never exceeds it at admission. Reserved and consumed are kept for
  * the tenant and project levels; an operation's are its allocation's.
@@ -292,6 +315,20 @@ export interface GetPoolResponse {
   pool: BudgetPool | undefined;
 }
 
+export interface FindPoolRequest {
+  $type: "anvilkit.control.v1.FindPoolRequest";
+  scope: Scope | undefined;
+  level: BudgetLevel;
+  tenantId: string;
+  actorId: string;
+  periodStart: Date | undefined;
+}
+
+export interface FindPoolResponse {
+  $type: "anvilkit.control.v1.FindPoolResponse";
+  pool: BudgetPool | undefined;
+}
+
 export interface SetCostCapRequest {
   $type: "anvilkit.control.v1.SetCostCapRequest";
   command: CommandIdentity | undefined;
@@ -320,6 +357,52 @@ export interface GetCostCapRequest {
 export interface GetCostCapResponse {
   $type: "anvilkit.control.v1.GetCostCapResponse";
   cap: CostCap | undefined;
+}
+
+export interface CreateCreditPoolRequest {
+  $type: "anvilkit.control.v1.CreateCreditPoolRequest";
+  command: CommandIdentity | undefined;
+  scope: Scope | undefined;
+  level: BudgetLevel;
+  tenantId: string;
+  actorId: string;
+  periodStart: Date | undefined;
+  periodEnd: Date | undefined;
+  limit: number;
+}
+
+export interface CreateCreditPoolResponse {
+  $type: "anvilkit.control.v1.CreateCreditPoolResponse";
+  pool: CreditPool | undefined;
+  existing: boolean;
+}
+
+export interface AdjustCreditPoolRequest {
+  $type: "anvilkit.control.v1.AdjustCreditPoolRequest";
+  command: CommandIdentity | undefined;
+  scope: Scope | undefined;
+  creditPoolId: string;
+  expectedRevision: string;
+  limit: number;
+}
+
+export interface AdjustCreditPoolResponse {
+  $type: "anvilkit.control.v1.AdjustCreditPoolResponse";
+  pool: CreditPool | undefined;
+}
+
+export interface FindCreditPoolRequest {
+  $type: "anvilkit.control.v1.FindCreditPoolRequest";
+  scope: Scope | undefined;
+  level: BudgetLevel;
+  tenantId: string;
+  actorId: string;
+  periodStart: Date | undefined;
+}
+
+export interface FindCreditPoolResponse {
+  $type: "anvilkit.control.v1.FindCreditPoolResponse";
+  pool: CreditPool | undefined;
 }
 
 function createBaseUnitPrices(): UnitPrices {
@@ -1684,6 +1767,256 @@ export const BudgetPool: MessageFns<BudgetPool, "anvilkit.control.v1.BudgetPool"
 
 messageTypeRegistry.set(BudgetPool.$type, BudgetPool);
 
+function createBaseCreditPool(): CreditPool {
+  return {
+    $type: "anvilkit.control.v1.CreditPool",
+    creditPoolId: "",
+    level: 0,
+    tenantId: "",
+    actorId: "",
+    periodStart: undefined,
+    periodEnd: undefined,
+    limit: 0,
+    used: 0,
+    available: 0,
+    revision: "",
+  };
+}
+
+export const CreditPool: MessageFns<CreditPool, "anvilkit.control.v1.CreditPool"> = {
+  $type: "anvilkit.control.v1.CreditPool" as const,
+
+  encode(message: CreditPool, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.creditPoolId !== "") {
+      writer.uint32(10).string(message.creditPoolId);
+    }
+    if (message.level !== 0) {
+      writer.uint32(16).int32(message.level);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(26).string(message.tenantId);
+    }
+    if (message.actorId !== "") {
+      writer.uint32(34).string(message.actorId);
+    }
+    if (message.periodStart !== undefined) {
+      Timestamp.encode(toTimestamp(message.periodStart), writer.uint32(42).fork()).join();
+    }
+    if (message.periodEnd !== undefined) {
+      Timestamp.encode(toTimestamp(message.periodEnd), writer.uint32(50).fork()).join();
+    }
+    if (message.limit !== 0) {
+      writer.uint32(56).int64(message.limit);
+    }
+    if (message.used !== 0) {
+      writer.uint32(64).int64(message.used);
+    }
+    if (message.available !== 0) {
+      writer.uint32(72).int64(message.available);
+    }
+    if (message.revision !== "") {
+      writer.uint32(82).string(message.revision);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreditPool {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreditPool();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.creditPoolId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.level = reader.int32() as any;
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.actorId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.periodStart = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.periodEnd = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 7: {
+            if (tag !== 56) {
+              break;
+            }
+
+            message.limit = longToNumber(reader.int64());
+            continue;
+          }
+          case 8: {
+            if (tag !== 64) {
+              break;
+            }
+
+            message.used = longToNumber(reader.int64());
+            continue;
+          }
+          case 9: {
+            if (tag !== 72) {
+              break;
+            }
+
+            message.available = longToNumber(reader.int64());
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.revision = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): CreditPool {
+    return {
+      $type: CreditPool.$type,
+      creditPoolId: isSet(object.creditPoolId)
+        ? globalThis.String(object.creditPoolId)
+        : isSet(object.credit_pool_id)
+        ? globalThis.String(object.credit_pool_id)
+        : "",
+      level: isSet(object.level) ? budgetLevelFromJSON(object.level) : 0,
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      actorId: isSet(object.actorId)
+        ? globalThis.String(object.actorId)
+        : isSet(object.actor_id)
+        ? globalThis.String(object.actor_id)
+        : "",
+      periodStart: isSet(object.periodStart)
+        ? fromJsonTimestamp(object.periodStart)
+        : isSet(object.period_start)
+        ? fromJsonTimestamp(object.period_start)
+        : undefined,
+      periodEnd: isSet(object.periodEnd)
+        ? fromJsonTimestamp(object.periodEnd)
+        : isSet(object.period_end)
+        ? fromJsonTimestamp(object.period_end)
+        : undefined,
+      limit: isSet(object.limit) ? globalThis.Number(object.limit) : 0,
+      used: isSet(object.used) ? globalThis.Number(object.used) : 0,
+      available: isSet(object.available) ? globalThis.Number(object.available) : 0,
+      revision: isSet(object.revision) ? globalThis.String(object.revision) : "",
+    };
+  },
+
+  toJSON(message: CreditPool): unknown {
+    const obj: any = {};
+    if (message.creditPoolId !== "") {
+      obj.creditPoolId = message.creditPoolId;
+    }
+    if (message.level !== 0) {
+      obj.level = budgetLevelToJSON(message.level);
+    }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.actorId !== "") {
+      obj.actorId = message.actorId;
+    }
+    if (message.periodStart !== undefined) {
+      obj.periodStart = message.periodStart.toISOString();
+    }
+    if (message.periodEnd !== undefined) {
+      obj.periodEnd = message.periodEnd.toISOString();
+    }
+    if (message.limit !== 0) {
+      obj.limit = Math.round(message.limit);
+    }
+    if (message.used !== 0) {
+      obj.used = Math.round(message.used);
+    }
+    if (message.available !== 0) {
+      obj.available = Math.round(message.available);
+    }
+    if (message.revision !== "") {
+      obj.revision = message.revision;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreditPool>, I>>(base?: I): CreditPool {
+    return CreditPool.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreditPool>, I>>(object: I): CreditPool {
+    const message = createBaseCreditPool();
+    message.creditPoolId = object.creditPoolId ?? "";
+    message.level = object.level ?? 0;
+    message.tenantId = object.tenantId ?? "";
+    message.actorId = object.actorId ?? "";
+    message.periodStart = object.periodStart ?? undefined;
+    message.periodEnd = object.periodEnd ?? undefined;
+    message.limit = object.limit ?? 0;
+    message.used = object.used ?? 0;
+    message.available = object.available ?? 0;
+    message.revision = object.revision ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CreditPool.$type, CreditPool);
+
 function createBaseCostCap(): CostCap {
   return {
     $type: "anvilkit.control.v1.CostCap",
@@ -2597,6 +2930,236 @@ export const GetPoolResponse: MessageFns<GetPoolResponse, "anvilkit.control.v1.G
 
 messageTypeRegistry.set(GetPoolResponse.$type, GetPoolResponse);
 
+function createBaseFindPoolRequest(): FindPoolRequest {
+  return {
+    $type: "anvilkit.control.v1.FindPoolRequest",
+    scope: undefined,
+    level: 0,
+    tenantId: "",
+    actorId: "",
+    periodStart: undefined,
+  };
+}
+
+export const FindPoolRequest: MessageFns<FindPoolRequest, "anvilkit.control.v1.FindPoolRequest"> = {
+  $type: "anvilkit.control.v1.FindPoolRequest" as const,
+
+  encode(message: FindPoolRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.level !== 0) {
+      writer.uint32(16).int32(message.level);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(26).string(message.tenantId);
+    }
+    if (message.actorId !== "") {
+      writer.uint32(34).string(message.actorId);
+    }
+    if (message.periodStart !== undefined) {
+      Timestamp.encode(toTimestamp(message.periodStart), writer.uint32(42).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FindPoolRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseFindPoolRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.level = reader.int32() as any;
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.actorId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.periodStart = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): FindPoolRequest {
+    return {
+      $type: FindPoolRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      level: isSet(object.level) ? budgetLevelFromJSON(object.level) : 0,
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      actorId: isSet(object.actorId)
+        ? globalThis.String(object.actorId)
+        : isSet(object.actor_id)
+        ? globalThis.String(object.actor_id)
+        : "",
+      periodStart: isSet(object.periodStart)
+        ? fromJsonTimestamp(object.periodStart)
+        : isSet(object.period_start)
+        ? fromJsonTimestamp(object.period_start)
+        : undefined,
+    };
+  },
+
+  toJSON(message: FindPoolRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.level !== 0) {
+      obj.level = budgetLevelToJSON(message.level);
+    }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.actorId !== "") {
+      obj.actorId = message.actorId;
+    }
+    if (message.periodStart !== undefined) {
+      obj.periodStart = message.periodStart.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FindPoolRequest>, I>>(base?: I): FindPoolRequest {
+    return FindPoolRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FindPoolRequest>, I>>(object: I): FindPoolRequest {
+    const message = createBaseFindPoolRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.level = object.level ?? 0;
+    message.tenantId = object.tenantId ?? "";
+    message.actorId = object.actorId ?? "";
+    message.periodStart = object.periodStart ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FindPoolRequest.$type, FindPoolRequest);
+
+function createBaseFindPoolResponse(): FindPoolResponse {
+  return { $type: "anvilkit.control.v1.FindPoolResponse", pool: undefined };
+}
+
+export const FindPoolResponse: MessageFns<FindPoolResponse, "anvilkit.control.v1.FindPoolResponse"> = {
+  $type: "anvilkit.control.v1.FindPoolResponse" as const,
+
+  encode(message: FindPoolResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pool !== undefined) {
+      BudgetPool.encode(message.pool, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FindPoolResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseFindPoolResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.pool = BudgetPool.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): FindPoolResponse {
+    return { $type: FindPoolResponse.$type, pool: isSet(object.pool) ? BudgetPool.fromJSON(object.pool) : undefined };
+  },
+
+  toJSON(message: FindPoolResponse): unknown {
+    const obj: any = {};
+    if (message.pool !== undefined) {
+      obj.pool = BudgetPool.toJSON(message.pool);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FindPoolResponse>, I>>(base?: I): FindPoolResponse {
+    return FindPoolResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FindPoolResponse>, I>>(object: I): FindPoolResponse {
+    const message = createBaseFindPoolResponse();
+    message.pool = (object.pool !== undefined && object.pool !== null)
+      ? BudgetPool.fromPartial(object.pool)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FindPoolResponse.$type, FindPoolResponse);
+
 function createBaseSetCostCapRequest(): SetCostCapRequest {
   return {
     $type: "anvilkit.control.v1.SetCostCapRequest",
@@ -3085,6 +3648,789 @@ export const GetCostCapResponse: MessageFns<GetCostCapResponse, "anvilkit.contro
 
 messageTypeRegistry.set(GetCostCapResponse.$type, GetCostCapResponse);
 
+function createBaseCreateCreditPoolRequest(): CreateCreditPoolRequest {
+  return {
+    $type: "anvilkit.control.v1.CreateCreditPoolRequest",
+    command: undefined,
+    scope: undefined,
+    level: 0,
+    tenantId: "",
+    actorId: "",
+    periodStart: undefined,
+    periodEnd: undefined,
+    limit: 0,
+  };
+}
+
+export const CreateCreditPoolRequest: MessageFns<
+  CreateCreditPoolRequest,
+  "anvilkit.control.v1.CreateCreditPoolRequest"
+> = {
+  $type: "anvilkit.control.v1.CreateCreditPoolRequest" as const,
+
+  encode(message: CreateCreditPoolRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(18).fork()).join();
+    }
+    if (message.level !== 0) {
+      writer.uint32(24).int32(message.level);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(34).string(message.tenantId);
+    }
+    if (message.actorId !== "") {
+      writer.uint32(42).string(message.actorId);
+    }
+    if (message.periodStart !== undefined) {
+      Timestamp.encode(toTimestamp(message.periodStart), writer.uint32(50).fork()).join();
+    }
+    if (message.periodEnd !== undefined) {
+      Timestamp.encode(toTimestamp(message.periodEnd), writer.uint32(58).fork()).join();
+    }
+    if (message.limit !== 0) {
+      writer.uint32(64).int64(message.limit);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateCreditPoolRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateCreditPoolRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.level = reader.int32() as any;
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.actorId = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.periodStart = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.periodEnd = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 8: {
+            if (tag !== 64) {
+              break;
+            }
+
+            message.limit = longToNumber(reader.int64());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): CreateCreditPoolRequest {
+    return {
+      $type: CreateCreditPoolRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      level: isSet(object.level) ? budgetLevelFromJSON(object.level) : 0,
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      actorId: isSet(object.actorId)
+        ? globalThis.String(object.actorId)
+        : isSet(object.actor_id)
+        ? globalThis.String(object.actor_id)
+        : "",
+      periodStart: isSet(object.periodStart)
+        ? fromJsonTimestamp(object.periodStart)
+        : isSet(object.period_start)
+        ? fromJsonTimestamp(object.period_start)
+        : undefined,
+      periodEnd: isSet(object.periodEnd)
+        ? fromJsonTimestamp(object.periodEnd)
+        : isSet(object.period_end)
+        ? fromJsonTimestamp(object.period_end)
+        : undefined,
+      limit: isSet(object.limit) ? globalThis.Number(object.limit) : 0,
+    };
+  },
+
+  toJSON(message: CreateCreditPoolRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.level !== 0) {
+      obj.level = budgetLevelToJSON(message.level);
+    }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.actorId !== "") {
+      obj.actorId = message.actorId;
+    }
+    if (message.periodStart !== undefined) {
+      obj.periodStart = message.periodStart.toISOString();
+    }
+    if (message.periodEnd !== undefined) {
+      obj.periodEnd = message.periodEnd.toISOString();
+    }
+    if (message.limit !== 0) {
+      obj.limit = Math.round(message.limit);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateCreditPoolRequest>, I>>(base?: I): CreateCreditPoolRequest {
+    return CreateCreditPoolRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateCreditPoolRequest>, I>>(object: I): CreateCreditPoolRequest {
+    const message = createBaseCreateCreditPoolRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.level = object.level ?? 0;
+    message.tenantId = object.tenantId ?? "";
+    message.actorId = object.actorId ?? "";
+    message.periodStart = object.periodStart ?? undefined;
+    message.periodEnd = object.periodEnd ?? undefined;
+    message.limit = object.limit ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CreateCreditPoolRequest.$type, CreateCreditPoolRequest);
+
+function createBaseCreateCreditPoolResponse(): CreateCreditPoolResponse {
+  return { $type: "anvilkit.control.v1.CreateCreditPoolResponse", pool: undefined, existing: false };
+}
+
+export const CreateCreditPoolResponse: MessageFns<
+  CreateCreditPoolResponse,
+  "anvilkit.control.v1.CreateCreditPoolResponse"
+> = {
+  $type: "anvilkit.control.v1.CreateCreditPoolResponse" as const,
+
+  encode(message: CreateCreditPoolResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pool !== undefined) {
+      CreditPool.encode(message.pool, writer.uint32(10).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(16).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateCreditPoolResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateCreditPoolResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.pool = CreditPool.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): CreateCreditPoolResponse {
+    return {
+      $type: CreateCreditPoolResponse.$type,
+      pool: isSet(object.pool) ? CreditPool.fromJSON(object.pool) : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: CreateCreditPoolResponse): unknown {
+    const obj: any = {};
+    if (message.pool !== undefined) {
+      obj.pool = CreditPool.toJSON(message.pool);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateCreditPoolResponse>, I>>(base?: I): CreateCreditPoolResponse {
+    return CreateCreditPoolResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateCreditPoolResponse>, I>>(object: I): CreateCreditPoolResponse {
+    const message = createBaseCreateCreditPoolResponse();
+    message.pool = (object.pool !== undefined && object.pool !== null)
+      ? CreditPool.fromPartial(object.pool)
+      : undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(CreateCreditPoolResponse.$type, CreateCreditPoolResponse);
+
+function createBaseAdjustCreditPoolRequest(): AdjustCreditPoolRequest {
+  return {
+    $type: "anvilkit.control.v1.AdjustCreditPoolRequest",
+    command: undefined,
+    scope: undefined,
+    creditPoolId: "",
+    expectedRevision: "",
+    limit: 0,
+  };
+}
+
+export const AdjustCreditPoolRequest: MessageFns<
+  AdjustCreditPoolRequest,
+  "anvilkit.control.v1.AdjustCreditPoolRequest"
+> = {
+  $type: "anvilkit.control.v1.AdjustCreditPoolRequest" as const,
+
+  encode(message: AdjustCreditPoolRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(18).fork()).join();
+    }
+    if (message.creditPoolId !== "") {
+      writer.uint32(26).string(message.creditPoolId);
+    }
+    if (message.expectedRevision !== "") {
+      writer.uint32(34).string(message.expectedRevision);
+    }
+    if (message.limit !== 0) {
+      writer.uint32(40).int64(message.limit);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdjustCreditPoolRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdjustCreditPoolRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.creditPoolId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.expectedRevision = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.limit = longToNumber(reader.int64());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdjustCreditPoolRequest {
+    return {
+      $type: AdjustCreditPoolRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      creditPoolId: isSet(object.creditPoolId)
+        ? globalThis.String(object.creditPoolId)
+        : isSet(object.credit_pool_id)
+        ? globalThis.String(object.credit_pool_id)
+        : "",
+      expectedRevision: isSet(object.expectedRevision)
+        ? globalThis.String(object.expectedRevision)
+        : isSet(object.expected_revision)
+        ? globalThis.String(object.expected_revision)
+        : "",
+      limit: isSet(object.limit) ? globalThis.Number(object.limit) : 0,
+    };
+  },
+
+  toJSON(message: AdjustCreditPoolRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.creditPoolId !== "") {
+      obj.creditPoolId = message.creditPoolId;
+    }
+    if (message.expectedRevision !== "") {
+      obj.expectedRevision = message.expectedRevision;
+    }
+    if (message.limit !== 0) {
+      obj.limit = Math.round(message.limit);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdjustCreditPoolRequest>, I>>(base?: I): AdjustCreditPoolRequest {
+    return AdjustCreditPoolRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdjustCreditPoolRequest>, I>>(object: I): AdjustCreditPoolRequest {
+    const message = createBaseAdjustCreditPoolRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.creditPoolId = object.creditPoolId ?? "";
+    message.expectedRevision = object.expectedRevision ?? "";
+    message.limit = object.limit ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdjustCreditPoolRequest.$type, AdjustCreditPoolRequest);
+
+function createBaseAdjustCreditPoolResponse(): AdjustCreditPoolResponse {
+  return { $type: "anvilkit.control.v1.AdjustCreditPoolResponse", pool: undefined };
+}
+
+export const AdjustCreditPoolResponse: MessageFns<
+  AdjustCreditPoolResponse,
+  "anvilkit.control.v1.AdjustCreditPoolResponse"
+> = {
+  $type: "anvilkit.control.v1.AdjustCreditPoolResponse" as const,
+
+  encode(message: AdjustCreditPoolResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pool !== undefined) {
+      CreditPool.encode(message.pool, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdjustCreditPoolResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdjustCreditPoolResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.pool = CreditPool.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdjustCreditPoolResponse {
+    return {
+      $type: AdjustCreditPoolResponse.$type,
+      pool: isSet(object.pool) ? CreditPool.fromJSON(object.pool) : undefined,
+    };
+  },
+
+  toJSON(message: AdjustCreditPoolResponse): unknown {
+    const obj: any = {};
+    if (message.pool !== undefined) {
+      obj.pool = CreditPool.toJSON(message.pool);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdjustCreditPoolResponse>, I>>(base?: I): AdjustCreditPoolResponse {
+    return AdjustCreditPoolResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdjustCreditPoolResponse>, I>>(object: I): AdjustCreditPoolResponse {
+    const message = createBaseAdjustCreditPoolResponse();
+    message.pool = (object.pool !== undefined && object.pool !== null)
+      ? CreditPool.fromPartial(object.pool)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AdjustCreditPoolResponse.$type, AdjustCreditPoolResponse);
+
+function createBaseFindCreditPoolRequest(): FindCreditPoolRequest {
+  return {
+    $type: "anvilkit.control.v1.FindCreditPoolRequest",
+    scope: undefined,
+    level: 0,
+    tenantId: "",
+    actorId: "",
+    periodStart: undefined,
+  };
+}
+
+export const FindCreditPoolRequest: MessageFns<FindCreditPoolRequest, "anvilkit.control.v1.FindCreditPoolRequest"> = {
+  $type: "anvilkit.control.v1.FindCreditPoolRequest" as const,
+
+  encode(message: FindCreditPoolRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.level !== 0) {
+      writer.uint32(16).int32(message.level);
+    }
+    if (message.tenantId !== "") {
+      writer.uint32(26).string(message.tenantId);
+    }
+    if (message.actorId !== "") {
+      writer.uint32(34).string(message.actorId);
+    }
+    if (message.periodStart !== undefined) {
+      Timestamp.encode(toTimestamp(message.periodStart), writer.uint32(42).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FindCreditPoolRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseFindCreditPoolRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.level = reader.int32() as any;
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.actorId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.periodStart = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): FindCreditPoolRequest {
+    return {
+      $type: FindCreditPoolRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      level: isSet(object.level) ? budgetLevelFromJSON(object.level) : 0,
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      actorId: isSet(object.actorId)
+        ? globalThis.String(object.actorId)
+        : isSet(object.actor_id)
+        ? globalThis.String(object.actor_id)
+        : "",
+      periodStart: isSet(object.periodStart)
+        ? fromJsonTimestamp(object.periodStart)
+        : isSet(object.period_start)
+        ? fromJsonTimestamp(object.period_start)
+        : undefined,
+    };
+  },
+
+  toJSON(message: FindCreditPoolRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.level !== 0) {
+      obj.level = budgetLevelToJSON(message.level);
+    }
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.actorId !== "") {
+      obj.actorId = message.actorId;
+    }
+    if (message.periodStart !== undefined) {
+      obj.periodStart = message.periodStart.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FindCreditPoolRequest>, I>>(base?: I): FindCreditPoolRequest {
+    return FindCreditPoolRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FindCreditPoolRequest>, I>>(object: I): FindCreditPoolRequest {
+    const message = createBaseFindCreditPoolRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.level = object.level ?? 0;
+    message.tenantId = object.tenantId ?? "";
+    message.actorId = object.actorId ?? "";
+    message.periodStart = object.periodStart ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(FindCreditPoolRequest.$type, FindCreditPoolRequest);
+
+function createBaseFindCreditPoolResponse(): FindCreditPoolResponse {
+  return { $type: "anvilkit.control.v1.FindCreditPoolResponse", pool: undefined };
+}
+
+export const FindCreditPoolResponse: MessageFns<FindCreditPoolResponse, "anvilkit.control.v1.FindCreditPoolResponse"> =
+  {
+    $type: "anvilkit.control.v1.FindCreditPoolResponse" as const,
+
+    encode(message: FindCreditPoolResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      if (message.pool !== undefined) {
+        CreditPool.encode(message.pool, writer.uint32(10).fork()).join();
+      }
+      return writer;
+    },
+
+    decode(input: BinaryReader | Uint8Array, length?: number): FindCreditPoolResponse {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+      if (previousRecursionDepth >= 100) {
+        throw new globalThis.Error("protobuf decode recursion limit exceeded");
+      }
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+      try {
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = createBaseFindCreditPoolResponse();
+        while (reader.pos < end) {
+          const tag = reader.uint32();
+          switch (tag >>> 3) {
+            case 1: {
+              if (tag !== 10) {
+                break;
+              }
+
+              message.pool = CreditPool.decode(reader, reader.uint32());
+              continue;
+            }
+          }
+          if ((tag & 7) === 4 || tag === 0) {
+            break;
+          }
+          reader.skip(tag & 7);
+        }
+        return message;
+      } finally {
+        (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+      }
+    },
+
+    fromJSON(object: any): FindCreditPoolResponse {
+      return {
+        $type: FindCreditPoolResponse.$type,
+        pool: isSet(object.pool) ? CreditPool.fromJSON(object.pool) : undefined,
+      };
+    },
+
+    toJSON(message: FindCreditPoolResponse): unknown {
+      const obj: any = {};
+      if (message.pool !== undefined) {
+        obj.pool = CreditPool.toJSON(message.pool);
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<FindCreditPoolResponse>, I>>(base?: I): FindCreditPoolResponse {
+      return FindCreditPoolResponse.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<FindCreditPoolResponse>, I>>(object: I): FindCreditPoolResponse {
+      const message = createBaseFindCreditPoolResponse();
+      message.pool = (object.pool !== undefined && object.pool !== null)
+        ? CreditPool.fromPartial(object.pool)
+        : undefined;
+      return message;
+    },
+  };
+
+messageTypeRegistry.set(FindCreditPoolResponse.$type, FindCreditPoolResponse);
+
 export type PriceAdminServiceService = typeof PriceAdminServiceService;
 export const PriceAdminServiceService = {
   /**
@@ -3250,6 +4596,19 @@ export const BudgetPoolServiceService = {
     responseDeserialize: (value: Buffer): GetPoolResponse => GetPoolResponse.decode(value),
   },
   /**
+   * FindPool reads the pool of one scope and period start (the key CreatePool
+   * is idempotent on); NOT_FOUND when there is none.
+   */
+  findPool: {
+    path: "/anvilkit.control.v1.BudgetPoolService/FindPool" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: FindPoolRequest): Buffer => Buffer.from(FindPoolRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): FindPoolRequest => FindPoolRequest.decode(value),
+    responseSerialize: (value: FindPoolResponse): Buffer => Buffer.from(FindPoolResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): FindPoolResponse => FindPoolResponse.decode(value),
+  },
+  /**
    * SetCostCap creates or changes a cost cap (conditionally on its
    * revision when one is named); lowering it fences the next admission.
    */
@@ -3271,6 +4630,46 @@ export const BudgetPoolServiceService = {
     responseSerialize: (value: GetCostCapResponse): Buffer => Buffer.from(GetCostCapResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetCostCapResponse => GetCostCapResponse.decode(value),
   },
+  /**
+   * CreateCreditPool creates a tenant or actor credit pool; the same scope,
+   * period and limit returns the existing pool, a different one is
+   * IDEMPOTENCY_CONFLICT.
+   */
+  createCreditPool: {
+    path: "/anvilkit.control.v1.BudgetPoolService/CreateCreditPool" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: CreateCreditPoolRequest): Buffer =>
+      Buffer.from(CreateCreditPoolRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateCreditPoolRequest => CreateCreditPoolRequest.decode(value),
+    responseSerialize: (value: CreateCreditPoolResponse): Buffer =>
+      Buffer.from(CreateCreditPoolResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CreateCreditPoolResponse => CreateCreditPoolResponse.decode(value),
+  },
+  /** AdjustCreditPool sets a credit pool's limit conditionally on its revision. */
+  adjustCreditPool: {
+    path: "/anvilkit.control.v1.BudgetPoolService/AdjustCreditPool" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AdjustCreditPoolRequest): Buffer =>
+      Buffer.from(AdjustCreditPoolRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AdjustCreditPoolRequest => AdjustCreditPoolRequest.decode(value),
+    responseSerialize: (value: AdjustCreditPoolResponse): Buffer =>
+      Buffer.from(AdjustCreditPoolResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AdjustCreditPoolResponse => AdjustCreditPoolResponse.decode(value),
+  },
+  /** FindCreditPool reads the credit pool of one scope and period start. */
+  findCreditPool: {
+    path: "/anvilkit.control.v1.BudgetPoolService/FindCreditPool" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: FindCreditPoolRequest): Buffer =>
+      Buffer.from(FindCreditPoolRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): FindCreditPoolRequest => FindCreditPoolRequest.decode(value),
+    responseSerialize: (value: FindCreditPoolResponse): Buffer =>
+      Buffer.from(FindCreditPoolResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): FindCreditPoolResponse => FindCreditPoolResponse.decode(value),
+  },
 } as const;
 
 export interface BudgetPoolServiceServer extends UntypedServiceImplementation {
@@ -3286,11 +4685,26 @@ export interface BudgetPoolServiceServer extends UntypedServiceImplementation {
   adjustPool: handleUnaryCall<AdjustPoolRequest, AdjustPoolResponse>;
   getPool: handleUnaryCall<GetPoolRequest, GetPoolResponse>;
   /**
+   * FindPool reads the pool of one scope and period start (the key CreatePool
+   * is idempotent on); NOT_FOUND when there is none.
+   */
+  findPool: handleUnaryCall<FindPoolRequest, FindPoolResponse>;
+  /**
    * SetCostCap creates or changes a cost cap (conditionally on its
    * revision when one is named); lowering it fences the next admission.
    */
   setCostCap: handleUnaryCall<SetCostCapRequest, SetCostCapResponse>;
   getCostCap: handleUnaryCall<GetCostCapRequest, GetCostCapResponse>;
+  /**
+   * CreateCreditPool creates a tenant or actor credit pool; the same scope,
+   * period and limit returns the existing pool, a different one is
+   * IDEMPOTENCY_CONFLICT.
+   */
+  createCreditPool: handleUnaryCall<CreateCreditPoolRequest, CreateCreditPoolResponse>;
+  /** AdjustCreditPool sets a credit pool's limit conditionally on its revision. */
+  adjustCreditPool: handleUnaryCall<AdjustCreditPoolRequest, AdjustCreditPoolResponse>;
+  /** FindCreditPool reads the credit pool of one scope and period start. */
+  findCreditPool: handleUnaryCall<FindCreditPoolRequest, FindCreditPoolResponse>;
 }
 
 export interface BudgetPoolServiceClient extends Client {
@@ -3348,6 +4762,25 @@ export interface BudgetPoolServiceClient extends Client {
     callback: (error: ServiceError | null, response: GetPoolResponse) => void,
   ): ClientUnaryCall;
   /**
+   * FindPool reads the pool of one scope and period start (the key CreatePool
+   * is idempotent on); NOT_FOUND when there is none.
+   */
+  findPool(
+    request: FindPoolRequest,
+    callback: (error: ServiceError | null, response: FindPoolResponse) => void,
+  ): ClientUnaryCall;
+  findPool(
+    request: FindPoolRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: FindPoolResponse) => void,
+  ): ClientUnaryCall;
+  findPool(
+    request: FindPoolRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: FindPoolResponse) => void,
+  ): ClientUnaryCall;
+  /**
    * SetCostCap creates or changes a cost cap (conditionally on its
    * revision when one is named); lowering it fences the next admission.
    */
@@ -3380,6 +4813,58 @@ export interface BudgetPoolServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetCostCapResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * CreateCreditPool creates a tenant or actor credit pool; the same scope,
+   * period and limit returns the existing pool, a different one is
+   * IDEMPOTENCY_CONFLICT.
+   */
+  createCreditPool(
+    request: CreateCreditPoolRequest,
+    callback: (error: ServiceError | null, response: CreateCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  createCreditPool(
+    request: CreateCreditPoolRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: CreateCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  createCreditPool(
+    request: CreateCreditPoolRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: CreateCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  /** AdjustCreditPool sets a credit pool's limit conditionally on its revision. */
+  adjustCreditPool(
+    request: AdjustCreditPoolRequest,
+    callback: (error: ServiceError | null, response: AdjustCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  adjustCreditPool(
+    request: AdjustCreditPoolRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AdjustCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  adjustCreditPool(
+    request: AdjustCreditPoolRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AdjustCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  /** FindCreditPool reads the credit pool of one scope and period start. */
+  findCreditPool(
+    request: FindCreditPoolRequest,
+    callback: (error: ServiceError | null, response: FindCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  findCreditPool(
+    request: FindCreditPoolRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: FindCreditPoolResponse) => void,
+  ): ClientUnaryCall;
+  findCreditPool(
+    request: FindCreditPoolRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: FindCreditPoolResponse) => void,
   ): ClientUnaryCall;
 }
 
@@ -3424,6 +4909,17 @@ function fromJsonTimestamp(o: any): Date {
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
   }
+}
+
+function longToNumber(int64: { toString(): string }): number {
+  const num = globalThis.Number(int64.toString());
+  if (num > globalThis.Number.MAX_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+  }
+  if (num < globalThis.Number.MIN_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+  }
+  return num;
 }
 
 function isSet(value: any): boolean {

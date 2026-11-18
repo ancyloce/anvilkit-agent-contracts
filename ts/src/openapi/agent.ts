@@ -666,6 +666,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/budget-pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the budget pool of one scope and period start
+         * @description Needs `platform_operator`, or `operator` for a pool of the principal's own tenant. NOT_FOUND when no pool has that scope and period start.
+         */
+        get: operations["findBudgetPool"];
+        put?: never;
+        /**
+         * Create a USD budget pool of one level and period (DEC-066)
+         * @description Operations are funded from a current platform, tenant and actor pool each. Control decides the authorization from the principal's verified roles: only `platform_operator` may create a pool. The same scope, period start, period end and cap returns the existing pool (200); a pool of the same scope and period start with other terms is IDEMPOTENCY_CONFLICT.
+         */
+        post: operations["createBudgetPool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/budget-pools/{poolId}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a budget pool's cap conditionally on its revision
+         * @description Only `platform_operator`. A cap below the allocated amount fences new allocations only. Another current revision is REVISION_CONFLICT, which a retried success also receives.
+         */
+        post: operations["adjustBudgetPool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credit-pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the credit pool of one scope and period start
+         * @description Needs `platform_operator`, or `operator` for a pool of the principal's own tenant. NOT_FOUND when no credit pool has that scope and period start.
+         */
+        get: operations["findCreditPool"];
+        put?: never;
+        /**
+         * Create a credit pool of one tenant or actor and period (DEC-066)
+         * @description Credits count funded operations, separate from USD spend: funding debits a profile's credits (0 for a Preparation, 1 for a Generation or Refinement by default) from the current tenant and actor credit pools, and a debited credit is never refunded. A missing or exhausted credit pool refuses the funding with BUDGET_EXHAUSTED. Only `platform_operator`. The same scope, period and limit returns the existing pool (200); other terms are IDEMPOTENCY_CONFLICT.
+         */
+        post: operations["createCreditPool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credit-pools/{creditPoolId}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a credit pool's limit conditionally on its revision
+         * @description Only `platform_operator`. A limit below the used count fences new debits only. Another current revision is REVISION_CONFLICT, which a retried success also receives.
+         */
+        post: operations["adjustCreditPool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1397,6 +1485,68 @@ export interface components {
             recoveryEpoch: components["schemas"]["Sequence"];
             decidedAt: components["schemas"]["Timestamp"];
         };
+        /** @enum {string} */
+        BudgetLevel: "platform" | "tenant" | "actor";
+        /** @enum {string} */
+        CreditLevel: "tenant" | "actor";
+        /** @description A whole number of credits. */
+        Credits: number;
+        /** @description A USD funding limit of one level for one period. Allocations to operations draw from it; settlement returns the unspent part. */
+        BudgetPool: {
+            poolId: components["schemas"]["Id"];
+            level: components["schemas"]["BudgetLevel"];
+            tenantId?: components["schemas"]["Id"];
+            actorId?: components["schemas"]["Id"];
+            periodStart: components["schemas"]["Timestamp"];
+            periodEnd: components["schemas"]["Timestamp"];
+            cap: components["schemas"]["Money"];
+            allocated: components["schemas"]["Money"];
+            available: components["schemas"]["Money"];
+            revision: components["schemas"]["Revision"];
+        };
+        /** @description tenantId is required for a tenant or actor pool and absent for a platform pool; actorId is present for an actor pool only. */
+        CreateBudgetPoolRequest: {
+            commandId: components["schemas"]["Id"];
+            level: components["schemas"]["BudgetLevel"];
+            tenantId?: components["schemas"]["Id"];
+            actorId?: components["schemas"]["Id"];
+            periodStart: components["schemas"]["Timestamp"];
+            periodEnd: components["schemas"]["Timestamp"];
+            cap: components["schemas"]["Money"];
+        };
+        AdjustBudgetPoolRequest: {
+            commandId: components["schemas"]["Id"];
+            expectedRevision: components["schemas"]["Revision"];
+            cap: components["schemas"]["Money"];
+        };
+        /** @description A limit on how many operations of one tenant or actor are funded in one period (DEC-066). Debited credits are never refunded. */
+        CreditPool: {
+            creditPoolId: components["schemas"]["Id"];
+            level: components["schemas"]["CreditLevel"];
+            tenantId: components["schemas"]["Id"];
+            actorId?: components["schemas"]["Id"];
+            periodStart: components["schemas"]["Timestamp"];
+            periodEnd: components["schemas"]["Timestamp"];
+            limit: components["schemas"]["Credits"];
+            used: components["schemas"]["Credits"];
+            available: components["schemas"]["Credits"];
+            revision: components["schemas"]["Revision"];
+        };
+        /** @description actorId is required for an actor pool and absent for a tenant pool. */
+        CreateCreditPoolRequest: {
+            commandId: components["schemas"]["Id"];
+            level: components["schemas"]["CreditLevel"];
+            tenantId: components["schemas"]["Id"];
+            actorId?: components["schemas"]["Id"];
+            periodStart: components["schemas"]["Timestamp"];
+            periodEnd: components["schemas"]["Timestamp"];
+            limit: components["schemas"]["Credits"];
+        };
+        AdjustCreditPoolRequest: {
+            commandId: components["schemas"]["Id"];
+            expectedRevision: components["schemas"]["Revision"];
+            limit: components["schemas"]["Credits"];
+        };
     };
     responses: {
         /** @description INVALID_ARGUMENT */
@@ -1468,6 +1618,16 @@ export interface components {
         sourceId: components["schemas"]["Id"];
         grantId: components["schemas"]["Id"];
         runId: components["schemas"]["Id"];
+        poolId: components["schemas"]["Id"];
+        creditPoolId: components["schemas"]["Id"];
+        budgetLevel: components["schemas"]["BudgetLevel"];
+        creditLevel: components["schemas"]["CreditLevel"];
+        /** @description The pool's tenant; absent for a platform pool. */
+        poolTenantId: components["schemas"]["Id"];
+        creditTenantId: components["schemas"]["Id"];
+        /** @description The pool's actor; present only for an actor pool. */
+        poolActorId: components["schemas"]["Id"];
+        periodStart: components["schemas"]["Timestamp"];
         cursor: string;
         limit: number;
     };
@@ -2671,6 +2831,209 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Disposition"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    findBudgetPool: {
+        parameters: {
+            query: {
+                level: components["parameters"]["budgetLevel"];
+                /** @description The pool's tenant; absent for a platform pool. */
+                tenantId?: components["parameters"]["poolTenantId"];
+                /** @description The pool's actor; present only for an actor pool. */
+                actorId?: components["parameters"]["poolActorId"];
+                periodStart: components["parameters"]["periodStart"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pool. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetPool"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createBudgetPool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBudgetPoolRequest"];
+            };
+        };
+        responses: {
+            /** @description The existing pool with the same terms. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetPool"];
+                };
+            };
+            /** @description The new pool. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetPool"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    adjustBudgetPool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                poolId: components["parameters"]["poolId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustBudgetPoolRequest"];
+            };
+        };
+        responses: {
+            /** @description The adjusted pool. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetPool"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    findCreditPool: {
+        parameters: {
+            query: {
+                level: components["parameters"]["creditLevel"];
+                tenantId: components["parameters"]["creditTenantId"];
+                /** @description The pool's actor; present only for an actor pool. */
+                actorId?: components["parameters"]["poolActorId"];
+                periodStart: components["parameters"]["periodStart"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credit pool. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditPool"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createCreditPool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCreditPoolRequest"];
+            };
+        };
+        responses: {
+            /** @description The existing pool with the same terms. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditPool"];
+                };
+            };
+            /** @description The new pool. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditPool"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    adjustCreditPool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creditPoolId: components["parameters"]["creditPoolId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustCreditPoolRequest"];
+            };
+        };
+        responses: {
+            /** @description The adjusted credit pool. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditPool"];
                 };
             };
             400: components["responses"]["InvalidArgument"];

@@ -22,6 +22,7 @@ tags:
   - name: mcp
   - name: artifacts
   - name: recovery
+  - name: finance
 
 paths:
   /preparations:
@@ -983,6 +984,177 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /budget-pools:
+    post:
+      tags: [finance]
+      operationId: createBudgetPool
+      summary: Create a USD budget pool of one level and period (DEC-066)
+      description: >-
+        Operations are funded from a current platform, tenant and actor pool
+        each. Control decides the authorization from the principal's verified
+        roles: only `platform_operator` may create a pool. The same scope,
+        period start, period end and cap returns the existing pool (200); a pool
+        of the same scope and period start with other terms is
+        IDEMPOTENCY_CONFLICT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBudgetPoolRequest" }
+      responses:
+        "200":
+          description: The existing pool with the same terms.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BudgetPool" }
+        "201":
+          description: The new pool.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BudgetPool" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      tags: [finance]
+      operationId: findBudgetPool
+      summary: Read the budget pool of one scope and period start
+      description: >-
+        Needs `platform_operator`, or `operator` for a pool of the principal's
+        own tenant. NOT_FOUND when no pool has that scope and period start.
+      parameters:
+        - $ref: "#/components/parameters/budgetLevel"
+        - $ref: "#/components/parameters/poolTenantId"
+        - $ref: "#/components/parameters/poolActorId"
+        - $ref: "#/components/parameters/periodStart"
+      responses:
+        "200":
+          description: Pool.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BudgetPool" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /budget-pools/{poolId}/adjustments:
+    post:
+      tags: [finance]
+      operationId: adjustBudgetPool
+      summary: Set a budget pool's cap conditionally on its revision
+      description: >-
+        Only `platform_operator`. A cap below the allocated amount fences new
+        allocations only. Another current revision is REVISION_CONFLICT, which a
+        retried success also receives.
+      parameters:
+        - $ref: "#/components/parameters/poolId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdjustBudgetPoolRequest" }
+      responses:
+        "200":
+          description: The adjusted pool.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BudgetPool" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /credit-pools:
+    post:
+      tags: [finance]
+      operationId: createCreditPool
+      summary: Create a credit pool of one tenant or actor and period (DEC-066)
+      description: >-
+        Credits count funded operations, separate from USD spend: funding
+        debits a profile's credits (0 for a Preparation, 1 for a Generation or
+        Refinement by default) from the current tenant and actor credit pools,
+        and a debited credit is never refunded. A missing or exhausted credit
+        pool refuses the funding with BUDGET_EXHAUSTED. Only
+        `platform_operator`. The same scope, period and limit returns the
+        existing pool (200); other terms are IDEMPOTENCY_CONFLICT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCreditPoolRequest" }
+      responses:
+        "200":
+          description: The existing pool with the same terms.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreditPool" }
+        "201":
+          description: The new pool.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreditPool" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      tags: [finance]
+      operationId: findCreditPool
+      summary: Read the credit pool of one scope and period start
+      description: >-
+        Needs `platform_operator`, or `operator` for a pool of the principal's
+        own tenant. NOT_FOUND when no credit pool has that scope and period
+        start.
+      parameters:
+        - $ref: "#/components/parameters/creditLevel"
+        - $ref: "#/components/parameters/creditTenantId"
+        - $ref: "#/components/parameters/poolActorId"
+        - $ref: "#/components/parameters/periodStart"
+      responses:
+        "200":
+          description: Credit pool.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreditPool" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /credit-pools/{creditPoolId}/adjustments:
+    post:
+      tags: [finance]
+      operationId: adjustCreditPool
+      summary: Set a credit pool's limit conditionally on its revision
+      description: >-
+        Only `platform_operator`. A limit below the used count fences new debits
+        only. Another current revision is REVISION_CONFLICT, which a retried
+        success also receives.
+      parameters:
+        - $ref: "#/components/parameters/creditPoolId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdjustCreditPoolRequest" }
+      responses:
+        "200":
+          description: The adjusted credit pool.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreditPool" }
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1011,6 +1183,48 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Id" }
+    poolId:
+      name: poolId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    creditPoolId:
+      name: creditPoolId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    budgetLevel:
+      name: level
+      in: query
+      required: true
+      schema: { $ref: "#/components/schemas/BudgetLevel" }
+    creditLevel:
+      name: level
+      in: query
+      required: true
+      schema: { $ref: "#/components/schemas/CreditLevel" }
+    poolTenantId:
+      name: tenantId
+      in: query
+      required: false
+      description: The pool's tenant; absent for a platform pool.
+      schema: { $ref: "#/components/schemas/Id" }
+    creditTenantId:
+      name: tenantId
+      in: query
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    poolActorId:
+      name: actorId
+      in: query
+      required: false
+      description: The pool's actor; present only for an actor pool.
+      schema: { $ref: "#/components/schemas/Id" }
+    periodStart:
+      name: periodStart
+      in: query
+      required: true
+      schema: { $ref: "#/components/schemas/Timestamp" }
     cursor:
       name: cursor
       in: query
@@ -2432,3 +2646,94 @@ components:
         evidenceDigest: { $ref: "#/components/schemas/Digest" }
         recoveryEpoch: { $ref: "#/components/schemas/Sequence" }
         decidedAt: { $ref: "#/components/schemas/Timestamp" }
+    BudgetLevel:
+      type: string
+      enum: [platform, tenant, actor]
+    CreditLevel:
+      type: string
+      enum: [tenant, actor]
+    Credits:
+      description: A whole number of credits.
+      type: integer
+      minimum: 0
+      maximum: 1000000000
+    BudgetPool:
+      description: >-
+        A USD funding limit of one level for one period. Allocations to
+        operations draw from it; settlement returns the unspent part.
+      type: object
+      additionalProperties: false
+      required: [poolId, level, periodStart, periodEnd, cap, allocated, available, revision]
+      properties:
+        poolId: { $ref: "#/components/schemas/Id" }
+        level: { $ref: "#/components/schemas/BudgetLevel" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        actorId: { $ref: "#/components/schemas/Id" }
+        periodStart: { $ref: "#/components/schemas/Timestamp" }
+        periodEnd: { $ref: "#/components/schemas/Timestamp" }
+        cap: { $ref: "#/components/schemas/Money" }
+        allocated: { $ref: "#/components/schemas/Money" }
+        available: { $ref: "#/components/schemas/Money" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    CreateBudgetPoolRequest:
+      description: >-
+        tenantId is required for a tenant or actor pool and absent for a
+        platform pool; actorId is present for an actor pool only.
+      type: object
+      additionalProperties: false
+      required: [commandId, level, periodStart, periodEnd, cap]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        level: { $ref: "#/components/schemas/BudgetLevel" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        actorId: { $ref: "#/components/schemas/Id" }
+        periodStart: { $ref: "#/components/schemas/Timestamp" }
+        periodEnd: { $ref: "#/components/schemas/Timestamp" }
+        cap: { $ref: "#/components/schemas/Money" }
+    AdjustBudgetPoolRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, expectedRevision, cap]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        expectedRevision: { $ref: "#/components/schemas/Revision" }
+        cap: { $ref: "#/components/schemas/Money" }
+    CreditPool:
+      description: >-
+        A limit on how many operations of one tenant or actor are funded in one
+        period (DEC-066). Debited credits are never refunded.
+      type: object
+      additionalProperties: false
+      required: [creditPoolId, level, tenantId, periodStart, periodEnd, limit, used, available, revision]
+      properties:
+        creditPoolId: { $ref: "#/components/schemas/Id" }
+        level: { $ref: "#/components/schemas/CreditLevel" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        actorId: { $ref: "#/components/schemas/Id" }
+        periodStart: { $ref: "#/components/schemas/Timestamp" }
+        periodEnd: { $ref: "#/components/schemas/Timestamp" }
+        limit: { $ref: "#/components/schemas/Credits" }
+        used: { $ref: "#/components/schemas/Credits" }
+        available: { $ref: "#/components/schemas/Credits" }
+        revision: { $ref: "#/components/schemas/Revision" }
+    CreateCreditPoolRequest:
+      description: actorId is required for an actor pool and absent for a tenant pool.
+      type: object
+      additionalProperties: false
+      required: [commandId, level, tenantId, periodStart, periodEnd, limit]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        level: { $ref: "#/components/schemas/CreditLevel" }
+        tenantId: { $ref: "#/components/schemas/Id" }
+        actorId: { $ref: "#/components/schemas/Id" }
+        periodStart: { $ref: "#/components/schemas/Timestamp" }
+        periodEnd: { $ref: "#/components/schemas/Timestamp" }
+        limit: { $ref: "#/components/schemas/Credits" }
+    AdjustCreditPoolRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, expectedRevision, limit]
+      properties:
+        commandId: { $ref: "#/components/schemas/Id" }
+        expectedRevision: { $ref: "#/components/schemas/Revision" }
+        limit: { $ref: "#/components/schemas/Credits" }

@@ -444,6 +444,30 @@
       "message": "anvilkit.control.v1.CreatePoolRequest",
       "valid": true,
       "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_price_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "level": "BUDGET_LEVEL_TENANT", "tenantId": "tenant_a", "periodStart": "2026-10-01T00:00:00Z", "periodEnd": "2026-11-01T00:00:00Z", "cap": { "currency": "USD", "amount": "100000000" } }
+    },
+    {
+      "name": "actor credit pool",
+      "message": "anvilkit.control.v1.CreateCreditPoolRequest",
+      "valid": true,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_credit_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "level": "BUDGET_LEVEL_ACTOR", "tenantId": "tenant_a", "actorId": "user_a", "periodStart": "2026-12-01T00:00:00Z", "periodEnd": "2027-01-01T00:00:00Z", "limit": "20" }
+    },
+    {
+      "name": "platform credit pool is rejected",
+      "message": "anvilkit.control.v1.CreateCreditPoolRequest",
+      "valid": false,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_credit_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "level": "BUDGET_LEVEL_PLATFORM", "tenantId": "tenant_a", "periodStart": "2026-12-01T00:00:00Z", "periodEnd": "2027-01-01T00:00:00Z", "limit": "100" }
+    },
+    {
+      "name": "negative credit limit is rejected",
+      "message": "anvilkit.control.v1.AdjustCreditPoolRequest",
+      "valid": false,
+      "instance": { "command": { "tenantId": "tenant_a", "commandId": "cmd_credit_1", "actorId": "op_a", "requestDigest": "sha256:0dc7fa9db7237a2b5c96f70f59bb00f73bb86a0ca5554e91c312f9ada26e18b3" }, "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "creditPoolId": "crp_1", "expectedRevision": "1", "limit": "-1" }
+    },
+    {
+      "name": "find the platform pool of a period",
+      "message": "anvilkit.control.v1.FindPoolRequest",
+      "valid": true,
+      "instance": { "scope": { "tenantId": "tenant_a", "actorId": "op_a", "roles": ["platform_operator"] }, "level": "BUDGET_LEVEL_PLATFORM", "periodStart": "2026-12-01T00:00:00Z" }
     }
   ]
 }

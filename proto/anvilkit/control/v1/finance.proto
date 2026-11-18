@@ -129,6 +129,26 @@ message BudgetPool {
   string revision = 10;
 }
 
+// CreditPool limits how many operations of one tenant or one actor are
+// funded in one period (DEC-066). Credits are whole numbers, separate from
+// the USD pools: funding debits a profile's credits from the current tenant
+// and actor credit pools beside its USD allocation, and a debited credit is
+// never refunded. Raising the limit is how an operator grants more; a limit
+// below the used count fences new debits only.
+message CreditPool {
+  string credit_pool_id = 1;
+  // TENANT or ACTOR; there is no platform credit pool.
+  BudgetLevel level = 2;
+  string tenant_id = 3;
+  string actor_id = 4;
+  google.protobuf.Timestamp period_start = 5;
+  google.protobuf.Timestamp period_end = 6;
+  int64 limit = 7;
+  int64 used = 8;
+  int64 available = 9;
+  string revision = 10;
+}
+
 enum CostCapLevel {
   COST_CAP_LEVEL_UNSPECIFIED = 0;
   COST_CAP_LEVEL_TENANT = 1;
@@ -160,10 +180,21 @@ service BudgetPoolService {
   // the allocated amount fences new allocations only.
   rpc AdjustPool(AdjustPoolRequest) returns (AdjustPoolResponse);
   rpc GetPool(GetPoolRequest) returns (GetPoolResponse);
+  // FindPool reads the pool of one scope and period start (the key CreatePool
+  // is idempotent on); NOT_FOUND when there is none.
+  rpc FindPool(FindPoolRequest) returns (FindPoolResponse);
   // SetCostCap creates or changes a cost cap (conditionally on its
   // revision when one is named); lowering it fences the next admission.
   rpc SetCostCap(SetCostCapRequest) returns (SetCostCapResponse);
   rpc GetCostCap(GetCostCapRequest) returns (GetCostCapResponse);
+  // CreateCreditPool creates a tenant or actor credit pool; the same scope,
+  // period and limit returns the existing pool, a different one is
+  // IDEMPOTENCY_CONFLICT.
+  rpc CreateCreditPool(CreateCreditPoolRequest) returns (CreateCreditPoolResponse);
+  // AdjustCreditPool sets a credit pool's limit conditionally on its revision.
+  rpc AdjustCreditPool(AdjustCreditPoolRequest) returns (AdjustCreditPoolResponse);
+  // FindCreditPool reads the credit pool of one scope and period start.
+  rpc FindCreditPool(FindCreditPoolRequest) returns (FindCreditPoolResponse);
 }
 
 message CreatePoolRequest {
@@ -212,6 +243,21 @@ message GetPoolResponse {
   BudgetPool pool = 1;
 }
 
+message FindPoolRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  BudgetLevel level = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string tenant_id = 3 [(buf.validate.field).string = {max_len: 128}];
+  string actor_id = 4 [(buf.validate.field).string = {max_len: 128}];
+  google.protobuf.Timestamp period_start = 5 [(buf.validate.field).required = true];
+}
+
+message FindPoolResponse {
+  BudgetPool pool = 1;
+}
+
 message SetCostCapRequest {
   CommandIdentity command = 1 [(buf.validate.field).required = true];
   Scope scope = 2 [(buf.validate.field).required = true];
@@ -248,4 +294,65 @@ message GetCostCapRequest {
 
 message GetCostCapResponse {
   CostCap cap = 1;
+}
+
+message CreateCreditPoolRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  BudgetLevel level = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0, 1]
+  }];
+  string tenant_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string actor_id = 5 [(buf.validate.field).string = {max_len: 128}];
+  google.protobuf.Timestamp period_start = 6 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp period_end = 7 [(buf.validate.field).required = true];
+  int64 limit = 8 [(buf.validate.field).int64 = {
+    gte: 0
+    lte: 1000000000
+  }];
+}
+
+message CreateCreditPoolResponse {
+  CreditPool pool = 1;
+  bool existing = 2;
+}
+
+message AdjustCreditPoolRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string credit_pool_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  int64 limit = 5 [(buf.validate.field).int64 = {
+    gte: 0
+    lte: 1000000000
+  }];
+}
+
+message AdjustCreditPoolResponse {
+  CreditPool pool = 1;
+}
+
+message FindCreditPoolRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  BudgetLevel level = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0, 1]
+  }];
+  string tenant_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string actor_id = 4 [(buf.validate.field).string = {max_len: 128}];
+  google.protobuf.Timestamp period_start = 5 [(buf.validate.field).required = true];
+}
+
+message FindCreditPoolResponse {
+  CreditPool pool = 1;
 }

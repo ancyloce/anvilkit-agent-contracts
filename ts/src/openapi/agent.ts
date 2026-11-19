@@ -754,6 +754,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's conversations in the caller's project, newest first
+         * @description A conversation is personal (DEC-067): only its creator, in the creator's tenant and project, can list or read it. Without `status` both active and archived conversations are listed. The order is creation time, newest first, so a page never moves under later activity.
+         */
+        get: operations["listConversations"];
+        put?: never;
+        /**
+         * Create a personal conversation in the caller's project
+         * @description The tenant, project and owner come from the verified principal. The same commandId and body returns the existing conversation; another body is IDEMPOTENCY_CONFLICT.
+         */
+        post: operations["createConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of the caller's conversations */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, archive or restore a conversation conditionally on its revision
+         * @description At least one of `title` and `status` is present. An archived conversation accepts no new message until it is restored to `active`; its history stays readable. Another current revision is REVISION_CONFLICT. The same commandId and body returns the conversation as it is now.
+         */
+        patch: operations["updateConversation"];
+        trace?: never;
+    };
+    "/conversations/{conversationId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of a conversation's history, oldest first within the page
+         * @description Without `beforeMessageSeq` the page holds the newest messages; `nextBeforeMessageSeq` names the page before it. A page also ends early when its message text reaches 1 MiB of UTF-8, and always holds at least one message when any precedes the cursor.
+         */
+        get: operations["listMessages"];
+        put?: never;
+        /**
+         * Add the caller's text message to an active conversation
+         * @description The message is the caller's own; a request names no role. The text is at most 32768 bytes of UTF-8 (INVALID_ARGUMENT above it). Another current revision is REVISION_CONFLICT; a message to an archived conversation is INVALID_ARGUMENT. The same commandId and body returns the original receipt. Assistant replies are not produced yet (DEC-067): a receipt names a turn only once replies are enabled.
+         */
+        post: operations["appendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1547,6 +1616,81 @@ export interface components {
             expectedRevision: components["schemas"]["Revision"];
             limit: components["schemas"]["Credits"];
         };
+        /** @enum {string} */
+        ConversationStatus: "active" | "archived";
+        ConversationTitle: string;
+        /** @description A personal conversation. `revision` moves on a rename, an archive, a restore and each accepted message; `lastMessageSeq` is "0" before the first message. */
+        Conversation: {
+            conversationId: components["schemas"]["Id"];
+            tenantId: components["schemas"]["Id"];
+            projectId?: components["schemas"]["Id"];
+            ownerActorId: components["schemas"]["Id"];
+            status: components["schemas"]["ConversationStatus"];
+            title?: components["schemas"]["ConversationTitle"];
+            revision: components["schemas"]["Revision"];
+            lastMessageSeq: components["schemas"]["Sequence"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        ConversationPage: {
+            conversations: components["schemas"]["Conversation"][];
+            nextCursor?: string;
+        };
+        CreateConversationRequest: {
+            commandId: components["schemas"]["Id"];
+            title?: components["schemas"]["ConversationTitle"];
+        };
+        /** @description At least one of title and status is present. */
+        UpdateConversationRequest: {
+            commandId: components["schemas"]["Id"];
+            expectedRevision: components["schemas"]["Revision"];
+            title?: components["schemas"]["ConversationTitle"];
+            status?: components["schemas"]["ConversationStatus"];
+        };
+        /** @enum {string} */
+        MessageRole: "user" | "assistant";
+        /**
+         * @description `completed` is the only state a stored user message has. The other states belong to assistant replies (design 0001 §6.4); none of them means a complete reply.
+         * @enum {string}
+         */
+        MessageState: "pending" | "streaming" | "completed" | "partial_failed" | "canceled" | "reconciling";
+        /** @description Text only. `text` is at most 32768 bytes of UTF-8, which the server checks. */
+        MessageContent: {
+            /** @enum {string} */
+            type: "text";
+            text: string;
+        };
+        Message: {
+            messageId: components["schemas"]["Id"];
+            conversationId: components["schemas"]["Id"];
+            messageSeq: components["schemas"]["Sequence"];
+            role: components["schemas"]["MessageRole"];
+            state: components["schemas"]["MessageState"];
+            content: components["schemas"]["MessageContent"];
+            contentDigest: components["schemas"]["Digest"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Messages in ascending messageSeq. `nextBeforeMessageSeq` is present when older messages exist; pass it as `beforeMessageSeq` for the page before this one. */
+        MessagePage: {
+            messages: components["schemas"]["Message"][];
+            nextBeforeMessageSeq?: components["schemas"]["Sequence"];
+        };
+        AppendMessageRequest: {
+            commandId: components["schemas"]["Id"];
+            expectedRevision: components["schemas"]["Revision"];
+            content: components["schemas"]["MessageContent"];
+        };
+        /** @description The stored user message. `turnId`, `assistantMessageId` and `operationId` name the reply once assistant replies are enabled; they are absent until then (DEC-067). */
+        MessageReceipt: {
+            conversationId: components["schemas"]["Id"];
+            messageId: components["schemas"]["Id"];
+            messageSeq: components["schemas"]["Sequence"];
+            conversationRevision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            turnId?: components["schemas"]["Id"];
+            assistantMessageId?: components["schemas"]["Id"];
+            operationId?: components["schemas"]["Id"];
+        };
     };
     responses: {
         /** @description INVALID_ARGUMENT */
@@ -1620,6 +1764,9 @@ export interface components {
         runId: components["schemas"]["Id"];
         poolId: components["schemas"]["Id"];
         creditPoolId: components["schemas"]["Id"];
+        conversationId: components["schemas"]["Id"];
+        /** @description Default 20 for conversations and 30 for messages. */
+        historyLimit: number;
         budgetLevel: components["schemas"]["BudgetLevel"];
         creditLevel: components["schemas"]["CreditLevel"];
         /** @description The pool's tenant; absent for a platform pool. */
@@ -3034,6 +3181,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditPool"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ConversationStatus"];
+                cursor?: components["parameters"]["cursor"];
+                /** @description Default 20 for conversations and 30 for messages. */
+                limit?: components["parameters"]["historyLimit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationPage"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConversationRequest"];
+            };
+        };
+        responses: {
+            /** @description The conversation. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The conversation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    updateConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConversationRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated conversation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listMessages: {
+        parameters: {
+            query?: {
+                beforeMessageSeq?: components["schemas"]["Sequence"];
+                /** @description Default 20 for conversations and 30 for messages. */
+                limit?: components["parameters"]["historyLimit"];
+            };
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePage"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    appendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored message. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageReceipt"];
                 };
             };
             400: components["responses"]["InvalidArgument"];

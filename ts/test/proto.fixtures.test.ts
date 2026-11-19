@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import "../src/proto/anvilkit/control/v1/artifact.js";
 import "../src/proto/anvilkit/control/v1/control.js";
+import "../src/proto/anvilkit/control/v1/conversation.js";
 import "../src/proto/anvilkit/control/v1/dispatch.js";
 import "../src/proto/anvilkit/control/v1/effect.js";
 import "../src/proto/anvilkit/control/v1/finance.js";

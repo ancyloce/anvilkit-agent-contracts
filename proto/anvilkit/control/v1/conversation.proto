@@ -1,0 +1,207 @@
+// Conversations (DEC-067, design 0001): Control owns personal conversations
+// and their messages. A conversation belongs to the verified actor who created
+// it, within that actor's tenant and project; every read and write matches all
+// three from the caller's Scope, and any other caller is answered NOT_FOUND.
+// Message bodies stay in Control's private tables; they never enter events,
+// logs or traces. This first slice stores user text messages and their
+// history; assistant replies (turns) are added by later phases with their own
+// fields, never by reinterpreting these.
+syntax = "proto3";
+
+package anvilkit.control.v1;
+
+import "anvilkit/control/v1/control.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum ConversationStatus {
+  CONVERSATION_STATUS_UNSPECIFIED = 0;
+  CONVERSATION_STATUS_ACTIVE = 1;
+  // Readable and restorable; accepts no new message.
+  CONVERSATION_STATUS_ARCHIVED = 2;
+}
+
+enum MessageRole {
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_ROLE_USER = 1;
+  MESSAGE_ROLE_ASSISTANT = 2;
+}
+
+// A stored user message is COMPLETED. The other states belong to assistant
+// replies (design 0001 §6.4); none of them means a complete reply.
+enum MessageState {
+  MESSAGE_STATE_UNSPECIFIED = 0;
+  MESSAGE_STATE_PENDING = 1;
+  MESSAGE_STATE_STREAMING = 2;
+  MESSAGE_STATE_COMPLETED = 3;
+  MESSAGE_STATE_PARTIAL_FAILED = 4;
+  MESSAGE_STATE_CANCELED = 5;
+  MESSAGE_STATE_RECONCILING = 6;
+}
+
+message Conversation {
+  string conversation_id = 1;
+  string tenant_id = 2;
+  // Empty when the owner's principal names no project.
+  string project_id = 3;
+  string owner_actor_id = 4;
+  ConversationStatus status = 5;
+  optional string title = 6;
+  // Moves on a rename, an archive, a restore and each accepted message.
+  string revision = 7;
+  // "0" before the first message.
+  string last_message_seq = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message Message {
+  string message_id = 1;
+  string conversation_id = 2;
+  // 1 for the first message; unique and increasing within a conversation.
+  string message_seq = 3;
+  MessageRole role = 4;
+  MessageState state = 5;
+  string text = 6;
+  // SHA-256 of the text's UTF-8 bytes.
+  string content_digest = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message MessageReceipt {
+  string conversation_id = 1;
+  string message_id = 2;
+  string message_seq = 3;
+  // The conversation's revision after this message.
+  string conversation_revision = 4;
+  google.protobuf.Timestamp created_at = 5;
+  // The reply, once assistant replies are enabled; absent until then.
+  optional string turn_id = 6;
+  optional string assistant_message_id = 7;
+  optional string operation_id = 8;
+}
+
+// The API is the only caller (architecture.md communication matrix). Scope
+// is the authenticated principal; a command's tenant and actor must be the
+// scope's.
+service ConversationService {
+  // The same command with the same digest answers the existing conversation.
+  rpc CreateConversation(CreateConversationRequest) returns (CreateConversationResponse);
+  rpc GetConversation(GetConversationRequest) returns (GetConversationResponse);
+  // The caller's conversations in the caller's project, newest first.
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
+  // Rename, archive or restore under the expected revision.
+  rpc UpdateConversation(UpdateConversationRequest) returns (UpdateConversationResponse);
+  // Stores the caller's text message under the expected revision.
+  rpc AppendMessage(AppendMessageRequest) returns (AppendMessageResponse);
+  // A page of history, ascending within the page, newest page first.
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+}
+
+message CreateConversationRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  optional string title = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+}
+
+message CreateConversationResponse {
+  Conversation conversation = 1;
+  bool existing = 2;
+}
+
+message GetConversationRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string conversation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetConversationResponse {
+  Conversation conversation = 1;
+}
+
+message ListConversationsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  // UNSPECIFIED lists every status.
+  ConversationStatus status = 2 [(buf.validate.field).enum.defined_only = true];
+  // The previous page's next_cursor; empty for the first page.
+  string cursor = 3 [(buf.validate.field).string.max_len = 512];
+  // 0 means the default (20).
+  int32 limit = 4 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
+}
+
+message ListConversationsResponse {
+  repeated Conversation conversations = 1;
+  optional string next_cursor = 2;
+}
+
+message UpdateConversationRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string conversation_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  // At least one of title and status is set.
+  optional string title = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  // UNSPECIFIED leaves the status unchanged.
+  ConversationStatus status = 6 [(buf.validate.field).enum.defined_only = true];
+}
+
+message UpdateConversationResponse {
+  Conversation conversation = 1;
+  bool existing = 2;
+}
+
+message AppendMessageRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string conversation_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string expected_revision = 4 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  // The user's text: 1 to 32768 bytes of UTF-8.
+  string text = 5 [(buf.validate.field).string = {
+    min_bytes: 1
+    max_bytes: 32768
+  }];
+}
+
+message AppendMessageResponse {
+  MessageReceipt receipt = 1;
+  bool existing = 2;
+}
+
+message ListMessagesRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string conversation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // Messages before this sequence; absent for the newest page.
+  optional string before_message_seq = 3 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  // 0 means the default (30).
+  int32 limit = 4 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
+}
+
+message ListMessagesResponse {
+  // Ascending message_seq.
+  repeated Message messages = 1;
+  // Present when older messages exist.
+  optional string next_before_message_seq = 2;
+}

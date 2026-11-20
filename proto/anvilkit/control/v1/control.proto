@@ -131,6 +131,10 @@ enum OperationKind {
   OPERATION_KIND_RELEASE = 5;
   // LocalCheck is a fixed qualification fixture, never a business success.
   OPERATION_KIND_LOCAL_CHECK = 6;
+  // One assistant reply to one user message (DEC-068, design 0001 §7.2):
+  // created only by ConversationService.AppendMessage, never by
+  // CreateOperation; non-queued like a preparation, and debited no credit.
+  OPERATION_KIND_CHAT_TURN = 7;
 }
 
 enum Lifecycle {

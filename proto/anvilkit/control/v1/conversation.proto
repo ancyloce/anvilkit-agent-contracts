@@ -3,14 +3,17 @@
 // it, within that actor's tenant and project; every read and write matches all
 // three from the caller's Scope, and any other caller is answered NOT_FOUND.
 // Message bodies stay in Control's private tables; they never enter events,
-// logs or traces. This first slice stores user text messages and their
-// history; assistant replies (turns) are added by later phases with their own
-// fields, never by reinterpreting these.
+// logs or traces. The first slice stored user text messages and their
+// history; design D3 (DEC-068) adds assistant replies: each accepted user
+// message opens one turn with one chat_turn operation, which the Workflow's
+// chat Activity answers through ConversationExecutionService. Later phases add
+// their own fields, never by reinterpreting these.
 syntax = "proto3";
 
 package anvilkit.control.v1;
 
 import "anvilkit/control/v1/control.proto";
+import "anvilkit/control/v1/dispatch.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -96,6 +99,13 @@ service ConversationService {
   rpc AppendMessage(AppendMessageRequest) returns (AppendMessageResponse);
   // A page of history, ascending within the page, newest page first.
   rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+  // One turn of the caller's conversation (D3).
+  rpc GetTurn(GetTurnRequest) returns (GetTurnResponse);
+  // Stops this turn's reply only (design 0001 §11.3): Control fences new
+  // dispatch and cancels the turn's chat_turn operation at its current
+  // revision; text already shown stays, and incurred usage stays in the
+  // ledger. A terminal turn answers itself unchanged.
+  rpc StopTurn(StopTurnRequest) returns (StopTurnResponse);
 }
 
 message CreateConversationRequest {
@@ -205,3 +215,234 @@ message ListMessagesResponse {
   // Present when older messages exist.
   optional string next_before_message_seq = 2;
 }
+
+// ---- assistant replies (design 0001 D3, DEC-068) ----
+
+// A turn's aggregate state (design 0001 §4.2). Only COMPLETED means a complete
+// reply; FAILED and CANCELED keep any text already stored, marked partial.
+enum TurnState {
+  TURN_STATE_UNSPECIFIED = 0;
+  TURN_STATE_QUEUED = 1;
+  TURN_STATE_RUNNING = 2;
+  TURN_STATE_COMPLETED = 3;
+  TURN_STATE_FAILED = 4;
+  // The stop was accepted; the sender is not yet proven stopped.
+  TURN_STATE_CANCEL_PENDING = 5;
+  TURN_STATE_CANCELED = 6;
+  // The sender is not proven stopped, or completeness is unresolved; the turn
+  // keeps the conversation's one reply slot.
+  TURN_STATE_RECONCILING = 7;
+}
+
+// What is known of the reply's text (design 0001 §7.4).
+enum ContentStatus {
+  CONTENT_STATUS_UNSPECIFIED = 0;
+  // Normal termination and the whole reply stored.
+  CONTENT_STATUS_COMPLETE = 1;
+  // A truncation, a stop or an error: the stored text, if any, is a prefix.
+  CONTENT_STATUS_PARTIAL = 2;
+  // Not yet known, or not provable.
+  CONTENT_STATUS_UNKNOWN = 3;
+}
+
+// Whether the reply's controlled sending path can still send or append
+// (design 0001 §7.4). STOPPED rests on the sender's own settlement or on the
+// Model Proxy's content fence at reclaim (DEC-068, CR-04); a timeout alone is
+// never STOPPED. It says nothing about the provider's billing.
+enum SenderStatus {
+  SENDER_STATUS_UNSPECIFIED = 0;
+  // Verifiably not sent, with future sending fenced.
+  SENDER_STATUS_NOT_STARTED = 1;
+  SENDER_STATUS_ACTIVE = 2;
+  SENDER_STATUS_STOPPED = 3;
+  SENDER_STATUS_UNKNOWN = 4;
+}
+
+// One bounded assistant reply to one user message. Content, sender and
+// financial facts are separate: a terminal turn can still have its
+// operation's finance unsettled (design 0001 §7.4).
+message Turn {
+  string turn_id = 1;
+  string conversation_id = 2;
+  // The user message this turn answers.
+  string input_message_id = 3;
+  // Present once the reply's text is stored; a turn that ended before any
+  // text has none.
+  optional string assistant_message_id = 4;
+  // The turn's chat_turn operation.
+  string operation_id = 5;
+  TurnState state = 6;
+  ContentStatus content_status = 7;
+  SenderStatus sender_status = 8;
+  // The chat_turn operation's finance state, never derived from the text.
+  FinanceState finance = 9;
+  // A stable code for FAILED, CANCELED and RECONCILING turns, for example
+  // UPSTREAM_FINISH_LENGTH, CONTENT_UNRECOVERABLE or SENDER_LOST.
+  optional string failure_code = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message GetTurnRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string conversation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string turn_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetTurnResponse {
+  Turn turn = 1;
+}
+
+message StopTurnRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  Scope scope = 2 [(buf.validate.field).required = true];
+  string conversation_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string turn_id = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message StopTurnResponse {
+  Turn turn = 1;
+  bool existing = 2;
+}
+
+// The Workflow's fixed chat Activity is the only caller (design 0001 §7.1,
+// §7.2): its workload identity, a chat_turn operation and the attempt Control
+// opened for it. Every write checks the tenant, the current attempt and
+// execution epoch, the operation's cancel fence and the current writer epoch.
+// No method grants a model send; Control's dispatch admission still does.
+service ConversationExecutionService {
+  // Claims the right to write the reply of the binding's chat_turn operation
+  // (one operation answers exactly one turn; the Workflow starts from the
+  // operation's identity only) and answers the turn, whose id the later calls
+  // name. The same invocation re-entering gets its original epoch; the same temporal attempt with another invocation
+  // conflicts; a higher temporal attempt of the same activity key takes over
+  // and increments the epoch; a lower one is stale.
+  rpc ClaimReplyWriter(ClaimReplyWriterRequest) returns (ClaimReplyWriterResponse);
+  // The turn's context: the conversation's messages up to and including the
+  // input message, newest first within the chat_turn profile's context bound,
+  // returned in ascending sequence. The same turn always yields the same
+  // context and digest.
+  rpc GetTurnContext(GetTurnContextRequest) returns (GetTurnContextResponse);
+  // Seals the turn's reply under the current writer epoch. COMPLETED needs a
+  // stopped sender and the whole text; the other outcomes store a non-empty
+  // prefix, if any, as a partial assistant message. The same command answers
+  // the recorded outcome; a different outcome for a sealed turn conflicts.
+  rpc RecordReplyOutcome(RecordReplyOutcomeRequest) returns (RecordReplyOutcomeResponse);
+}
+
+// The sealed outcome of a turn's reply (design 0001 §7.4).
+enum ReplyOutcome {
+  REPLY_OUTCOME_UNSPECIFIED = 0;
+  // Normal termination, the whole text, the sender stopped.
+  REPLY_OUTCOME_COMPLETED = 1;
+  // A truncation or an error after text began; the prefix is kept.
+  REPLY_OUTCOME_PARTIAL_FAILED = 2;
+  // Stopped by the user; the shown prefix is kept.
+  REPLY_OUTCOME_CANCELED = 3;
+  // Ended before any text, or the text is unrecoverable.
+  REPLY_OUTCOME_FAILED = 4;
+}
+
+message ClaimReplyWriterRequest {
+  // The turn is the binding's operation's; no turn id is named.
+  reserved 3;
+  reserved "turn_id";
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  ExecutionBinding binding = 2 [(buf.validate.field).required = true];
+  // The Workflow's stable identity of the chat Activity (its execution, run
+  // and activity id), fixed for the turn.
+  string activity_key = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  // The trusted worker's attempt ordinal of that Activity, from 1.
+  string temporal_attempt = 5 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  // This invocation's identity, from the trusted worker.
+  string invocation_id = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message ClaimReplyWriterResponse {
+  // From 1; a takeover increments it.
+  string writer_epoch = 1;
+  Turn turn = 2;
+  bool existing = 3;
+}
+
+message GetTurnContextRequest {
+  string tenant_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  ExecutionBinding binding = 2 [(buf.validate.field).required = true];
+  string turn_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string writer_epoch = 4 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+}
+
+message GetTurnContextResponse {
+  // Ascending message_seq; the last one is the turn's input message.
+  repeated Message messages = 1;
+  // SHA-256 over the context's message ids and content digests in order.
+  string context_digest = 2;
+}
+
+message RecordReplyOutcomeRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  ExecutionBinding binding = 2 [(buf.validate.field).required = true];
+  string turn_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string writer_epoch = 4 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  // The turn's reply call; Control checks it against the turn's dispatch.
+  string call_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  ReplyOutcome outcome = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The reply's text: 1 to 32768 bytes of UTF-8 (the stored message bound).
+  // Required for COMPLETED; absent when no text was received.
+  optional string text = 7 [(buf.validate.field).string = {
+    min_bytes: 1
+    max_bytes: 32768
+  }];
+  // SHA-256 of the text's UTF-8 bytes; present exactly when text is.
+  optional string content_digest = 8 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  SenderStatus sender_status = 9 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // A stable code for every outcome other than COMPLETED.
+  optional string failure_code = 10 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+}
+
+message RecordReplyOutcomeResponse {
+  Turn turn = 1;
+  // The stored assistant message, when text was stored.
+  optional Message assistant_message = 2;
+  bool existing = 3;
+}
+

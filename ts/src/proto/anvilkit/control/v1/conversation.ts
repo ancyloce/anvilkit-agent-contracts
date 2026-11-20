@@ -20,7 +20,8 @@ import {
 } from "@grpc/grpc-js";
 import { Timestamp } from "../../../google/protobuf/timestamp.js";
 import { messageTypeRegistry } from "../../../typeRegistry.js";
-import { CommandIdentity, Scope } from "./control.js";
+import { CommandIdentity, FinanceState, financeStateFromJSON, financeStateToJSON, Scope } from "./control.js";
+import { ExecutionBinding } from "./dispatch.js";
 
 export const protobufPackage = "anvilkit.control.v1";
 
@@ -30,9 +31,11 @@ export const protobufPackage = "anvilkit.control.v1";
  * it, within that actor's tenant and project; every read and write matches all
  * three from the caller's Scope, and any other caller is answered NOT_FOUND.
  * Message bodies stay in Control's private tables; they never enter events,
- * logs or traces. This first slice stores user text messages and their
- * history; assistant replies (turns) are added by later phases with their own
- * fields, never by reinterpreting these.
+ * logs or traces. The first slice stored user text messages and their
+ * history; design D3 (DEC-068) adds assistant replies: each accepted user
+ * message opens one turn with one chat_turn operation, which the Workflow's
+ * chat Activity answers through ConversationExecutionService. Later phases add
+ * their own fields, never by reinterpreting these.
  */
 
 export enum ConversationStatus {
@@ -176,6 +179,247 @@ export function messageStateToJSON(object: MessageState): string {
     case MessageState.MESSAGE_STATE_RECONCILING:
       return "MESSAGE_STATE_RECONCILING";
     case MessageState.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/**
+ * A turn's aggregate state (design 0001 §4.2). Only COMPLETED means a complete
+ * reply; FAILED and CANCELED keep any text already stored, marked partial.
+ */
+export enum TurnState {
+  TURN_STATE_UNSPECIFIED = 0,
+  TURN_STATE_QUEUED = 1,
+  TURN_STATE_RUNNING = 2,
+  TURN_STATE_COMPLETED = 3,
+  TURN_STATE_FAILED = 4,
+  /** TURN_STATE_CANCEL_PENDING - The stop was accepted; the sender is not yet proven stopped. */
+  TURN_STATE_CANCEL_PENDING = 5,
+  TURN_STATE_CANCELED = 6,
+  /**
+   * TURN_STATE_RECONCILING - The sender is not proven stopped, or completeness is unresolved; the turn
+   * keeps the conversation's one reply slot.
+   */
+  TURN_STATE_RECONCILING = 7,
+  UNRECOGNIZED = -1,
+}
+
+export function turnStateFromJSON(object: any): TurnState {
+  switch (object) {
+    case 0:
+    case "TURN_STATE_UNSPECIFIED":
+      return TurnState.TURN_STATE_UNSPECIFIED;
+    case 1:
+    case "TURN_STATE_QUEUED":
+      return TurnState.TURN_STATE_QUEUED;
+    case 2:
+    case "TURN_STATE_RUNNING":
+      return TurnState.TURN_STATE_RUNNING;
+    case 3:
+    case "TURN_STATE_COMPLETED":
+      return TurnState.TURN_STATE_COMPLETED;
+    case 4:
+    case "TURN_STATE_FAILED":
+      return TurnState.TURN_STATE_FAILED;
+    case 5:
+    case "TURN_STATE_CANCEL_PENDING":
+      return TurnState.TURN_STATE_CANCEL_PENDING;
+    case 6:
+    case "TURN_STATE_CANCELED":
+      return TurnState.TURN_STATE_CANCELED;
+    case 7:
+    case "TURN_STATE_RECONCILING":
+      return TurnState.TURN_STATE_RECONCILING;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return TurnState.UNRECOGNIZED;
+  }
+}
+
+export function turnStateToJSON(object: TurnState): string {
+  switch (object) {
+    case TurnState.TURN_STATE_UNSPECIFIED:
+      return "TURN_STATE_UNSPECIFIED";
+    case TurnState.TURN_STATE_QUEUED:
+      return "TURN_STATE_QUEUED";
+    case TurnState.TURN_STATE_RUNNING:
+      return "TURN_STATE_RUNNING";
+    case TurnState.TURN_STATE_COMPLETED:
+      return "TURN_STATE_COMPLETED";
+    case TurnState.TURN_STATE_FAILED:
+      return "TURN_STATE_FAILED";
+    case TurnState.TURN_STATE_CANCEL_PENDING:
+      return "TURN_STATE_CANCEL_PENDING";
+    case TurnState.TURN_STATE_CANCELED:
+      return "TURN_STATE_CANCELED";
+    case TurnState.TURN_STATE_RECONCILING:
+      return "TURN_STATE_RECONCILING";
+    case TurnState.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/** What is known of the reply's text (design 0001 §7.4). */
+export enum ContentStatus {
+  CONTENT_STATUS_UNSPECIFIED = 0,
+  /** CONTENT_STATUS_COMPLETE - Normal termination and the whole reply stored. */
+  CONTENT_STATUS_COMPLETE = 1,
+  /** CONTENT_STATUS_PARTIAL - A truncation, a stop or an error: the stored text, if any, is a prefix. */
+  CONTENT_STATUS_PARTIAL = 2,
+  /** CONTENT_STATUS_UNKNOWN - Not yet known, or not provable. */
+  CONTENT_STATUS_UNKNOWN = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function contentStatusFromJSON(object: any): ContentStatus {
+  switch (object) {
+    case 0:
+    case "CONTENT_STATUS_UNSPECIFIED":
+      return ContentStatus.CONTENT_STATUS_UNSPECIFIED;
+    case 1:
+    case "CONTENT_STATUS_COMPLETE":
+      return ContentStatus.CONTENT_STATUS_COMPLETE;
+    case 2:
+    case "CONTENT_STATUS_PARTIAL":
+      return ContentStatus.CONTENT_STATUS_PARTIAL;
+    case 3:
+    case "CONTENT_STATUS_UNKNOWN":
+      return ContentStatus.CONTENT_STATUS_UNKNOWN;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return ContentStatus.UNRECOGNIZED;
+  }
+}
+
+export function contentStatusToJSON(object: ContentStatus): string {
+  switch (object) {
+    case ContentStatus.CONTENT_STATUS_UNSPECIFIED:
+      return "CONTENT_STATUS_UNSPECIFIED";
+    case ContentStatus.CONTENT_STATUS_COMPLETE:
+      return "CONTENT_STATUS_COMPLETE";
+    case ContentStatus.CONTENT_STATUS_PARTIAL:
+      return "CONTENT_STATUS_PARTIAL";
+    case ContentStatus.CONTENT_STATUS_UNKNOWN:
+      return "CONTENT_STATUS_UNKNOWN";
+    case ContentStatus.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/**
+ * Whether the reply's controlled sending path can still send or append
+ * (design 0001 §7.4). STOPPED rests on the sender's own settlement or on the
+ * Model Proxy's content fence at reclaim (DEC-068, CR-04); a timeout alone is
+ * never STOPPED. It says nothing about the provider's billing.
+ */
+export enum SenderStatus {
+  SENDER_STATUS_UNSPECIFIED = 0,
+  /** SENDER_STATUS_NOT_STARTED - Verifiably not sent, with future sending fenced. */
+  SENDER_STATUS_NOT_STARTED = 1,
+  SENDER_STATUS_ACTIVE = 2,
+  SENDER_STATUS_STOPPED = 3,
+  SENDER_STATUS_UNKNOWN = 4,
+  UNRECOGNIZED = -1,
+}
+
+export function senderStatusFromJSON(object: any): SenderStatus {
+  switch (object) {
+    case 0:
+    case "SENDER_STATUS_UNSPECIFIED":
+      return SenderStatus.SENDER_STATUS_UNSPECIFIED;
+    case 1:
+    case "SENDER_STATUS_NOT_STARTED":
+      return SenderStatus.SENDER_STATUS_NOT_STARTED;
+    case 2:
+    case "SENDER_STATUS_ACTIVE":
+      return SenderStatus.SENDER_STATUS_ACTIVE;
+    case 3:
+    case "SENDER_STATUS_STOPPED":
+      return SenderStatus.SENDER_STATUS_STOPPED;
+    case 4:
+    case "SENDER_STATUS_UNKNOWN":
+      return SenderStatus.SENDER_STATUS_UNKNOWN;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return SenderStatus.UNRECOGNIZED;
+  }
+}
+
+export function senderStatusToJSON(object: SenderStatus): string {
+  switch (object) {
+    case SenderStatus.SENDER_STATUS_UNSPECIFIED:
+      return "SENDER_STATUS_UNSPECIFIED";
+    case SenderStatus.SENDER_STATUS_NOT_STARTED:
+      return "SENDER_STATUS_NOT_STARTED";
+    case SenderStatus.SENDER_STATUS_ACTIVE:
+      return "SENDER_STATUS_ACTIVE";
+    case SenderStatus.SENDER_STATUS_STOPPED:
+      return "SENDER_STATUS_STOPPED";
+    case SenderStatus.SENDER_STATUS_UNKNOWN:
+      return "SENDER_STATUS_UNKNOWN";
+    case SenderStatus.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/** The sealed outcome of a turn's reply (design 0001 §7.4). */
+export enum ReplyOutcome {
+  REPLY_OUTCOME_UNSPECIFIED = 0,
+  /** REPLY_OUTCOME_COMPLETED - Normal termination, the whole text, the sender stopped. */
+  REPLY_OUTCOME_COMPLETED = 1,
+  /** REPLY_OUTCOME_PARTIAL_FAILED - A truncation or an error after text began; the prefix is kept. */
+  REPLY_OUTCOME_PARTIAL_FAILED = 2,
+  /** REPLY_OUTCOME_CANCELED - Stopped by the user; the shown prefix is kept. */
+  REPLY_OUTCOME_CANCELED = 3,
+  /** REPLY_OUTCOME_FAILED - Ended before any text, or the text is unrecoverable. */
+  REPLY_OUTCOME_FAILED = 4,
+  UNRECOGNIZED = -1,
+}
+
+export function replyOutcomeFromJSON(object: any): ReplyOutcome {
+  switch (object) {
+    case 0:
+    case "REPLY_OUTCOME_UNSPECIFIED":
+      return ReplyOutcome.REPLY_OUTCOME_UNSPECIFIED;
+    case 1:
+    case "REPLY_OUTCOME_COMPLETED":
+      return ReplyOutcome.REPLY_OUTCOME_COMPLETED;
+    case 2:
+    case "REPLY_OUTCOME_PARTIAL_FAILED":
+      return ReplyOutcome.REPLY_OUTCOME_PARTIAL_FAILED;
+    case 3:
+    case "REPLY_OUTCOME_CANCELED":
+      return ReplyOutcome.REPLY_OUTCOME_CANCELED;
+    case 4:
+    case "REPLY_OUTCOME_FAILED":
+      return ReplyOutcome.REPLY_OUTCOME_FAILED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return ReplyOutcome.UNRECOGNIZED;
+  }
+}
+
+export function replyOutcomeToJSON(object: ReplyOutcome): string {
+  switch (object) {
+    case ReplyOutcome.REPLY_OUTCOME_UNSPECIFIED:
+      return "REPLY_OUTCOME_UNSPECIFIED";
+    case ReplyOutcome.REPLY_OUTCOME_COMPLETED:
+      return "REPLY_OUTCOME_COMPLETED";
+    case ReplyOutcome.REPLY_OUTCOME_PARTIAL_FAILED:
+      return "REPLY_OUTCOME_PARTIAL_FAILED";
+    case ReplyOutcome.REPLY_OUTCOME_CANCELED:
+      return "REPLY_OUTCOME_CANCELED";
+    case ReplyOutcome.REPLY_OUTCOME_FAILED:
+      return "REPLY_OUTCOME_FAILED";
+    case ReplyOutcome.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
   }
@@ -327,6 +571,140 @@ export interface ListMessagesResponse {
   messages: Message[];
   /** Present when older messages exist. */
   nextBeforeMessageSeq?: string | undefined;
+}
+
+/**
+ * One bounded assistant reply to one user message. Content, sender and
+ * financial facts are separate: a terminal turn can still have its
+ * operation's finance unsettled (design 0001 §7.4).
+ */
+export interface Turn {
+  $type: "anvilkit.control.v1.Turn";
+  turnId: string;
+  conversationId: string;
+  /** The user message this turn answers. */
+  inputMessageId: string;
+  /**
+   * Present once the reply's text is stored; a turn that ended before any
+   * text has none.
+   */
+  assistantMessageId?:
+    | string
+    | undefined;
+  /** The turn's chat_turn operation. */
+  operationId: string;
+  state: TurnState;
+  contentStatus: ContentStatus;
+  senderStatus: SenderStatus;
+  /** The chat_turn operation's finance state, never derived from the text. */
+  finance: FinanceState;
+  /**
+   * A stable code for FAILED, CANCELED and RECONCILING turns, for example
+   * UPSTREAM_FINISH_LENGTH, CONTENT_UNRECOVERABLE or SENDER_LOST.
+   */
+  failureCode?: string | undefined;
+  createdAt: Date | undefined;
+  updatedAt: Date | undefined;
+}
+
+export interface GetTurnRequest {
+  $type: "anvilkit.control.v1.GetTurnRequest";
+  scope: Scope | undefined;
+  conversationId: string;
+  turnId: string;
+}
+
+export interface GetTurnResponse {
+  $type: "anvilkit.control.v1.GetTurnResponse";
+  turn: Turn | undefined;
+}
+
+export interface StopTurnRequest {
+  $type: "anvilkit.control.v1.StopTurnRequest";
+  command: CommandIdentity | undefined;
+  scope: Scope | undefined;
+  conversationId: string;
+  turnId: string;
+}
+
+export interface StopTurnResponse {
+  $type: "anvilkit.control.v1.StopTurnResponse";
+  turn: Turn | undefined;
+  existing: boolean;
+}
+
+export interface ClaimReplyWriterRequest {
+  $type: "anvilkit.control.v1.ClaimReplyWriterRequest";
+  command: CommandIdentity | undefined;
+  binding:
+    | ExecutionBinding
+    | undefined;
+  /**
+   * The Workflow's stable identity of the chat Activity (its execution, run
+   * and activity id), fixed for the turn.
+   */
+  activityKey: string;
+  /** The trusted worker's attempt ordinal of that Activity, from 1. */
+  temporalAttempt: string;
+  /** This invocation's identity, from the trusted worker. */
+  invocationId: string;
+}
+
+export interface ClaimReplyWriterResponse {
+  $type: "anvilkit.control.v1.ClaimReplyWriterResponse";
+  /** From 1; a takeover increments it. */
+  writerEpoch: string;
+  turn: Turn | undefined;
+  existing: boolean;
+}
+
+export interface GetTurnContextRequest {
+  $type: "anvilkit.control.v1.GetTurnContextRequest";
+  tenantId: string;
+  binding: ExecutionBinding | undefined;
+  turnId: string;
+  writerEpoch: string;
+}
+
+export interface GetTurnContextResponse {
+  $type: "anvilkit.control.v1.GetTurnContextResponse";
+  /** Ascending message_seq; the last one is the turn's input message. */
+  messages: Message[];
+  /** SHA-256 over the context's message ids and content digests in order. */
+  contextDigest: string;
+}
+
+export interface RecordReplyOutcomeRequest {
+  $type: "anvilkit.control.v1.RecordReplyOutcomeRequest";
+  command: CommandIdentity | undefined;
+  binding: ExecutionBinding | undefined;
+  turnId: string;
+  writerEpoch: string;
+  /** The turn's reply call; Control checks it against the turn's dispatch. */
+  callId: string;
+  outcome: ReplyOutcome;
+  /**
+   * The reply's text: 1 to 32768 bytes of UTF-8 (the stored message bound).
+   * Required for COMPLETED; absent when no text was received.
+   */
+  text?:
+    | string
+    | undefined;
+  /** SHA-256 of the text's UTF-8 bytes; present exactly when text is. */
+  contentDigest?: string | undefined;
+  senderStatus: SenderStatus;
+  /** A stable code for every outcome other than COMPLETED. */
+  failureCode?: string | undefined;
+}
+
+export interface RecordReplyOutcomeResponse {
+  $type: "anvilkit.control.v1.RecordReplyOutcomeResponse";
+  turn:
+    | Turn
+    | undefined;
+  /** The stored assistant message, when text was stored. */
+  assistantMessage?: Message | undefined;
+  existing: boolean;
 }
 
 function createBaseConversation(): Conversation {
@@ -2389,6 +2767,1620 @@ export const ListMessagesResponse: MessageFns<ListMessagesResponse, "anvilkit.co
 
 messageTypeRegistry.set(ListMessagesResponse.$type, ListMessagesResponse);
 
+function createBaseTurn(): Turn {
+  return {
+    $type: "anvilkit.control.v1.Turn",
+    turnId: "",
+    conversationId: "",
+    inputMessageId: "",
+    assistantMessageId: undefined,
+    operationId: "",
+    state: 0,
+    contentStatus: 0,
+    senderStatus: 0,
+    finance: 0,
+    failureCode: undefined,
+    createdAt: undefined,
+    updatedAt: undefined,
+  };
+}
+
+export const Turn: MessageFns<Turn, "anvilkit.control.v1.Turn"> = {
+  $type: "anvilkit.control.v1.Turn" as const,
+
+  encode(message: Turn, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.turnId !== "") {
+      writer.uint32(10).string(message.turnId);
+    }
+    if (message.conversationId !== "") {
+      writer.uint32(18).string(message.conversationId);
+    }
+    if (message.inputMessageId !== "") {
+      writer.uint32(26).string(message.inputMessageId);
+    }
+    if (message.assistantMessageId !== undefined) {
+      writer.uint32(34).string(message.assistantMessageId);
+    }
+    if (message.operationId !== "") {
+      writer.uint32(42).string(message.operationId);
+    }
+    if (message.state !== 0) {
+      writer.uint32(48).int32(message.state);
+    }
+    if (message.contentStatus !== 0) {
+      writer.uint32(56).int32(message.contentStatus);
+    }
+    if (message.senderStatus !== 0) {
+      writer.uint32(64).int32(message.senderStatus);
+    }
+    if (message.finance !== 0) {
+      writer.uint32(72).int32(message.finance);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(82).string(message.failureCode);
+    }
+    if (message.createdAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.createdAt), writer.uint32(90).fork()).join();
+    }
+    if (message.updatedAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(98).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Turn {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseTurn();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.turnId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.conversationId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.inputMessageId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.assistantMessageId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.operationId = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.state = reader.int32() as any;
+            continue;
+          }
+          case 7: {
+            if (tag !== 56) {
+              break;
+            }
+
+            message.contentStatus = reader.int32() as any;
+            continue;
+          }
+          case 8: {
+            if (tag !== 64) {
+              break;
+            }
+
+            message.senderStatus = reader.int32() as any;
+            continue;
+          }
+          case 9: {
+            if (tag !== 72) {
+              break;
+            }
+
+            message.finance = reader.int32() as any;
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.createdAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): Turn {
+    return {
+      $type: Turn.$type,
+      turnId: isSet(object.turnId)
+        ? globalThis.String(object.turnId)
+        : isSet(object.turn_id)
+        ? globalThis.String(object.turn_id)
+        : "",
+      conversationId: isSet(object.conversationId)
+        ? globalThis.String(object.conversationId)
+        : isSet(object.conversation_id)
+        ? globalThis.String(object.conversation_id)
+        : "",
+      inputMessageId: isSet(object.inputMessageId)
+        ? globalThis.String(object.inputMessageId)
+        : isSet(object.input_message_id)
+        ? globalThis.String(object.input_message_id)
+        : "",
+      assistantMessageId: isSet(object.assistantMessageId)
+        ? globalThis.String(object.assistantMessageId)
+        : isSet(object.assistant_message_id)
+        ? globalThis.String(object.assistant_message_id)
+        : undefined,
+      operationId: isSet(object.operationId)
+        ? globalThis.String(object.operationId)
+        : isSet(object.operation_id)
+        ? globalThis.String(object.operation_id)
+        : "",
+      state: isSet(object.state) ? turnStateFromJSON(object.state) : 0,
+      contentStatus: isSet(object.contentStatus)
+        ? contentStatusFromJSON(object.contentStatus)
+        : isSet(object.content_status)
+        ? contentStatusFromJSON(object.content_status)
+        : 0,
+      senderStatus: isSet(object.senderStatus)
+        ? senderStatusFromJSON(object.senderStatus)
+        : isSet(object.sender_status)
+        ? senderStatusFromJSON(object.sender_status)
+        : 0,
+      finance: isSet(object.finance) ? financeStateFromJSON(object.finance) : 0,
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
+      createdAt: isSet(object.createdAt)
+        ? fromJsonTimestamp(object.createdAt)
+        : isSet(object.created_at)
+        ? fromJsonTimestamp(object.created_at)
+        : undefined,
+      updatedAt: isSet(object.updatedAt)
+        ? fromJsonTimestamp(object.updatedAt)
+        : isSet(object.updated_at)
+        ? fromJsonTimestamp(object.updated_at)
+        : undefined,
+    };
+  },
+
+  toJSON(message: Turn): unknown {
+    const obj: any = {};
+    if (message.turnId !== "") {
+      obj.turnId = message.turnId;
+    }
+    if (message.conversationId !== "") {
+      obj.conversationId = message.conversationId;
+    }
+    if (message.inputMessageId !== "") {
+      obj.inputMessageId = message.inputMessageId;
+    }
+    if (message.assistantMessageId !== undefined) {
+      obj.assistantMessageId = message.assistantMessageId;
+    }
+    if (message.operationId !== "") {
+      obj.operationId = message.operationId;
+    }
+    if (message.state !== 0) {
+      obj.state = turnStateToJSON(message.state);
+    }
+    if (message.contentStatus !== 0) {
+      obj.contentStatus = contentStatusToJSON(message.contentStatus);
+    }
+    if (message.senderStatus !== 0) {
+      obj.senderStatus = senderStatusToJSON(message.senderStatus);
+    }
+    if (message.finance !== 0) {
+      obj.finance = financeStateToJSON(message.finance);
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
+    if (message.createdAt !== undefined) {
+      obj.createdAt = message.createdAt.toISOString();
+    }
+    if (message.updatedAt !== undefined) {
+      obj.updatedAt = message.updatedAt.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Turn>, I>>(base?: I): Turn {
+    return Turn.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Turn>, I>>(object: I): Turn {
+    const message = createBaseTurn();
+    message.turnId = object.turnId ?? "";
+    message.conversationId = object.conversationId ?? "";
+    message.inputMessageId = object.inputMessageId ?? "";
+    message.assistantMessageId = object.assistantMessageId ?? undefined;
+    message.operationId = object.operationId ?? "";
+    message.state = object.state ?? 0;
+    message.contentStatus = object.contentStatus ?? 0;
+    message.senderStatus = object.senderStatus ?? 0;
+    message.finance = object.finance ?? 0;
+    message.failureCode = object.failureCode ?? undefined;
+    message.createdAt = object.createdAt ?? undefined;
+    message.updatedAt = object.updatedAt ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(Turn.$type, Turn);
+
+function createBaseGetTurnRequest(): GetTurnRequest {
+  return { $type: "anvilkit.control.v1.GetTurnRequest", scope: undefined, conversationId: "", turnId: "" };
+}
+
+export const GetTurnRequest: MessageFns<GetTurnRequest, "anvilkit.control.v1.GetTurnRequest"> = {
+  $type: "anvilkit.control.v1.GetTurnRequest" as const,
+
+  encode(message: GetTurnRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.conversationId !== "") {
+      writer.uint32(18).string(message.conversationId);
+    }
+    if (message.turnId !== "") {
+      writer.uint32(26).string(message.turnId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetTurnRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetTurnRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.conversationId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.turnId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetTurnRequest {
+    return {
+      $type: GetTurnRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      conversationId: isSet(object.conversationId)
+        ? globalThis.String(object.conversationId)
+        : isSet(object.conversation_id)
+        ? globalThis.String(object.conversation_id)
+        : "",
+      turnId: isSet(object.turnId)
+        ? globalThis.String(object.turnId)
+        : isSet(object.turn_id)
+        ? globalThis.String(object.turn_id)
+        : "",
+    };
+  },
+
+  toJSON(message: GetTurnRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.conversationId !== "") {
+      obj.conversationId = message.conversationId;
+    }
+    if (message.turnId !== "") {
+      obj.turnId = message.turnId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetTurnRequest>, I>>(base?: I): GetTurnRequest {
+    return GetTurnRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetTurnRequest>, I>>(object: I): GetTurnRequest {
+    const message = createBaseGetTurnRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.conversationId = object.conversationId ?? "";
+    message.turnId = object.turnId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetTurnRequest.$type, GetTurnRequest);
+
+function createBaseGetTurnResponse(): GetTurnResponse {
+  return { $type: "anvilkit.control.v1.GetTurnResponse", turn: undefined };
+}
+
+export const GetTurnResponse: MessageFns<GetTurnResponse, "anvilkit.control.v1.GetTurnResponse"> = {
+  $type: "anvilkit.control.v1.GetTurnResponse" as const,
+
+  encode(message: GetTurnResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.turn !== undefined) {
+      Turn.encode(message.turn, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetTurnResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetTurnResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.turn = Turn.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetTurnResponse {
+    return { $type: GetTurnResponse.$type, turn: isSet(object.turn) ? Turn.fromJSON(object.turn) : undefined };
+  },
+
+  toJSON(message: GetTurnResponse): unknown {
+    const obj: any = {};
+    if (message.turn !== undefined) {
+      obj.turn = Turn.toJSON(message.turn);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetTurnResponse>, I>>(base?: I): GetTurnResponse {
+    return GetTurnResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetTurnResponse>, I>>(object: I): GetTurnResponse {
+    const message = createBaseGetTurnResponse();
+    message.turn = (object.turn !== undefined && object.turn !== null) ? Turn.fromPartial(object.turn) : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetTurnResponse.$type, GetTurnResponse);
+
+function createBaseStopTurnRequest(): StopTurnRequest {
+  return {
+    $type: "anvilkit.control.v1.StopTurnRequest",
+    command: undefined,
+    scope: undefined,
+    conversationId: "",
+    turnId: "",
+  };
+}
+
+export const StopTurnRequest: MessageFns<StopTurnRequest, "anvilkit.control.v1.StopTurnRequest"> = {
+  $type: "anvilkit.control.v1.StopTurnRequest" as const,
+
+  encode(message: StopTurnRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(18).fork()).join();
+    }
+    if (message.conversationId !== "") {
+      writer.uint32(26).string(message.conversationId);
+    }
+    if (message.turnId !== "") {
+      writer.uint32(34).string(message.turnId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StopTurnRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseStopTurnRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.conversationId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.turnId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): StopTurnRequest {
+    return {
+      $type: StopTurnRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      conversationId: isSet(object.conversationId)
+        ? globalThis.String(object.conversationId)
+        : isSet(object.conversation_id)
+        ? globalThis.String(object.conversation_id)
+        : "",
+      turnId: isSet(object.turnId)
+        ? globalThis.String(object.turnId)
+        : isSet(object.turn_id)
+        ? globalThis.String(object.turn_id)
+        : "",
+    };
+  },
+
+  toJSON(message: StopTurnRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.conversationId !== "") {
+      obj.conversationId = message.conversationId;
+    }
+    if (message.turnId !== "") {
+      obj.turnId = message.turnId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StopTurnRequest>, I>>(base?: I): StopTurnRequest {
+    return StopTurnRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StopTurnRequest>, I>>(object: I): StopTurnRequest {
+    const message = createBaseStopTurnRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.conversationId = object.conversationId ?? "";
+    message.turnId = object.turnId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(StopTurnRequest.$type, StopTurnRequest);
+
+function createBaseStopTurnResponse(): StopTurnResponse {
+  return { $type: "anvilkit.control.v1.StopTurnResponse", turn: undefined, existing: false };
+}
+
+export const StopTurnResponse: MessageFns<StopTurnResponse, "anvilkit.control.v1.StopTurnResponse"> = {
+  $type: "anvilkit.control.v1.StopTurnResponse" as const,
+
+  encode(message: StopTurnResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.turn !== undefined) {
+      Turn.encode(message.turn, writer.uint32(10).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(16).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StopTurnResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseStopTurnResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.turn = Turn.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): StopTurnResponse {
+    return {
+      $type: StopTurnResponse.$type,
+      turn: isSet(object.turn) ? Turn.fromJSON(object.turn) : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: StopTurnResponse): unknown {
+    const obj: any = {};
+    if (message.turn !== undefined) {
+      obj.turn = Turn.toJSON(message.turn);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StopTurnResponse>, I>>(base?: I): StopTurnResponse {
+    return StopTurnResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StopTurnResponse>, I>>(object: I): StopTurnResponse {
+    const message = createBaseStopTurnResponse();
+    message.turn = (object.turn !== undefined && object.turn !== null) ? Turn.fromPartial(object.turn) : undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(StopTurnResponse.$type, StopTurnResponse);
+
+function createBaseClaimReplyWriterRequest(): ClaimReplyWriterRequest {
+  return {
+    $type: "anvilkit.control.v1.ClaimReplyWriterRequest",
+    command: undefined,
+    binding: undefined,
+    activityKey: "",
+    temporalAttempt: "",
+    invocationId: "",
+  };
+}
+
+export const ClaimReplyWriterRequest: MessageFns<
+  ClaimReplyWriterRequest,
+  "anvilkit.control.v1.ClaimReplyWriterRequest"
+> = {
+  $type: "anvilkit.control.v1.ClaimReplyWriterRequest" as const,
+
+  encode(message: ClaimReplyWriterRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.binding !== undefined) {
+      ExecutionBinding.encode(message.binding, writer.uint32(18).fork()).join();
+    }
+    if (message.activityKey !== "") {
+      writer.uint32(34).string(message.activityKey);
+    }
+    if (message.temporalAttempt !== "") {
+      writer.uint32(42).string(message.temporalAttempt);
+    }
+    if (message.invocationId !== "") {
+      writer.uint32(50).string(message.invocationId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ClaimReplyWriterRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseClaimReplyWriterRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.binding = ExecutionBinding.decode(reader, reader.uint32());
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.activityKey = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.temporalAttempt = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.invocationId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ClaimReplyWriterRequest {
+    return {
+      $type: ClaimReplyWriterRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      binding: isSet(object.binding) ? ExecutionBinding.fromJSON(object.binding) : undefined,
+      activityKey: isSet(object.activityKey)
+        ? globalThis.String(object.activityKey)
+        : isSet(object.activity_key)
+        ? globalThis.String(object.activity_key)
+        : "",
+      temporalAttempt: isSet(object.temporalAttempt)
+        ? globalThis.String(object.temporalAttempt)
+        : isSet(object.temporal_attempt)
+        ? globalThis.String(object.temporal_attempt)
+        : "",
+      invocationId: isSet(object.invocationId)
+        ? globalThis.String(object.invocationId)
+        : isSet(object.invocation_id)
+        ? globalThis.String(object.invocation_id)
+        : "",
+    };
+  },
+
+  toJSON(message: ClaimReplyWriterRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.binding !== undefined) {
+      obj.binding = ExecutionBinding.toJSON(message.binding);
+    }
+    if (message.activityKey !== "") {
+      obj.activityKey = message.activityKey;
+    }
+    if (message.temporalAttempt !== "") {
+      obj.temporalAttempt = message.temporalAttempt;
+    }
+    if (message.invocationId !== "") {
+      obj.invocationId = message.invocationId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ClaimReplyWriterRequest>, I>>(base?: I): ClaimReplyWriterRequest {
+    return ClaimReplyWriterRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ClaimReplyWriterRequest>, I>>(object: I): ClaimReplyWriterRequest {
+    const message = createBaseClaimReplyWriterRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.binding = (object.binding !== undefined && object.binding !== null)
+      ? ExecutionBinding.fromPartial(object.binding)
+      : undefined;
+    message.activityKey = object.activityKey ?? "";
+    message.temporalAttempt = object.temporalAttempt ?? "";
+    message.invocationId = object.invocationId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ClaimReplyWriterRequest.$type, ClaimReplyWriterRequest);
+
+function createBaseClaimReplyWriterResponse(): ClaimReplyWriterResponse {
+  return { $type: "anvilkit.control.v1.ClaimReplyWriterResponse", writerEpoch: "", turn: undefined, existing: false };
+}
+
+export const ClaimReplyWriterResponse: MessageFns<
+  ClaimReplyWriterResponse,
+  "anvilkit.control.v1.ClaimReplyWriterResponse"
+> = {
+  $type: "anvilkit.control.v1.ClaimReplyWriterResponse" as const,
+
+  encode(message: ClaimReplyWriterResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.writerEpoch !== "") {
+      writer.uint32(10).string(message.writerEpoch);
+    }
+    if (message.turn !== undefined) {
+      Turn.encode(message.turn, writer.uint32(18).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(24).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ClaimReplyWriterResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseClaimReplyWriterResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.writerEpoch = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.turn = Turn.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ClaimReplyWriterResponse {
+    return {
+      $type: ClaimReplyWriterResponse.$type,
+      writerEpoch: isSet(object.writerEpoch)
+        ? globalThis.String(object.writerEpoch)
+        : isSet(object.writer_epoch)
+        ? globalThis.String(object.writer_epoch)
+        : "",
+      turn: isSet(object.turn) ? Turn.fromJSON(object.turn) : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: ClaimReplyWriterResponse): unknown {
+    const obj: any = {};
+    if (message.writerEpoch !== "") {
+      obj.writerEpoch = message.writerEpoch;
+    }
+    if (message.turn !== undefined) {
+      obj.turn = Turn.toJSON(message.turn);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ClaimReplyWriterResponse>, I>>(base?: I): ClaimReplyWriterResponse {
+    return ClaimReplyWriterResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ClaimReplyWriterResponse>, I>>(object: I): ClaimReplyWriterResponse {
+    const message = createBaseClaimReplyWriterResponse();
+    message.writerEpoch = object.writerEpoch ?? "";
+    message.turn = (object.turn !== undefined && object.turn !== null) ? Turn.fromPartial(object.turn) : undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ClaimReplyWriterResponse.$type, ClaimReplyWriterResponse);
+
+function createBaseGetTurnContextRequest(): GetTurnContextRequest {
+  return {
+    $type: "anvilkit.control.v1.GetTurnContextRequest",
+    tenantId: "",
+    binding: undefined,
+    turnId: "",
+    writerEpoch: "",
+  };
+}
+
+export const GetTurnContextRequest: MessageFns<GetTurnContextRequest, "anvilkit.control.v1.GetTurnContextRequest"> = {
+  $type: "anvilkit.control.v1.GetTurnContextRequest" as const,
+
+  encode(message: GetTurnContextRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.tenantId !== "") {
+      writer.uint32(10).string(message.tenantId);
+    }
+    if (message.binding !== undefined) {
+      ExecutionBinding.encode(message.binding, writer.uint32(18).fork()).join();
+    }
+    if (message.turnId !== "") {
+      writer.uint32(26).string(message.turnId);
+    }
+    if (message.writerEpoch !== "") {
+      writer.uint32(34).string(message.writerEpoch);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetTurnContextRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetTurnContextRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.binding = ExecutionBinding.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.turnId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.writerEpoch = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetTurnContextRequest {
+    return {
+      $type: GetTurnContextRequest.$type,
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      binding: isSet(object.binding) ? ExecutionBinding.fromJSON(object.binding) : undefined,
+      turnId: isSet(object.turnId)
+        ? globalThis.String(object.turnId)
+        : isSet(object.turn_id)
+        ? globalThis.String(object.turn_id)
+        : "",
+      writerEpoch: isSet(object.writerEpoch)
+        ? globalThis.String(object.writerEpoch)
+        : isSet(object.writer_epoch)
+        ? globalThis.String(object.writer_epoch)
+        : "",
+    };
+  },
+
+  toJSON(message: GetTurnContextRequest): unknown {
+    const obj: any = {};
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.binding !== undefined) {
+      obj.binding = ExecutionBinding.toJSON(message.binding);
+    }
+    if (message.turnId !== "") {
+      obj.turnId = message.turnId;
+    }
+    if (message.writerEpoch !== "") {
+      obj.writerEpoch = message.writerEpoch;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetTurnContextRequest>, I>>(base?: I): GetTurnContextRequest {
+    return GetTurnContextRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetTurnContextRequest>, I>>(object: I): GetTurnContextRequest {
+    const message = createBaseGetTurnContextRequest();
+    message.tenantId = object.tenantId ?? "";
+    message.binding = (object.binding !== undefined && object.binding !== null)
+      ? ExecutionBinding.fromPartial(object.binding)
+      : undefined;
+    message.turnId = object.turnId ?? "";
+    message.writerEpoch = object.writerEpoch ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetTurnContextRequest.$type, GetTurnContextRequest);
+
+function createBaseGetTurnContextResponse(): GetTurnContextResponse {
+  return { $type: "anvilkit.control.v1.GetTurnContextResponse", messages: [], contextDigest: "" };
+}
+
+export const GetTurnContextResponse: MessageFns<GetTurnContextResponse, "anvilkit.control.v1.GetTurnContextResponse"> =
+  {
+    $type: "anvilkit.control.v1.GetTurnContextResponse" as const,
+
+    encode(message: GetTurnContextResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      for (const v of message.messages) {
+        Message.encode(v!, writer.uint32(10).fork()).join();
+      }
+      if (message.contextDigest !== "") {
+        writer.uint32(18).string(message.contextDigest);
+      }
+      return writer;
+    },
+
+    decode(input: BinaryReader | Uint8Array, length?: number): GetTurnContextResponse {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+      if (previousRecursionDepth >= 100) {
+        throw new globalThis.Error("protobuf decode recursion limit exceeded");
+      }
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+      try {
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = createBaseGetTurnContextResponse();
+        while (reader.pos < end) {
+          const tag = reader.uint32();
+          switch (tag >>> 3) {
+            case 1: {
+              if (tag !== 10) {
+                break;
+              }
+
+              message.messages.push(Message.decode(reader, reader.uint32()));
+              continue;
+            }
+            case 2: {
+              if (tag !== 18) {
+                break;
+              }
+
+              message.contextDigest = reader.string();
+              continue;
+            }
+          }
+          if ((tag & 7) === 4 || tag === 0) {
+            break;
+          }
+          reader.skip(tag & 7);
+        }
+        return message;
+      } finally {
+        (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+      }
+    },
+
+    fromJSON(object: any): GetTurnContextResponse {
+      return {
+        $type: GetTurnContextResponse.$type,
+        messages: globalThis.Array.isArray(object?.messages)
+          ? object.messages.map((e: any) => Message.fromJSON(e))
+          : [],
+        contextDigest: isSet(object.contextDigest)
+          ? globalThis.String(object.contextDigest)
+          : isSet(object.context_digest)
+          ? globalThis.String(object.context_digest)
+          : "",
+      };
+    },
+
+    toJSON(message: GetTurnContextResponse): unknown {
+      const obj: any = {};
+      if (message.messages?.length) {
+        obj.messages = message.messages.map((e) => Message.toJSON(e));
+      }
+      if (message.contextDigest !== "") {
+        obj.contextDigest = message.contextDigest;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<GetTurnContextResponse>, I>>(base?: I): GetTurnContextResponse {
+      return GetTurnContextResponse.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<GetTurnContextResponse>, I>>(object: I): GetTurnContextResponse {
+      const message = createBaseGetTurnContextResponse();
+      message.messages = object.messages?.map((e) => Message.fromPartial(e)) || [];
+      message.contextDigest = object.contextDigest ?? "";
+      return message;
+    },
+  };
+
+messageTypeRegistry.set(GetTurnContextResponse.$type, GetTurnContextResponse);
+
+function createBaseRecordReplyOutcomeRequest(): RecordReplyOutcomeRequest {
+  return {
+    $type: "anvilkit.control.v1.RecordReplyOutcomeRequest",
+    command: undefined,
+    binding: undefined,
+    turnId: "",
+    writerEpoch: "",
+    callId: "",
+    outcome: 0,
+    text: undefined,
+    contentDigest: undefined,
+    senderStatus: 0,
+    failureCode: undefined,
+  };
+}
+
+export const RecordReplyOutcomeRequest: MessageFns<
+  RecordReplyOutcomeRequest,
+  "anvilkit.control.v1.RecordReplyOutcomeRequest"
+> = {
+  $type: "anvilkit.control.v1.RecordReplyOutcomeRequest" as const,
+
+  encode(message: RecordReplyOutcomeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.binding !== undefined) {
+      ExecutionBinding.encode(message.binding, writer.uint32(18).fork()).join();
+    }
+    if (message.turnId !== "") {
+      writer.uint32(26).string(message.turnId);
+    }
+    if (message.writerEpoch !== "") {
+      writer.uint32(34).string(message.writerEpoch);
+    }
+    if (message.callId !== "") {
+      writer.uint32(42).string(message.callId);
+    }
+    if (message.outcome !== 0) {
+      writer.uint32(48).int32(message.outcome);
+    }
+    if (message.text !== undefined) {
+      writer.uint32(58).string(message.text);
+    }
+    if (message.contentDigest !== undefined) {
+      writer.uint32(66).string(message.contentDigest);
+    }
+    if (message.senderStatus !== 0) {
+      writer.uint32(72).int32(message.senderStatus);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(82).string(message.failureCode);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordReplyOutcomeRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRecordReplyOutcomeRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.binding = ExecutionBinding.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.turnId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.writerEpoch = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.callId = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.outcome = reader.int32() as any;
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.text = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.contentDigest = reader.string();
+            continue;
+          }
+          case 9: {
+            if (tag !== 72) {
+              break;
+            }
+
+            message.senderStatus = reader.int32() as any;
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RecordReplyOutcomeRequest {
+    return {
+      $type: RecordReplyOutcomeRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      binding: isSet(object.binding) ? ExecutionBinding.fromJSON(object.binding) : undefined,
+      turnId: isSet(object.turnId)
+        ? globalThis.String(object.turnId)
+        : isSet(object.turn_id)
+        ? globalThis.String(object.turn_id)
+        : "",
+      writerEpoch: isSet(object.writerEpoch)
+        ? globalThis.String(object.writerEpoch)
+        : isSet(object.writer_epoch)
+        ? globalThis.String(object.writer_epoch)
+        : "",
+      callId: isSet(object.callId)
+        ? globalThis.String(object.callId)
+        : isSet(object.call_id)
+        ? globalThis.String(object.call_id)
+        : "",
+      outcome: isSet(object.outcome) ? replyOutcomeFromJSON(object.outcome) : 0,
+      text: isSet(object.text) ? globalThis.String(object.text) : undefined,
+      contentDigest: isSet(object.contentDigest)
+        ? globalThis.String(object.contentDigest)
+        : isSet(object.content_digest)
+        ? globalThis.String(object.content_digest)
+        : undefined,
+      senderStatus: isSet(object.senderStatus)
+        ? senderStatusFromJSON(object.senderStatus)
+        : isSet(object.sender_status)
+        ? senderStatusFromJSON(object.sender_status)
+        : 0,
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
+    };
+  },
+
+  toJSON(message: RecordReplyOutcomeRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.binding !== undefined) {
+      obj.binding = ExecutionBinding.toJSON(message.binding);
+    }
+    if (message.turnId !== "") {
+      obj.turnId = message.turnId;
+    }
+    if (message.writerEpoch !== "") {
+      obj.writerEpoch = message.writerEpoch;
+    }
+    if (message.callId !== "") {
+      obj.callId = message.callId;
+    }
+    if (message.outcome !== 0) {
+      obj.outcome = replyOutcomeToJSON(message.outcome);
+    }
+    if (message.text !== undefined) {
+      obj.text = message.text;
+    }
+    if (message.contentDigest !== undefined) {
+      obj.contentDigest = message.contentDigest;
+    }
+    if (message.senderStatus !== 0) {
+      obj.senderStatus = senderStatusToJSON(message.senderStatus);
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordReplyOutcomeRequest>, I>>(base?: I): RecordReplyOutcomeRequest {
+    return RecordReplyOutcomeRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordReplyOutcomeRequest>, I>>(object: I): RecordReplyOutcomeRequest {
+    const message = createBaseRecordReplyOutcomeRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.binding = (object.binding !== undefined && object.binding !== null)
+      ? ExecutionBinding.fromPartial(object.binding)
+      : undefined;
+    message.turnId = object.turnId ?? "";
+    message.writerEpoch = object.writerEpoch ?? "";
+    message.callId = object.callId ?? "";
+    message.outcome = object.outcome ?? 0;
+    message.text = object.text ?? undefined;
+    message.contentDigest = object.contentDigest ?? undefined;
+    message.senderStatus = object.senderStatus ?? 0;
+    message.failureCode = object.failureCode ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RecordReplyOutcomeRequest.$type, RecordReplyOutcomeRequest);
+
+function createBaseRecordReplyOutcomeResponse(): RecordReplyOutcomeResponse {
+  return {
+    $type: "anvilkit.control.v1.RecordReplyOutcomeResponse",
+    turn: undefined,
+    assistantMessage: undefined,
+    existing: false,
+  };
+}
+
+export const RecordReplyOutcomeResponse: MessageFns<
+  RecordReplyOutcomeResponse,
+  "anvilkit.control.v1.RecordReplyOutcomeResponse"
+> = {
+  $type: "anvilkit.control.v1.RecordReplyOutcomeResponse" as const,
+
+  encode(message: RecordReplyOutcomeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.turn !== undefined) {
+      Turn.encode(message.turn, writer.uint32(10).fork()).join();
+    }
+    if (message.assistantMessage !== undefined) {
+      Message.encode(message.assistantMessage, writer.uint32(18).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(24).bool(message.existing);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordReplyOutcomeResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRecordReplyOutcomeResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.turn = Turn.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.assistantMessage = Message.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RecordReplyOutcomeResponse {
+    return {
+      $type: RecordReplyOutcomeResponse.$type,
+      turn: isSet(object.turn) ? Turn.fromJSON(object.turn) : undefined,
+      assistantMessage: isSet(object.assistantMessage)
+        ? Message.fromJSON(object.assistantMessage)
+        : isSet(object.assistant_message)
+        ? Message.fromJSON(object.assistant_message)
+        : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+    };
+  },
+
+  toJSON(message: RecordReplyOutcomeResponse): unknown {
+    const obj: any = {};
+    if (message.turn !== undefined) {
+      obj.turn = Turn.toJSON(message.turn);
+    }
+    if (message.assistantMessage !== undefined) {
+      obj.assistantMessage = Message.toJSON(message.assistantMessage);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordReplyOutcomeResponse>, I>>(base?: I): RecordReplyOutcomeResponse {
+    return RecordReplyOutcomeResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordReplyOutcomeResponse>, I>>(object: I): RecordReplyOutcomeResponse {
+    const message = createBaseRecordReplyOutcomeResponse();
+    message.turn = (object.turn !== undefined && object.turn !== null) ? Turn.fromPartial(object.turn) : undefined;
+    message.assistantMessage = (object.assistantMessage !== undefined && object.assistantMessage !== null)
+      ? Message.fromPartial(object.assistantMessage)
+      : undefined;
+    message.existing = object.existing ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RecordReplyOutcomeResponse.$type, RecordReplyOutcomeResponse);
+
 /**
  * The API is the only caller (architecture.md communication matrix). Scope
  * is the authenticated principal; a command's tenant and actor must be the
@@ -2465,6 +4457,31 @@ export const ConversationServiceService = {
       Buffer.from(ListMessagesResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ListMessagesResponse => ListMessagesResponse.decode(value),
   },
+  /** One turn of the caller's conversation (D3). */
+  getTurn: {
+    path: "/anvilkit.control.v1.ConversationService/GetTurn" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetTurnRequest): Buffer => Buffer.from(GetTurnRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetTurnRequest => GetTurnRequest.decode(value),
+    responseSerialize: (value: GetTurnResponse): Buffer => Buffer.from(GetTurnResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetTurnResponse => GetTurnResponse.decode(value),
+  },
+  /**
+   * Stops this turn's reply only (design 0001 §11.3): Control fences new
+   * dispatch and cancels the turn's chat_turn operation at its current
+   * revision; text already shown stays, and incurred usage stays in the
+   * ledger. A terminal turn answers itself unchanged.
+   */
+  stopTurn: {
+    path: "/anvilkit.control.v1.ConversationService/StopTurn" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: StopTurnRequest): Buffer => Buffer.from(StopTurnRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): StopTurnRequest => StopTurnRequest.decode(value),
+    responseSerialize: (value: StopTurnResponse): Buffer => Buffer.from(StopTurnResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): StopTurnResponse => StopTurnResponse.decode(value),
+  },
 } as const;
 
 export interface ConversationServiceServer extends UntypedServiceImplementation {
@@ -2479,6 +4496,15 @@ export interface ConversationServiceServer extends UntypedServiceImplementation 
   appendMessage: handleUnaryCall<AppendMessageRequest, AppendMessageResponse>;
   /** A page of history, ascending within the page, newest page first. */
   listMessages: handleUnaryCall<ListMessagesRequest, ListMessagesResponse>;
+  /** One turn of the caller's conversation (D3). */
+  getTurn: handleUnaryCall<GetTurnRequest, GetTurnResponse>;
+  /**
+   * Stops this turn's reply only (design 0001 §11.3): Control fences new
+   * dispatch and cancels the turn's chat_turn operation at its current
+   * revision; text already shown stays, and incurred usage stays in the
+   * ledger. A terminal turn answers itself unchanged.
+   */
+  stopTurn: handleUnaryCall<StopTurnRequest, StopTurnResponse>;
 }
 
 export interface ConversationServiceClient extends Client {
@@ -2577,6 +4603,43 @@ export interface ConversationServiceClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ListMessagesResponse) => void,
   ): ClientUnaryCall;
+  /** One turn of the caller's conversation (D3). */
+  getTurn(
+    request: GetTurnRequest,
+    callback: (error: ServiceError | null, response: GetTurnResponse) => void,
+  ): ClientUnaryCall;
+  getTurn(
+    request: GetTurnRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetTurnResponse) => void,
+  ): ClientUnaryCall;
+  getTurn(
+    request: GetTurnRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetTurnResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Stops this turn's reply only (design 0001 §11.3): Control fences new
+   * dispatch and cancels the turn's chat_turn operation at its current
+   * revision; text already shown stays, and incurred usage stays in the
+   * ledger. A terminal turn answers itself unchanged.
+   */
+  stopTurn(
+    request: StopTurnRequest,
+    callback: (error: ServiceError | null, response: StopTurnResponse) => void,
+  ): ClientUnaryCall;
+  stopTurn(
+    request: StopTurnRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: StopTurnResponse) => void,
+  ): ClientUnaryCall;
+  stopTurn(
+    request: StopTurnRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: StopTurnResponse) => void,
+  ): ClientUnaryCall;
 }
 
 export const ConversationServiceClient = makeGenericClientConstructor(
@@ -2585,6 +4648,177 @@ export const ConversationServiceClient = makeGenericClientConstructor(
 ) as unknown as {
   new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): ConversationServiceClient;
   service: typeof ConversationServiceService;
+  serviceName: string;
+};
+
+/**
+ * The Workflow's fixed chat Activity is the only caller (design 0001 §7.1,
+ * §7.2): its workload identity, a chat_turn operation and the attempt Control
+ * opened for it. Every write checks the tenant, the current attempt and
+ * execution epoch, the operation's cancel fence and the current writer epoch.
+ * No method grants a model send; Control's dispatch admission still does.
+ */
+export type ConversationExecutionServiceService = typeof ConversationExecutionServiceService;
+export const ConversationExecutionServiceService = {
+  /**
+   * Claims the right to write the reply of the binding's chat_turn operation
+   * (one operation answers exactly one turn; the Workflow starts from the
+   * operation's identity only) and answers the turn, whose id the later calls
+   * name. The same invocation re-entering gets its original epoch; the same temporal attempt with another invocation
+   * conflicts; a higher temporal attempt of the same activity key takes over
+   * and increments the epoch; a lower one is stale.
+   */
+  claimReplyWriter: {
+    path: "/anvilkit.control.v1.ConversationExecutionService/ClaimReplyWriter" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ClaimReplyWriterRequest): Buffer =>
+      Buffer.from(ClaimReplyWriterRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ClaimReplyWriterRequest => ClaimReplyWriterRequest.decode(value),
+    responseSerialize: (value: ClaimReplyWriterResponse): Buffer =>
+      Buffer.from(ClaimReplyWriterResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ClaimReplyWriterResponse => ClaimReplyWriterResponse.decode(value),
+  },
+  /**
+   * The turn's context: the conversation's messages up to and including the
+   * input message, newest first within the chat_turn profile's context bound,
+   * returned in ascending sequence. The same turn always yields the same
+   * context and digest.
+   */
+  getTurnContext: {
+    path: "/anvilkit.control.v1.ConversationExecutionService/GetTurnContext" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetTurnContextRequest): Buffer =>
+      Buffer.from(GetTurnContextRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetTurnContextRequest => GetTurnContextRequest.decode(value),
+    responseSerialize: (value: GetTurnContextResponse): Buffer =>
+      Buffer.from(GetTurnContextResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetTurnContextResponse => GetTurnContextResponse.decode(value),
+  },
+  /**
+   * Seals the turn's reply under the current writer epoch. COMPLETED needs a
+   * stopped sender and the whole text; the other outcomes store a non-empty
+   * prefix, if any, as a partial assistant message. The same command answers
+   * the recorded outcome; a different outcome for a sealed turn conflicts.
+   */
+  recordReplyOutcome: {
+    path: "/anvilkit.control.v1.ConversationExecutionService/RecordReplyOutcome" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RecordReplyOutcomeRequest): Buffer =>
+      Buffer.from(RecordReplyOutcomeRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RecordReplyOutcomeRequest => RecordReplyOutcomeRequest.decode(value),
+    responseSerialize: (value: RecordReplyOutcomeResponse): Buffer =>
+      Buffer.from(RecordReplyOutcomeResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RecordReplyOutcomeResponse => RecordReplyOutcomeResponse.decode(value),
+  },
+} as const;
+
+export interface ConversationExecutionServiceServer extends UntypedServiceImplementation {
+  /**
+   * Claims the right to write the reply of the binding's chat_turn operation
+   * (one operation answers exactly one turn; the Workflow starts from the
+   * operation's identity only) and answers the turn, whose id the later calls
+   * name. The same invocation re-entering gets its original epoch; the same temporal attempt with another invocation
+   * conflicts; a higher temporal attempt of the same activity key takes over
+   * and increments the epoch; a lower one is stale.
+   */
+  claimReplyWriter: handleUnaryCall<ClaimReplyWriterRequest, ClaimReplyWriterResponse>;
+  /**
+   * The turn's context: the conversation's messages up to and including the
+   * input message, newest first within the chat_turn profile's context bound,
+   * returned in ascending sequence. The same turn always yields the same
+   * context and digest.
+   */
+  getTurnContext: handleUnaryCall<GetTurnContextRequest, GetTurnContextResponse>;
+  /**
+   * Seals the turn's reply under the current writer epoch. COMPLETED needs a
+   * stopped sender and the whole text; the other outcomes store a non-empty
+   * prefix, if any, as a partial assistant message. The same command answers
+   * the recorded outcome; a different outcome for a sealed turn conflicts.
+   */
+  recordReplyOutcome: handleUnaryCall<RecordReplyOutcomeRequest, RecordReplyOutcomeResponse>;
+}
+
+export interface ConversationExecutionServiceClient extends Client {
+  /**
+   * Claims the right to write the reply of the binding's chat_turn operation
+   * (one operation answers exactly one turn; the Workflow starts from the
+   * operation's identity only) and answers the turn, whose id the later calls
+   * name. The same invocation re-entering gets its original epoch; the same temporal attempt with another invocation
+   * conflicts; a higher temporal attempt of the same activity key takes over
+   * and increments the epoch; a lower one is stale.
+   */
+  claimReplyWriter(
+    request: ClaimReplyWriterRequest,
+    callback: (error: ServiceError | null, response: ClaimReplyWriterResponse) => void,
+  ): ClientUnaryCall;
+  claimReplyWriter(
+    request: ClaimReplyWriterRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ClaimReplyWriterResponse) => void,
+  ): ClientUnaryCall;
+  claimReplyWriter(
+    request: ClaimReplyWriterRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ClaimReplyWriterResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * The turn's context: the conversation's messages up to and including the
+   * input message, newest first within the chat_turn profile's context bound,
+   * returned in ascending sequence. The same turn always yields the same
+   * context and digest.
+   */
+  getTurnContext(
+    request: GetTurnContextRequest,
+    callback: (error: ServiceError | null, response: GetTurnContextResponse) => void,
+  ): ClientUnaryCall;
+  getTurnContext(
+    request: GetTurnContextRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetTurnContextResponse) => void,
+  ): ClientUnaryCall;
+  getTurnContext(
+    request: GetTurnContextRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetTurnContextResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Seals the turn's reply under the current writer epoch. COMPLETED needs a
+   * stopped sender and the whole text; the other outcomes store a non-empty
+   * prefix, if any, as a partial assistant message. The same command answers
+   * the recorded outcome; a different outcome for a sealed turn conflicts.
+   */
+  recordReplyOutcome(
+    request: RecordReplyOutcomeRequest,
+    callback: (error: ServiceError | null, response: RecordReplyOutcomeResponse) => void,
+  ): ClientUnaryCall;
+  recordReplyOutcome(
+    request: RecordReplyOutcomeRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RecordReplyOutcomeResponse) => void,
+  ): ClientUnaryCall;
+  recordReplyOutcome(
+    request: RecordReplyOutcomeRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RecordReplyOutcomeResponse) => void,
+  ): ClientUnaryCall;
+}
+
+export const ConversationExecutionServiceClient = makeGenericClientConstructor(
+  ConversationExecutionServiceService,
+  "anvilkit.control.v1.ConversationExecutionService",
+) as unknown as {
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>,
+  ): ConversationExecutionServiceClient;
+  service: typeof ConversationExecutionServiceService;
   serviceName: string;
 };
 

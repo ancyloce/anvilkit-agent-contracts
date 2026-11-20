@@ -814,9 +814,49 @@ export interface paths {
         put?: never;
         /**
          * Add the caller's text message to an active conversation
-         * @description The message is the caller's own; a request names no role. The text is at most 32768 bytes of UTF-8 (INVALID_ARGUMENT above it). Another current revision is REVISION_CONFLICT; a message to an archived conversation is INVALID_ARGUMENT. The same commandId and body returns the original receipt. Assistant replies are not produced yet (DEC-067): a receipt names a turn only once replies are enabled.
+         * @description The message is the caller's own; a request names no role. The text is at most 32768 bytes of UTF-8 (INVALID_ARGUMENT above it). Another current revision is REVISION_CONFLICT; a message to an archived conversation is INVALID_ARGUMENT. The same commandId and body returns the original receipt. Where assistant replies are enabled (DEC-068), the message opens one turn and the receipt names its `turnId` and `operationId`. While the conversation's previous turn is unfinished the message is refused with CAPACITY_EXHAUSTED (retryable; its message begins `TURN_BUSY:`) and nothing is stored. Where replies are disabled, a receipt names no turn.
          */
         post: operations["appendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversationId}/turns/{turnId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One turn of the caller's conversation
+         * @description The reply's aggregate state, with its content, sender and financial facts reported separately (design 0001 §7.4): a terminal turn can still have its operation's finance unsettled. Only `completed` means a complete reply.
+         */
+        get: operations["getTurn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversationId}/turns/{turnId}/cancellations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop this turn's reply
+         * @description Stops this reply only (design 0001 §11.3); a running generation is not affected. Text already shown stays, and incurred usage stays in the ledger; the turn view reports when the sender is proven stopped. A terminal turn answers itself unchanged. The same commandId and body returns the original answer.
+         */
+        post: operations["stopTurn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1680,7 +1720,7 @@ export interface components {
             expectedRevision: components["schemas"]["Revision"];
             content: components["schemas"]["MessageContent"];
         };
-        /** @description The stored user message. `turnId`, `assistantMessageId` and `operationId` name the reply once assistant replies are enabled; they are absent until then (DEC-067). */
+        /** @description The stored user message. `turnId` and `operationId` name the reply's turn where assistant replies are enabled (DEC-068), and are absent where they are not. The turn view names the assistant message once its text is stored; `assistantMessageId` is reserved here for a later phase. */
         MessageReceipt: {
             conversationId: components["schemas"]["Id"];
             messageId: components["schemas"]["Id"];
@@ -1690,6 +1730,40 @@ export interface components {
             turnId?: components["schemas"]["Id"];
             assistantMessageId?: components["schemas"]["Id"];
             operationId?: components["schemas"]["Id"];
+        };
+        /**
+         * @description Design 0001 §4.2. Only `completed` means a complete reply; `failed` and `canceled` keep any stored text, marked partial; `cancel_pending` and `reconciling` keep the conversation's one reply slot until the sender is proven stopped.
+         * @enum {string}
+         */
+        TurnState: "queued" | "running" | "completed" | "failed" | "cancel_pending" | "canceled" | "reconciling";
+        /**
+         * @description `complete`: the whole reply stored; `partial`: a prefix at most; `unknown`: not yet known or not provable.
+         * @enum {string}
+         */
+        ContentStatus: "complete" | "partial" | "unknown";
+        /**
+         * @description Whether the reply's controlled sending path can still send or append (design 0001 §7.4); `stopped` never says the provider stopped billing.
+         * @enum {string}
+         */
+        SenderStatus: "not_started" | "active" | "stopped" | "unknown";
+        /** @description One bounded assistant reply to one user message (design 0001 §4.1). `assistantMessageId` is present once the reply's text is stored; a turn that ended before any text has none. `finance` is the turn operation's finance state, never derived from the text. `operationId` names that chat_turn operation for the ledger; chat_turn is not a public operation kind in this phase, so /operations does not serve it. */
+        Turn: {
+            turnId: components["schemas"]["Id"];
+            conversationId: components["schemas"]["Id"];
+            inputMessageId: components["schemas"]["Id"];
+            assistantMessageId?: components["schemas"]["Id"];
+            operationId: components["schemas"]["Id"];
+            state: components["schemas"]["TurnState"];
+            contentStatus: components["schemas"]["ContentStatus"];
+            senderStatus: components["schemas"]["SenderStatus"];
+            finance: components["schemas"]["FinanceState"];
+            /** @description A stable code for failed, canceled and reconciling turns, for example UPSTREAM_FINISH_LENGTH or SENDER_LOST. */
+            failureCode?: string;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        StopTurnRequest: {
+            commandId: components["schemas"]["Id"];
         };
     };
     responses: {
@@ -1765,6 +1839,7 @@ export interface components {
         poolId: components["schemas"]["Id"];
         creditPoolId: components["schemas"]["Id"];
         conversationId: components["schemas"]["Id"];
+        turnId: components["schemas"]["Id"];
         /** @description Default 20 for conversations and 30 for messages. */
         historyLimit: number;
         budgetLevel: components["schemas"]["BudgetLevel"];
@@ -3360,6 +3435,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageReceipt"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["Exhausted"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getTurn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+                turnId: components["parameters"]["turnId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Turn view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Turn"];
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    stopTurn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+                turnId: components["parameters"]["turnId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StopTurnRequest"];
+            };
+        };
+        responses: {
+            /** @description The stop was recorded; the turn as it stands. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Turn"];
                 };
             };
             400: components["responses"]["InvalidArgument"];

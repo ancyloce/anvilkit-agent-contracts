@@ -46,6 +46,12 @@ export enum OperationKind {
   OPERATION_KIND_RELEASE = 5,
   /** OPERATION_KIND_LOCAL_CHECK - LocalCheck is a fixed qualification fixture, never a business success. */
   OPERATION_KIND_LOCAL_CHECK = 6,
+  /**
+   * OPERATION_KIND_CHAT_TURN - One assistant reply to one user message (DEC-068, design 0001 §7.2):
+   * created only by ConversationService.AppendMessage, never by
+   * CreateOperation; non-queued like a preparation, and debited no credit.
+   */
+  OPERATION_KIND_CHAT_TURN = 7,
   UNRECOGNIZED = -1,
 }
 
@@ -72,6 +78,9 @@ export function operationKindFromJSON(object: any): OperationKind {
     case 6:
     case "OPERATION_KIND_LOCAL_CHECK":
       return OperationKind.OPERATION_KIND_LOCAL_CHECK;
+    case 7:
+    case "OPERATION_KIND_CHAT_TURN":
+      return OperationKind.OPERATION_KIND_CHAT_TURN;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -95,6 +104,8 @@ export function operationKindToJSON(object: OperationKind): string {
       return "OPERATION_KIND_RELEASE";
     case OperationKind.OPERATION_KIND_LOCAL_CHECK:
       return "OPERATION_KIND_LOCAL_CHECK";
+    case OperationKind.OPERATION_KIND_CHAT_TURN:
+      return "OPERATION_KIND_CHAT_TURN";
     case OperationKind.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";

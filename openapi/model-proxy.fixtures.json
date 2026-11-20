@@ -202,6 +202,36 @@
       "schema": "ModelCallRequest",
       "valid": false,
       "raw": "{\"maxOutputTokens\":Infinity}"
+    },
+    {
+      "name": "reclaimed call record fenced at reclaim (DEC-068, CR-04)",
+      "schema": "ModelCall",
+      "valid": true,
+      "instance": {
+        "callId": "call_01J9ABCDEF",
+        "routeId": "controlled-chat-v1",
+        "state": "unknown",
+        "dispatchId": "dsp_01J9ABCDEF",
+        "errorCode": "SENDER_LOST",
+        "createdAt": "2026-11-19T23:00:00Z",
+        "updatedAt": "2026-11-19T23:03:00Z",
+        "fencedAt": "2026-11-19T23:03:00Z"
+      }
+    },
+    {
+      "name": "call record with null in place of an absent fence is rejected",
+      "schema": "ModelCall",
+      "valid": false,
+      "instance": {
+        "callId": "call_01J9ABCDEF",
+        "routeId": "controlled-chat-v1",
+        "state": "unknown",
+        "dispatchId": "dsp_01J9ABCDEF",
+        "errorCode": "SENDER_LOST",
+        "createdAt": "2026-11-19T23:00:00Z",
+        "updatedAt": "2026-11-19T23:03:00Z",
+        "fencedAt": null
+      }
     }
   ]
 }

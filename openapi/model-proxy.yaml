@@ -192,6 +192,11 @@ components:
         outcome: { type: string, enum: [succeeded, failed, canceled, unknown] }
         errorCode: { type: string, maxLength: 64 }
     ModelCall:
+      description: >-
+        `fencedAt` is set when the sweep reclaimed the send as unknown (errorCode SENDER_LOST) and
+        fenced its stream (DEC-068, CR-04): from then on the original sender can append no frame and
+        no result, though it may still report usage, so the ledger stays truthful. A fence proves that
+        no stream write can follow, not that the provider stopped generating.
       type: object
       additionalProperties: false
       required: [callId, routeId, state, dispatchId, createdAt, updatedAt]
@@ -205,3 +210,4 @@ components:
         errorCode: { type: string, maxLength: 64 }
         createdAt: { $ref: "#/components/schemas/Timestamp" }
         updatedAt: { $ref: "#/components/schemas/Timestamp" }
+        fencedAt: { $ref: "#/components/schemas/Timestamp" }

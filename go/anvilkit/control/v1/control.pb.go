@@ -44,6 +44,10 @@ const (
 	OperationKind_OPERATION_KIND_RELEASE       OperationKind = 5
 	// LocalCheck is a fixed qualification fixture, never a business success.
 	OperationKind_OPERATION_KIND_LOCAL_CHECK OperationKind = 6
+	// One assistant reply to one user message (DEC-068, design 0001 §7.2):
+	// created only by ConversationService.AppendMessage, never by
+	// CreateOperation; non-queued like a preparation, and debited no credit.
+	OperationKind_OPERATION_KIND_CHAT_TURN OperationKind = 7
 )
 
 // Enum value maps for OperationKind.
@@ -56,6 +60,7 @@ var (
 		4: "OPERATION_KIND_PREVIEW_BUILD",
 		5: "OPERATION_KIND_RELEASE",
 		6: "OPERATION_KIND_LOCAL_CHECK",
+		7: "OPERATION_KIND_CHAT_TURN",
 	}
 	OperationKind_value = map[string]int32{
 		"OPERATION_KIND_UNSPECIFIED":   0,
@@ -65,6 +70,7 @@ var (
 		"OPERATION_KIND_PREVIEW_BUILD": 4,
 		"OPERATION_KIND_RELEASE":       5,
 		"OPERATION_KIND_LOCAL_CHECK":   6,
+		"OPERATION_KIND_CHAT_TURN":     7,
 	}
 )
 
@@ -5267,7 +5273,7 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\r_failure_code\"w\n" +
 	"\x17SettleOperationResponse\x12@\n" +
 	"\toperation\x18\x01 \x01(\v2\".anvilkit.control.v1.OperationViewR\toperation\x12\x1a\n" +
-	"\bexisting\x18\x02 \x01(\bR\bexisting*\xeb\x01\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting*\x89\x02\n" +
 	"\rOperationKind\x12\x1e\n" +
 	"\x1aOPERATION_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aOPERATION_KIND_PREPARATION\x10\x01\x12\x1d\n" +
@@ -5275,7 +5281,8 @@ const file_anvilkit_control_v1_control_proto_rawDesc = "" +
 	"\x19OPERATION_KIND_REFINEMENT\x10\x03\x12 \n" +
 	"\x1cOPERATION_KIND_PREVIEW_BUILD\x10\x04\x12\x1a\n" +
 	"\x16OPERATION_KIND_RELEASE\x10\x05\x12\x1e\n" +
-	"\x1aOPERATION_KIND_LOCAL_CHECK\x10\x06*\xe7\x01\n" +
+	"\x1aOPERATION_KIND_LOCAL_CHECK\x10\x06\x12\x1c\n" +
+	"\x18OPERATION_KIND_CHAT_TURN\x10\a*\xe7\x01\n" +
 	"\tLifecycle\x12\x19\n" +
 	"\x15LIFECYCLE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12LIFECYCLE_ACCEPTED\x10\x01\x12\x15\n" +

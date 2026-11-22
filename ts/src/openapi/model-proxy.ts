@@ -13,7 +13,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. */
+        /** @description Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type. */
         post: operations["createModelCall"];
         delete?: never;
         options?: never;
@@ -138,6 +138,12 @@ export interface components {
             /** @enum {string} */
             outcome?: "succeeded" | "failed" | "canceled" | "unknown";
             errorCode?: string;
+            /**
+             * @description D4a (design 0001 §8.2, DEC-070): `original` frames belong to the call's original stream (`originalStreamId`, sequences from 0); `recovery` frames carry recovery state only, never text, and never advance a reader's original watermark (the synthetic SENDER_LOST and PERMISSION_LOST frames). `originalStreamId` is created once with the call record and is present on original frames. Both are present only on a stream opened with `frame-identity=1` (createModelCall); an original frame of a call recorded before D4a has neither, and a chat reader then records its reply whole.
+             * @enum {string}
+             */
+            frameOrigin?: "original" | "recovery";
+            originalStreamId?: components["schemas"]["Id"];
         };
         /** @description `fencedAt` is set when the sweep reclaimed the send as unknown (errorCode SENDER_LOST) and fenced its stream (DEC-068, CR-04): from then on the original sender can append no frame and no result, though it may still report usage, so the ledger stays truthful. A fence proves that no stream write can follow, not that the provider stopped generating. */
         ModelCall: {
@@ -185,7 +191,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description SSE frames (StreamFrame per event, `id` is the frame sequence). */
+            /** @description SSE frames (StreamFrame per event, `id` is the frame sequence); `frame-identity=1` on the Content-Type when the frames carry their stream identity. */
             200: {
                 headers: {
                     [name: string]: unknown;

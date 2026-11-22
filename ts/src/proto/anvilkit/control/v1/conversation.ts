@@ -11,7 +11,9 @@ import {
   type ChannelCredentials,
   Client,
   type ClientOptions,
+  type ClientReadableStream,
   type ClientUnaryCall,
+  type handleServerStreamingCall,
   type handleUnaryCall,
   makeGenericClientConstructor,
   type Metadata,
@@ -34,8 +36,11 @@ export const protobufPackage = "anvilkit.control.v1";
  * logs or traces. The first slice stored user text messages and their
  * history; design D3 (DEC-068) adds assistant replies: each accepted user
  * message opens one turn with one chat_turn operation, which the Workflow's
- * chat Activity answers through ConversationExecutionService. Later phases add
- * their own fields, never by reinterpreting these.
+ * chat Activity answers through ConversationExecutionService. Design D4a
+ * (DEC-070) commits the reply's text in batches while it streams, keeps a
+ * per-conversation event log the API serves as SSE, and seals a stopped reply's
+ * committed prefix in the stop transaction. Later phases add their own fields,
+ * never by reinterpreting these.
  */
 
 export enum ConversationStatus {
@@ -455,7 +460,19 @@ export interface Message {
   text: string;
   /** SHA-256 of the text's UTF-8 bytes. */
   contentDigest: string;
-  createdAt: Date | undefined;
+  createdAt:
+    | Date
+    | undefined;
+  /**
+   * D4: the version of the text, from 1; it moves with each committed chunk of
+   * a STREAMING assistant message. "1" for a user message.
+   */
+  contentRevision: string;
+  /**
+   * D4: the last committed chunk the text covers; "0" for a user message and
+   * for a reply stored whole (D3).
+   */
+  throughChunkSeq: string;
 }
 
 export interface MessageReceipt {
@@ -495,7 +512,16 @@ export interface GetConversationRequest {
 
 export interface GetConversationResponse {
   $type: "anvilkit.control.v1.GetConversationResponse";
-  conversation: Conversation | undefined;
+  conversation:
+    | Conversation
+    | undefined;
+  /**
+   * D4: the last event this read covers; "0" before the first event. A client
+   * that reads this snapshot subscribes after it (design 0001 §8.4).
+   */
+  coveredEventSeq: string;
+  /** D4: the conversation's open turn, if any, read in the same transaction. */
+  activeTurn?: Turn | undefined;
 }
 
 export interface ListConversationsRequest {
@@ -571,6 +597,141 @@ export interface ListMessagesResponse {
   messages: Message[];
   /** Present when older messages exist. */
   nextBeforeMessageSeq?: string | undefined;
+}
+
+export interface GetMessageRequest {
+  $type: "anvilkit.control.v1.GetMessageRequest";
+  scope: Scope | undefined;
+  conversationId: string;
+  messageId: string;
+}
+
+export interface GetMessageResponse {
+  $type: "anvilkit.control.v1.GetMessageResponse";
+  message: Message | undefined;
+}
+
+/**
+ * One durable event of a conversation, in event_seq order. The event rows
+ * hold no body: a message.delta carries the text of its committed chunk, read
+ * from Control's private chunk table when the event is served. Provider
+ * sequences, chunk sequences and event sequences are separate domains.
+ */
+export interface ConversationEvent {
+  $type: "anvilkit.control.v1.ConversationEvent";
+  conversationId: string;
+  /** From 1; strictly increasing within the conversation. */
+  eventSeq: string;
+  /**
+   * message.accepted, message.started, message.delta, message.completed,
+   * message.failed, message.canceled, turn.changed or conversation.changed.
+   * Later phases add types; a reader skips a type it does not know.
+   */
+  eventType: string;
+  occurredAt: Date | undefined;
+  messageAccepted?: MessageAcceptedPayload | undefined;
+  messageStarted?: MessageStartedPayload | undefined;
+  messageDelta?:
+    | MessageDeltaPayload
+    | undefined;
+  /** message.completed, message.failed and message.canceled. */
+  messageSealed?: MessageSealedPayload | undefined;
+  turnChanged?: TurnChangedPayload | undefined;
+  conversationChanged?: ConversationChangedPayload | undefined;
+}
+
+/** A user message was stored (message.accepted). */
+export interface MessageAcceptedPayload {
+  $type: "anvilkit.control.v1.MessageAcceptedPayload";
+  messageId: string;
+  messageSeq: string;
+  role: MessageRole;
+  /** The reply's turn, where assistant replies are enabled. */
+  turnId?: string | undefined;
+}
+
+/**
+ * A reply's first text was committed; its assistant message id is reserved
+ * (message.started).
+ */
+export interface MessageStartedPayload {
+  $type: "anvilkit.control.v1.MessageStartedPayload";
+  messageId: string;
+  turnId: string;
+}
+
+/** One committed chunk of a streaming reply (message.delta). */
+export interface MessageDeltaPayload {
+  $type: "anvilkit.control.v1.MessageDeltaPayload";
+  messageId: string;
+  /** From 1; contiguous within the message. */
+  chunkSeq: string;
+  /** The message's content revision after this chunk. */
+  contentRevision: string;
+  /** The chunk's text: 1 to 32768 bytes of UTF-8. */
+  text: string;
+}
+
+/**
+ * The assistant message was sealed: COMPLETED with the whole reply,
+ * PARTIAL_FAILED or CANCELED with the committed prefix (message.completed,
+ * message.failed, message.canceled).
+ */
+export interface MessageSealedPayload {
+  $type: "anvilkit.control.v1.MessageSealedPayload";
+  messageId: string;
+  state: MessageState;
+  contentRevision: string;
+  throughChunkSeq: string;
+  /** SHA-256 of the sealed text's UTF-8 bytes. */
+  contentDigest: string;
+  turnState: TurnState;
+  failureCode?: string | undefined;
+}
+
+/**
+ * The turn's state, content, sender or finance changed (turn.changed). The
+ * Turn carries no text.
+ */
+export interface TurnChangedPayload {
+  $type: "anvilkit.control.v1.TurnChangedPayload";
+  turn: Turn | undefined;
+}
+
+/** The conversation was renamed, archived or restored (conversation.changed). */
+export interface ConversationChangedPayload {
+  $type: "anvilkit.control.v1.ConversationChangedPayload";
+  conversationRevision: string;
+  status: ConversationStatus;
+}
+
+export interface ListConversationEventsRequest {
+  $type: "anvilkit.control.v1.ListConversationEventsRequest";
+  scope: Scope | undefined;
+  conversationId: string;
+  /** Empty means from the beginning of retained history. */
+  afterEventSeq: string;
+  /** 0 means the default (200). */
+  limit: number;
+}
+
+export interface ListConversationEventsResponse {
+  $type: "anvilkit.control.v1.ListConversationEventsResponse";
+  events: ConversationEvent[];
+  coveredEventSeq: string;
+  resetRequired: boolean;
+}
+
+export interface StreamConversationEventsRequest {
+  $type: "anvilkit.control.v1.StreamConversationEventsRequest";
+  scope: Scope | undefined;
+  conversationId: string;
+  afterEventSeq: string;
+}
+
+export interface StreamConversationEventsResponse {
+  $type: "anvilkit.control.v1.StreamConversationEventsResponse";
+  event: ConversationEvent | undefined;
 }
 
 /**
@@ -656,6 +817,18 @@ export interface ClaimReplyWriterResponse {
   writerEpoch: string;
   turn: Turn | undefined;
   existing: boolean;
+  /**
+   * D4: the last committed provider sequence; absent before the first batch,
+   * so a resuming writer starts at 0.
+   */
+  lastProviderSeq?:
+    | string
+    | undefined;
+  /**
+   * D4: the original stream the committed batches belong to; absent before
+   * the first batch.
+   */
+  originalStreamId?: string | undefined;
 }
 
 export interface GetTurnContextRequest {
@@ -690,11 +863,25 @@ export interface RecordReplyOutcomeRequest {
   text?:
     | string
     | undefined;
-  /** SHA-256 of the text's UTF-8 bytes; present exactly when text is. */
+  /**
+   * SHA-256 of the text's UTF-8 bytes; present exactly when text is, except
+   * with from_batches.
+   */
   contentDigest?: string | undefined;
   senderStatus: SenderStatus;
   /** A stable code for every outcome other than COMPLETED. */
-  failureCode?: string | undefined;
+  failureCode?:
+    | string
+    | undefined;
+  /**
+   * D4: the sealed text is the turn's committed batches; text is absent.
+   * content_digest, when given, is their concatenation's digest and must
+   * match; absent, the committed batches are sealed as they stand (a writer
+   * that lost track of them after an inconsistent stream). The outcome must
+   * agree with them: a partial failure when any text was committed, a failure
+   * when none was.
+   */
+  fromBatches: boolean;
 }
 
 export interface RecordReplyOutcomeResponse {
@@ -705,6 +892,54 @@ export interface RecordReplyOutcomeResponse {
   /** The stored assistant message, when text was stored. */
   assistantMessage?: Message | undefined;
   existing: boolean;
+}
+
+export interface AppendReplyBatchRequest {
+  $type: "anvilkit.control.v1.AppendReplyBatchRequest";
+  command: CommandIdentity | undefined;
+  binding: ExecutionBinding | undefined;
+  turnId: string;
+  writerEpoch: string;
+  /** The turn's reply call; Control checks it against the turn's dispatch. */
+  callId: string;
+  /**
+   * The Model Proxy's original stream of the call (StreamFrame
+   * originalStreamId); fixed by the first batch.
+   */
+  originalStreamId: string;
+  /** The inclusive range of original provider sequences, from 0. */
+  fromProviderSeq: string;
+  throughProviderSeq: string;
+  /** SHA-256 over the range's original frames in canonical form. */
+  sourceFramesDigest: string;
+  /**
+   * The range's text: 1 to 32768 bytes of UTF-8, whole characters; absent for
+   * a textless range (admitted, usage), which gets no chunk.
+   */
+  text?:
+    | string
+    | undefined;
+  /** SHA-256 of the text's UTF-8 bytes; present exactly when text is. */
+  textDigest?: string | undefined;
+}
+
+export interface AppendReplyBatchResponse {
+  $type: "anvilkit.control.v1.AppendReplyBatchResponse";
+  /** The committed watermark: the last provider sequence stored for the turn. */
+  acceptedThroughProviderSeq: string;
+  /** The chunk this batch's text became; absent for a textless batch. */
+  chunkSeq?:
+    | string
+    | undefined;
+  /** The reply's reserved assistant message, once any text is committed. */
+  assistantMessageId?: string | undefined;
+  turn:
+    | Turn
+    | undefined;
+  /** The same range and digests were committed before: the first receipt. */
+  existing: boolean;
+  /** The turn is sealed (a stop); nothing was stored. */
+  sealed: boolean;
 }
 
 function createBaseConversation(): Conversation {
@@ -976,6 +1211,8 @@ function createBaseMessage(): Message {
     text: "",
     contentDigest: "",
     createdAt: undefined,
+    contentRevision: "",
+    throughChunkSeq: "",
   };
 }
 
@@ -1006,6 +1243,12 @@ export const Message: MessageFns<Message, "anvilkit.control.v1.Message"> = {
     }
     if (message.createdAt !== undefined) {
       Timestamp.encode(toTimestamp(message.createdAt), writer.uint32(66).fork()).join();
+    }
+    if (message.contentRevision !== "") {
+      writer.uint32(74).string(message.contentRevision);
+    }
+    if (message.throughChunkSeq !== "") {
+      writer.uint32(82).string(message.throughChunkSeq);
     }
     return writer;
   },
@@ -1087,6 +1330,22 @@ export const Message: MessageFns<Message, "anvilkit.control.v1.Message"> = {
             message.createdAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 9: {
+            if (tag !== 74) {
+              break;
+            }
+
+            message.contentRevision = reader.string();
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.throughChunkSeq = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1130,6 +1389,16 @@ export const Message: MessageFns<Message, "anvilkit.control.v1.Message"> = {
         : isSet(object.created_at)
         ? fromJsonTimestamp(object.created_at)
         : undefined,
+      contentRevision: isSet(object.contentRevision)
+        ? globalThis.String(object.contentRevision)
+        : isSet(object.content_revision)
+        ? globalThis.String(object.content_revision)
+        : "",
+      throughChunkSeq: isSet(object.throughChunkSeq)
+        ? globalThis.String(object.throughChunkSeq)
+        : isSet(object.through_chunk_seq)
+        ? globalThis.String(object.through_chunk_seq)
+        : "",
     };
   },
 
@@ -1159,6 +1428,12 @@ export const Message: MessageFns<Message, "anvilkit.control.v1.Message"> = {
     if (message.createdAt !== undefined) {
       obj.createdAt = message.createdAt.toISOString();
     }
+    if (message.contentRevision !== "") {
+      obj.contentRevision = message.contentRevision;
+    }
+    if (message.throughChunkSeq !== "") {
+      obj.throughChunkSeq = message.throughChunkSeq;
+    }
     return obj;
   },
 
@@ -1175,6 +1450,8 @@ export const Message: MessageFns<Message, "anvilkit.control.v1.Message"> = {
     message.text = object.text ?? "";
     message.contentDigest = object.contentDigest ?? "";
     message.createdAt = object.createdAt ?? undefined;
+    message.contentRevision = object.contentRevision ?? "";
+    message.throughChunkSeq = object.throughChunkSeq ?? "";
     return message;
   },
 };
@@ -1718,7 +1995,12 @@ export const GetConversationRequest: MessageFns<GetConversationRequest, "anvilki
 messageTypeRegistry.set(GetConversationRequest.$type, GetConversationRequest);
 
 function createBaseGetConversationResponse(): GetConversationResponse {
-  return { $type: "anvilkit.control.v1.GetConversationResponse", conversation: undefined };
+  return {
+    $type: "anvilkit.control.v1.GetConversationResponse",
+    conversation: undefined,
+    coveredEventSeq: "",
+    activeTurn: undefined,
+  };
 }
 
 export const GetConversationResponse: MessageFns<
@@ -1730,6 +2012,12 @@ export const GetConversationResponse: MessageFns<
   encode(message: GetConversationResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.conversation !== undefined) {
       Conversation.encode(message.conversation, writer.uint32(10).fork()).join();
+    }
+    if (message.coveredEventSeq !== "") {
+      writer.uint32(18).string(message.coveredEventSeq);
+    }
+    if (message.activeTurn !== undefined) {
+      Turn.encode(message.activeTurn, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -1755,6 +2043,22 @@ export const GetConversationResponse: MessageFns<
             message.conversation = Conversation.decode(reader, reader.uint32());
             continue;
           }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.coveredEventSeq = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.activeTurn = Turn.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1771,6 +2075,16 @@ export const GetConversationResponse: MessageFns<
     return {
       $type: GetConversationResponse.$type,
       conversation: isSet(object.conversation) ? Conversation.fromJSON(object.conversation) : undefined,
+      coveredEventSeq: isSet(object.coveredEventSeq)
+        ? globalThis.String(object.coveredEventSeq)
+        : isSet(object.covered_event_seq)
+        ? globalThis.String(object.covered_event_seq)
+        : "",
+      activeTurn: isSet(object.activeTurn)
+        ? Turn.fromJSON(object.activeTurn)
+        : isSet(object.active_turn)
+        ? Turn.fromJSON(object.active_turn)
+        : undefined,
     };
   },
 
@@ -1778,6 +2092,12 @@ export const GetConversationResponse: MessageFns<
     const obj: any = {};
     if (message.conversation !== undefined) {
       obj.conversation = Conversation.toJSON(message.conversation);
+    }
+    if (message.coveredEventSeq !== "") {
+      obj.coveredEventSeq = message.coveredEventSeq;
+    }
+    if (message.activeTurn !== undefined) {
+      obj.activeTurn = Turn.toJSON(message.activeTurn);
     }
     return obj;
   },
@@ -1789,6 +2109,10 @@ export const GetConversationResponse: MessageFns<
     const message = createBaseGetConversationResponse();
     message.conversation = (object.conversation !== undefined && object.conversation !== null)
       ? Conversation.fromPartial(object.conversation)
+      : undefined;
+    message.coveredEventSeq = object.coveredEventSeq ?? "";
+    message.activeTurn = (object.activeTurn !== undefined && object.activeTurn !== null)
+      ? Turn.fromPartial(object.activeTurn)
       : undefined;
     return message;
   },
@@ -2767,6 +3091,1702 @@ export const ListMessagesResponse: MessageFns<ListMessagesResponse, "anvilkit.co
 
 messageTypeRegistry.set(ListMessagesResponse.$type, ListMessagesResponse);
 
+function createBaseGetMessageRequest(): GetMessageRequest {
+  return { $type: "anvilkit.control.v1.GetMessageRequest", scope: undefined, conversationId: "", messageId: "" };
+}
+
+export const GetMessageRequest: MessageFns<GetMessageRequest, "anvilkit.control.v1.GetMessageRequest"> = {
+  $type: "anvilkit.control.v1.GetMessageRequest" as const,
+
+  encode(message: GetMessageRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.conversationId !== "") {
+      writer.uint32(18).string(message.conversationId);
+    }
+    if (message.messageId !== "") {
+      writer.uint32(26).string(message.messageId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetMessageRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetMessageRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.conversationId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.messageId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetMessageRequest {
+    return {
+      $type: GetMessageRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      conversationId: isSet(object.conversationId)
+        ? globalThis.String(object.conversationId)
+        : isSet(object.conversation_id)
+        ? globalThis.String(object.conversation_id)
+        : "",
+      messageId: isSet(object.messageId)
+        ? globalThis.String(object.messageId)
+        : isSet(object.message_id)
+        ? globalThis.String(object.message_id)
+        : "",
+    };
+  },
+
+  toJSON(message: GetMessageRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.conversationId !== "") {
+      obj.conversationId = message.conversationId;
+    }
+    if (message.messageId !== "") {
+      obj.messageId = message.messageId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetMessageRequest>, I>>(base?: I): GetMessageRequest {
+    return GetMessageRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetMessageRequest>, I>>(object: I): GetMessageRequest {
+    const message = createBaseGetMessageRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.conversationId = object.conversationId ?? "";
+    message.messageId = object.messageId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetMessageRequest.$type, GetMessageRequest);
+
+function createBaseGetMessageResponse(): GetMessageResponse {
+  return { $type: "anvilkit.control.v1.GetMessageResponse", message: undefined };
+}
+
+export const GetMessageResponse: MessageFns<GetMessageResponse, "anvilkit.control.v1.GetMessageResponse"> = {
+  $type: "anvilkit.control.v1.GetMessageResponse" as const,
+
+  encode(message: GetMessageResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.message !== undefined) {
+      Message.encode(message.message, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetMessageResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetMessageResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.message = Message.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetMessageResponse {
+    return {
+      $type: GetMessageResponse.$type,
+      message: isSet(object.message) ? Message.fromJSON(object.message) : undefined,
+    };
+  },
+
+  toJSON(message: GetMessageResponse): unknown {
+    const obj: any = {};
+    if (message.message !== undefined) {
+      obj.message = Message.toJSON(message.message);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetMessageResponse>, I>>(base?: I): GetMessageResponse {
+    return GetMessageResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetMessageResponse>, I>>(object: I): GetMessageResponse {
+    const message = createBaseGetMessageResponse();
+    message.message = (object.message !== undefined && object.message !== null)
+      ? Message.fromPartial(object.message)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetMessageResponse.$type, GetMessageResponse);
+
+function createBaseConversationEvent(): ConversationEvent {
+  return {
+    $type: "anvilkit.control.v1.ConversationEvent",
+    conversationId: "",
+    eventSeq: "",
+    eventType: "",
+    occurredAt: undefined,
+    messageAccepted: undefined,
+    messageStarted: undefined,
+    messageDelta: undefined,
+    messageSealed: undefined,
+    turnChanged: undefined,
+    conversationChanged: undefined,
+  };
+}
+
+export const ConversationEvent: MessageFns<ConversationEvent, "anvilkit.control.v1.ConversationEvent"> = {
+  $type: "anvilkit.control.v1.ConversationEvent" as const,
+
+  encode(message: ConversationEvent, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.conversationId !== "") {
+      writer.uint32(10).string(message.conversationId);
+    }
+    if (message.eventSeq !== "") {
+      writer.uint32(18).string(message.eventSeq);
+    }
+    if (message.eventType !== "") {
+      writer.uint32(26).string(message.eventType);
+    }
+    if (message.occurredAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.occurredAt), writer.uint32(34).fork()).join();
+    }
+    if (message.messageAccepted !== undefined) {
+      MessageAcceptedPayload.encode(message.messageAccepted, writer.uint32(82).fork()).join();
+    }
+    if (message.messageStarted !== undefined) {
+      MessageStartedPayload.encode(message.messageStarted, writer.uint32(90).fork()).join();
+    }
+    if (message.messageDelta !== undefined) {
+      MessageDeltaPayload.encode(message.messageDelta, writer.uint32(98).fork()).join();
+    }
+    if (message.messageSealed !== undefined) {
+      MessageSealedPayload.encode(message.messageSealed, writer.uint32(106).fork()).join();
+    }
+    if (message.turnChanged !== undefined) {
+      TurnChangedPayload.encode(message.turnChanged, writer.uint32(114).fork()).join();
+    }
+    if (message.conversationChanged !== undefined) {
+      ConversationChangedPayload.encode(message.conversationChanged, writer.uint32(122).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ConversationEvent {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseConversationEvent();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.conversationId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.eventSeq = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.eventType = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.occurredAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.messageAccepted = MessageAcceptedPayload.decode(reader, reader.uint32());
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.messageStarted = MessageStartedPayload.decode(reader, reader.uint32());
+            continue;
+          }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.messageDelta = MessageDeltaPayload.decode(reader, reader.uint32());
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.messageSealed = MessageSealedPayload.decode(reader, reader.uint32());
+            continue;
+          }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.turnChanged = TurnChangedPayload.decode(reader, reader.uint32());
+            continue;
+          }
+          case 15: {
+            if (tag !== 122) {
+              break;
+            }
+
+            message.conversationChanged = ConversationChangedPayload.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ConversationEvent {
+    return {
+      $type: ConversationEvent.$type,
+      conversationId: isSet(object.conversationId)
+        ? globalThis.String(object.conversationId)
+        : isSet(object.conversation_id)
+        ? globalThis.String(object.conversation_id)
+        : "",
+      eventSeq: isSet(object.eventSeq)
+        ? globalThis.String(object.eventSeq)
+        : isSet(object.event_seq)
+        ? globalThis.String(object.event_seq)
+        : "",
+      eventType: isSet(object.eventType)
+        ? globalThis.String(object.eventType)
+        : isSet(object.event_type)
+        ? globalThis.String(object.event_type)
+        : "",
+      occurredAt: isSet(object.occurredAt)
+        ? fromJsonTimestamp(object.occurredAt)
+        : isSet(object.occurred_at)
+        ? fromJsonTimestamp(object.occurred_at)
+        : undefined,
+      messageAccepted: isSet(object.messageAccepted)
+        ? MessageAcceptedPayload.fromJSON(object.messageAccepted)
+        : isSet(object.message_accepted)
+        ? MessageAcceptedPayload.fromJSON(object.message_accepted)
+        : undefined,
+      messageStarted: isSet(object.messageStarted)
+        ? MessageStartedPayload.fromJSON(object.messageStarted)
+        : isSet(object.message_started)
+        ? MessageStartedPayload.fromJSON(object.message_started)
+        : undefined,
+      messageDelta: isSet(object.messageDelta)
+        ? MessageDeltaPayload.fromJSON(object.messageDelta)
+        : isSet(object.message_delta)
+        ? MessageDeltaPayload.fromJSON(object.message_delta)
+        : undefined,
+      messageSealed: isSet(object.messageSealed)
+        ? MessageSealedPayload.fromJSON(object.messageSealed)
+        : isSet(object.message_sealed)
+        ? MessageSealedPayload.fromJSON(object.message_sealed)
+        : undefined,
+      turnChanged: isSet(object.turnChanged)
+        ? TurnChangedPayload.fromJSON(object.turnChanged)
+        : isSet(object.turn_changed)
+        ? TurnChangedPayload.fromJSON(object.turn_changed)
+        : undefined,
+      conversationChanged: isSet(object.conversationChanged)
+        ? ConversationChangedPayload.fromJSON(object.conversationChanged)
+        : isSet(object.conversation_changed)
+        ? ConversationChangedPayload.fromJSON(object.conversation_changed)
+        : undefined,
+    };
+  },
+
+  toJSON(message: ConversationEvent): unknown {
+    const obj: any = {};
+    if (message.conversationId !== "") {
+      obj.conversationId = message.conversationId;
+    }
+    if (message.eventSeq !== "") {
+      obj.eventSeq = message.eventSeq;
+    }
+    if (message.eventType !== "") {
+      obj.eventType = message.eventType;
+    }
+    if (message.occurredAt !== undefined) {
+      obj.occurredAt = message.occurredAt.toISOString();
+    }
+    if (message.messageAccepted !== undefined) {
+      obj.messageAccepted = MessageAcceptedPayload.toJSON(message.messageAccepted);
+    }
+    if (message.messageStarted !== undefined) {
+      obj.messageStarted = MessageStartedPayload.toJSON(message.messageStarted);
+    }
+    if (message.messageDelta !== undefined) {
+      obj.messageDelta = MessageDeltaPayload.toJSON(message.messageDelta);
+    }
+    if (message.messageSealed !== undefined) {
+      obj.messageSealed = MessageSealedPayload.toJSON(message.messageSealed);
+    }
+    if (message.turnChanged !== undefined) {
+      obj.turnChanged = TurnChangedPayload.toJSON(message.turnChanged);
+    }
+    if (message.conversationChanged !== undefined) {
+      obj.conversationChanged = ConversationChangedPayload.toJSON(message.conversationChanged);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ConversationEvent>, I>>(base?: I): ConversationEvent {
+    return ConversationEvent.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ConversationEvent>, I>>(object: I): ConversationEvent {
+    const message = createBaseConversationEvent();
+    message.conversationId = object.conversationId ?? "";
+    message.eventSeq = object.eventSeq ?? "";
+    message.eventType = object.eventType ?? "";
+    message.occurredAt = object.occurredAt ?? undefined;
+    message.messageAccepted = (object.messageAccepted !== undefined && object.messageAccepted !== null)
+      ? MessageAcceptedPayload.fromPartial(object.messageAccepted)
+      : undefined;
+    message.messageStarted = (object.messageStarted !== undefined && object.messageStarted !== null)
+      ? MessageStartedPayload.fromPartial(object.messageStarted)
+      : undefined;
+    message.messageDelta = (object.messageDelta !== undefined && object.messageDelta !== null)
+      ? MessageDeltaPayload.fromPartial(object.messageDelta)
+      : undefined;
+    message.messageSealed = (object.messageSealed !== undefined && object.messageSealed !== null)
+      ? MessageSealedPayload.fromPartial(object.messageSealed)
+      : undefined;
+    message.turnChanged = (object.turnChanged !== undefined && object.turnChanged !== null)
+      ? TurnChangedPayload.fromPartial(object.turnChanged)
+      : undefined;
+    message.conversationChanged = (object.conversationChanged !== undefined && object.conversationChanged !== null)
+      ? ConversationChangedPayload.fromPartial(object.conversationChanged)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ConversationEvent.$type, ConversationEvent);
+
+function createBaseMessageAcceptedPayload(): MessageAcceptedPayload {
+  return {
+    $type: "anvilkit.control.v1.MessageAcceptedPayload",
+    messageId: "",
+    messageSeq: "",
+    role: 0,
+    turnId: undefined,
+  };
+}
+
+export const MessageAcceptedPayload: MessageFns<MessageAcceptedPayload, "anvilkit.control.v1.MessageAcceptedPayload"> =
+  {
+    $type: "anvilkit.control.v1.MessageAcceptedPayload" as const,
+
+    encode(message: MessageAcceptedPayload, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+      if (message.messageId !== "") {
+        writer.uint32(10).string(message.messageId);
+      }
+      if (message.messageSeq !== "") {
+        writer.uint32(18).string(message.messageSeq);
+      }
+      if (message.role !== 0) {
+        writer.uint32(24).int32(message.role);
+      }
+      if (message.turnId !== undefined) {
+        writer.uint32(34).string(message.turnId);
+      }
+      return writer;
+    },
+
+    decode(input: BinaryReader | Uint8Array, length?: number): MessageAcceptedPayload {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+      if (previousRecursionDepth >= 100) {
+        throw new globalThis.Error("protobuf decode recursion limit exceeded");
+      }
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+      try {
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = createBaseMessageAcceptedPayload();
+        while (reader.pos < end) {
+          const tag = reader.uint32();
+          switch (tag >>> 3) {
+            case 1: {
+              if (tag !== 10) {
+                break;
+              }
+
+              message.messageId = reader.string();
+              continue;
+            }
+            case 2: {
+              if (tag !== 18) {
+                break;
+              }
+
+              message.messageSeq = reader.string();
+              continue;
+            }
+            case 3: {
+              if (tag !== 24) {
+                break;
+              }
+
+              message.role = reader.int32() as any;
+              continue;
+            }
+            case 4: {
+              if (tag !== 34) {
+                break;
+              }
+
+              message.turnId = reader.string();
+              continue;
+            }
+          }
+          if ((tag & 7) === 4 || tag === 0) {
+            break;
+          }
+          reader.skip(tag & 7);
+        }
+        return message;
+      } finally {
+        (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+      }
+    },
+
+    fromJSON(object: any): MessageAcceptedPayload {
+      return {
+        $type: MessageAcceptedPayload.$type,
+        messageId: isSet(object.messageId)
+          ? globalThis.String(object.messageId)
+          : isSet(object.message_id)
+          ? globalThis.String(object.message_id)
+          : "",
+        messageSeq: isSet(object.messageSeq)
+          ? globalThis.String(object.messageSeq)
+          : isSet(object.message_seq)
+          ? globalThis.String(object.message_seq)
+          : "",
+        role: isSet(object.role) ? messageRoleFromJSON(object.role) : 0,
+        turnId: isSet(object.turnId)
+          ? globalThis.String(object.turnId)
+          : isSet(object.turn_id)
+          ? globalThis.String(object.turn_id)
+          : undefined,
+      };
+    },
+
+    toJSON(message: MessageAcceptedPayload): unknown {
+      const obj: any = {};
+      if (message.messageId !== "") {
+        obj.messageId = message.messageId;
+      }
+      if (message.messageSeq !== "") {
+        obj.messageSeq = message.messageSeq;
+      }
+      if (message.role !== 0) {
+        obj.role = messageRoleToJSON(message.role);
+      }
+      if (message.turnId !== undefined) {
+        obj.turnId = message.turnId;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<MessageAcceptedPayload>, I>>(base?: I): MessageAcceptedPayload {
+      return MessageAcceptedPayload.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<MessageAcceptedPayload>, I>>(object: I): MessageAcceptedPayload {
+      const message = createBaseMessageAcceptedPayload();
+      message.messageId = object.messageId ?? "";
+      message.messageSeq = object.messageSeq ?? "";
+      message.role = object.role ?? 0;
+      message.turnId = object.turnId ?? undefined;
+      return message;
+    },
+  };
+
+messageTypeRegistry.set(MessageAcceptedPayload.$type, MessageAcceptedPayload);
+
+function createBaseMessageStartedPayload(): MessageStartedPayload {
+  return { $type: "anvilkit.control.v1.MessageStartedPayload", messageId: "", turnId: "" };
+}
+
+export const MessageStartedPayload: MessageFns<MessageStartedPayload, "anvilkit.control.v1.MessageStartedPayload"> = {
+  $type: "anvilkit.control.v1.MessageStartedPayload" as const,
+
+  encode(message: MessageStartedPayload, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.messageId !== "") {
+      writer.uint32(10).string(message.messageId);
+    }
+    if (message.turnId !== "") {
+      writer.uint32(18).string(message.turnId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MessageStartedPayload {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMessageStartedPayload();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.messageId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.turnId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): MessageStartedPayload {
+    return {
+      $type: MessageStartedPayload.$type,
+      messageId: isSet(object.messageId)
+        ? globalThis.String(object.messageId)
+        : isSet(object.message_id)
+        ? globalThis.String(object.message_id)
+        : "",
+      turnId: isSet(object.turnId)
+        ? globalThis.String(object.turnId)
+        : isSet(object.turn_id)
+        ? globalThis.String(object.turn_id)
+        : "",
+    };
+  },
+
+  toJSON(message: MessageStartedPayload): unknown {
+    const obj: any = {};
+    if (message.messageId !== "") {
+      obj.messageId = message.messageId;
+    }
+    if (message.turnId !== "") {
+      obj.turnId = message.turnId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MessageStartedPayload>, I>>(base?: I): MessageStartedPayload {
+    return MessageStartedPayload.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MessageStartedPayload>, I>>(object: I): MessageStartedPayload {
+    const message = createBaseMessageStartedPayload();
+    message.messageId = object.messageId ?? "";
+    message.turnId = object.turnId ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(MessageStartedPayload.$type, MessageStartedPayload);
+
+function createBaseMessageDeltaPayload(): MessageDeltaPayload {
+  return {
+    $type: "anvilkit.control.v1.MessageDeltaPayload",
+    messageId: "",
+    chunkSeq: "",
+    contentRevision: "",
+    text: "",
+  };
+}
+
+export const MessageDeltaPayload: MessageFns<MessageDeltaPayload, "anvilkit.control.v1.MessageDeltaPayload"> = {
+  $type: "anvilkit.control.v1.MessageDeltaPayload" as const,
+
+  encode(message: MessageDeltaPayload, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.messageId !== "") {
+      writer.uint32(10).string(message.messageId);
+    }
+    if (message.chunkSeq !== "") {
+      writer.uint32(18).string(message.chunkSeq);
+    }
+    if (message.contentRevision !== "") {
+      writer.uint32(26).string(message.contentRevision);
+    }
+    if (message.text !== "") {
+      writer.uint32(34).string(message.text);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MessageDeltaPayload {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMessageDeltaPayload();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.messageId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.chunkSeq = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.contentRevision = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.text = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): MessageDeltaPayload {
+    return {
+      $type: MessageDeltaPayload.$type,
+      messageId: isSet(object.messageId)
+        ? globalThis.String(object.messageId)
+        : isSet(object.message_id)
+        ? globalThis.String(object.message_id)
+        : "",
+      chunkSeq: isSet(object.chunkSeq)
+        ? globalThis.String(object.chunkSeq)
+        : isSet(object.chunk_seq)
+        ? globalThis.String(object.chunk_seq)
+        : "",
+      contentRevision: isSet(object.contentRevision)
+        ? globalThis.String(object.contentRevision)
+        : isSet(object.content_revision)
+        ? globalThis.String(object.content_revision)
+        : "",
+      text: isSet(object.text) ? globalThis.String(object.text) : "",
+    };
+  },
+
+  toJSON(message: MessageDeltaPayload): unknown {
+    const obj: any = {};
+    if (message.messageId !== "") {
+      obj.messageId = message.messageId;
+    }
+    if (message.chunkSeq !== "") {
+      obj.chunkSeq = message.chunkSeq;
+    }
+    if (message.contentRevision !== "") {
+      obj.contentRevision = message.contentRevision;
+    }
+    if (message.text !== "") {
+      obj.text = message.text;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MessageDeltaPayload>, I>>(base?: I): MessageDeltaPayload {
+    return MessageDeltaPayload.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MessageDeltaPayload>, I>>(object: I): MessageDeltaPayload {
+    const message = createBaseMessageDeltaPayload();
+    message.messageId = object.messageId ?? "";
+    message.chunkSeq = object.chunkSeq ?? "";
+    message.contentRevision = object.contentRevision ?? "";
+    message.text = object.text ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(MessageDeltaPayload.$type, MessageDeltaPayload);
+
+function createBaseMessageSealedPayload(): MessageSealedPayload {
+  return {
+    $type: "anvilkit.control.v1.MessageSealedPayload",
+    messageId: "",
+    state: 0,
+    contentRevision: "",
+    throughChunkSeq: "",
+    contentDigest: "",
+    turnState: 0,
+    failureCode: undefined,
+  };
+}
+
+export const MessageSealedPayload: MessageFns<MessageSealedPayload, "anvilkit.control.v1.MessageSealedPayload"> = {
+  $type: "anvilkit.control.v1.MessageSealedPayload" as const,
+
+  encode(message: MessageSealedPayload, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.messageId !== "") {
+      writer.uint32(10).string(message.messageId);
+    }
+    if (message.state !== 0) {
+      writer.uint32(16).int32(message.state);
+    }
+    if (message.contentRevision !== "") {
+      writer.uint32(26).string(message.contentRevision);
+    }
+    if (message.throughChunkSeq !== "") {
+      writer.uint32(34).string(message.throughChunkSeq);
+    }
+    if (message.contentDigest !== "") {
+      writer.uint32(42).string(message.contentDigest);
+    }
+    if (message.turnState !== 0) {
+      writer.uint32(48).int32(message.turnState);
+    }
+    if (message.failureCode !== undefined) {
+      writer.uint32(58).string(message.failureCode);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MessageSealedPayload {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMessageSealedPayload();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.messageId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.state = reader.int32() as any;
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.contentRevision = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.throughChunkSeq = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.contentDigest = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.turnState = reader.int32() as any;
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.failureCode = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): MessageSealedPayload {
+    return {
+      $type: MessageSealedPayload.$type,
+      messageId: isSet(object.messageId)
+        ? globalThis.String(object.messageId)
+        : isSet(object.message_id)
+        ? globalThis.String(object.message_id)
+        : "",
+      state: isSet(object.state) ? messageStateFromJSON(object.state) : 0,
+      contentRevision: isSet(object.contentRevision)
+        ? globalThis.String(object.contentRevision)
+        : isSet(object.content_revision)
+        ? globalThis.String(object.content_revision)
+        : "",
+      throughChunkSeq: isSet(object.throughChunkSeq)
+        ? globalThis.String(object.throughChunkSeq)
+        : isSet(object.through_chunk_seq)
+        ? globalThis.String(object.through_chunk_seq)
+        : "",
+      contentDigest: isSet(object.contentDigest)
+        ? globalThis.String(object.contentDigest)
+        : isSet(object.content_digest)
+        ? globalThis.String(object.content_digest)
+        : "",
+      turnState: isSet(object.turnState)
+        ? turnStateFromJSON(object.turnState)
+        : isSet(object.turn_state)
+        ? turnStateFromJSON(object.turn_state)
+        : 0,
+      failureCode: isSet(object.failureCode)
+        ? globalThis.String(object.failureCode)
+        : isSet(object.failure_code)
+        ? globalThis.String(object.failure_code)
+        : undefined,
+    };
+  },
+
+  toJSON(message: MessageSealedPayload): unknown {
+    const obj: any = {};
+    if (message.messageId !== "") {
+      obj.messageId = message.messageId;
+    }
+    if (message.state !== 0) {
+      obj.state = messageStateToJSON(message.state);
+    }
+    if (message.contentRevision !== "") {
+      obj.contentRevision = message.contentRevision;
+    }
+    if (message.throughChunkSeq !== "") {
+      obj.throughChunkSeq = message.throughChunkSeq;
+    }
+    if (message.contentDigest !== "") {
+      obj.contentDigest = message.contentDigest;
+    }
+    if (message.turnState !== 0) {
+      obj.turnState = turnStateToJSON(message.turnState);
+    }
+    if (message.failureCode !== undefined) {
+      obj.failureCode = message.failureCode;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MessageSealedPayload>, I>>(base?: I): MessageSealedPayload {
+    return MessageSealedPayload.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MessageSealedPayload>, I>>(object: I): MessageSealedPayload {
+    const message = createBaseMessageSealedPayload();
+    message.messageId = object.messageId ?? "";
+    message.state = object.state ?? 0;
+    message.contentRevision = object.contentRevision ?? "";
+    message.throughChunkSeq = object.throughChunkSeq ?? "";
+    message.contentDigest = object.contentDigest ?? "";
+    message.turnState = object.turnState ?? 0;
+    message.failureCode = object.failureCode ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(MessageSealedPayload.$type, MessageSealedPayload);
+
+function createBaseTurnChangedPayload(): TurnChangedPayload {
+  return { $type: "anvilkit.control.v1.TurnChangedPayload", turn: undefined };
+}
+
+export const TurnChangedPayload: MessageFns<TurnChangedPayload, "anvilkit.control.v1.TurnChangedPayload"> = {
+  $type: "anvilkit.control.v1.TurnChangedPayload" as const,
+
+  encode(message: TurnChangedPayload, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.turn !== undefined) {
+      Turn.encode(message.turn, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TurnChangedPayload {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseTurnChangedPayload();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.turn = Turn.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): TurnChangedPayload {
+    return { $type: TurnChangedPayload.$type, turn: isSet(object.turn) ? Turn.fromJSON(object.turn) : undefined };
+  },
+
+  toJSON(message: TurnChangedPayload): unknown {
+    const obj: any = {};
+    if (message.turn !== undefined) {
+      obj.turn = Turn.toJSON(message.turn);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TurnChangedPayload>, I>>(base?: I): TurnChangedPayload {
+    return TurnChangedPayload.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TurnChangedPayload>, I>>(object: I): TurnChangedPayload {
+    const message = createBaseTurnChangedPayload();
+    message.turn = (object.turn !== undefined && object.turn !== null) ? Turn.fromPartial(object.turn) : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(TurnChangedPayload.$type, TurnChangedPayload);
+
+function createBaseConversationChangedPayload(): ConversationChangedPayload {
+  return { $type: "anvilkit.control.v1.ConversationChangedPayload", conversationRevision: "", status: 0 };
+}
+
+export const ConversationChangedPayload: MessageFns<
+  ConversationChangedPayload,
+  "anvilkit.control.v1.ConversationChangedPayload"
+> = {
+  $type: "anvilkit.control.v1.ConversationChangedPayload" as const,
+
+  encode(message: ConversationChangedPayload, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.conversationRevision !== "") {
+      writer.uint32(10).string(message.conversationRevision);
+    }
+    if (message.status !== 0) {
+      writer.uint32(16).int32(message.status);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ConversationChangedPayload {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseConversationChangedPayload();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.conversationRevision = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.status = reader.int32() as any;
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ConversationChangedPayload {
+    return {
+      $type: ConversationChangedPayload.$type,
+      conversationRevision: isSet(object.conversationRevision)
+        ? globalThis.String(object.conversationRevision)
+        : isSet(object.conversation_revision)
+        ? globalThis.String(object.conversation_revision)
+        : "",
+      status: isSet(object.status) ? conversationStatusFromJSON(object.status) : 0,
+    };
+  },
+
+  toJSON(message: ConversationChangedPayload): unknown {
+    const obj: any = {};
+    if (message.conversationRevision !== "") {
+      obj.conversationRevision = message.conversationRevision;
+    }
+    if (message.status !== 0) {
+      obj.status = conversationStatusToJSON(message.status);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ConversationChangedPayload>, I>>(base?: I): ConversationChangedPayload {
+    return ConversationChangedPayload.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ConversationChangedPayload>, I>>(object: I): ConversationChangedPayload {
+    const message = createBaseConversationChangedPayload();
+    message.conversationRevision = object.conversationRevision ?? "";
+    message.status = object.status ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ConversationChangedPayload.$type, ConversationChangedPayload);
+
+function createBaseListConversationEventsRequest(): ListConversationEventsRequest {
+  return {
+    $type: "anvilkit.control.v1.ListConversationEventsRequest",
+    scope: undefined,
+    conversationId: "",
+    afterEventSeq: "",
+    limit: 0,
+  };
+}
+
+export const ListConversationEventsRequest: MessageFns<
+  ListConversationEventsRequest,
+  "anvilkit.control.v1.ListConversationEventsRequest"
+> = {
+  $type: "anvilkit.control.v1.ListConversationEventsRequest" as const,
+
+  encode(message: ListConversationEventsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.conversationId !== "") {
+      writer.uint32(18).string(message.conversationId);
+    }
+    if (message.afterEventSeq !== "") {
+      writer.uint32(26).string(message.afterEventSeq);
+    }
+    if (message.limit !== 0) {
+      writer.uint32(32).uint32(message.limit);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListConversationEventsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListConversationEventsRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.conversationId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.afterEventSeq = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.limit = reader.uint32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ListConversationEventsRequest {
+    return {
+      $type: ListConversationEventsRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      conversationId: isSet(object.conversationId)
+        ? globalThis.String(object.conversationId)
+        : isSet(object.conversation_id)
+        ? globalThis.String(object.conversation_id)
+        : "",
+      afterEventSeq: isSet(object.afterEventSeq)
+        ? globalThis.String(object.afterEventSeq)
+        : isSet(object.after_event_seq)
+        ? globalThis.String(object.after_event_seq)
+        : "",
+      limit: isSet(object.limit) ? globalThis.Number(object.limit) : 0,
+    };
+  },
+
+  toJSON(message: ListConversationEventsRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.conversationId !== "") {
+      obj.conversationId = message.conversationId;
+    }
+    if (message.afterEventSeq !== "") {
+      obj.afterEventSeq = message.afterEventSeq;
+    }
+    if (message.limit !== 0) {
+      obj.limit = Math.round(message.limit);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListConversationEventsRequest>, I>>(base?: I): ListConversationEventsRequest {
+    return ListConversationEventsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListConversationEventsRequest>, I>>(
+    object: I,
+  ): ListConversationEventsRequest {
+    const message = createBaseListConversationEventsRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.conversationId = object.conversationId ?? "";
+    message.afterEventSeq = object.afterEventSeq ?? "";
+    message.limit = object.limit ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ListConversationEventsRequest.$type, ListConversationEventsRequest);
+
+function createBaseListConversationEventsResponse(): ListConversationEventsResponse {
+  return {
+    $type: "anvilkit.control.v1.ListConversationEventsResponse",
+    events: [],
+    coveredEventSeq: "",
+    resetRequired: false,
+  };
+}
+
+export const ListConversationEventsResponse: MessageFns<
+  ListConversationEventsResponse,
+  "anvilkit.control.v1.ListConversationEventsResponse"
+> = {
+  $type: "anvilkit.control.v1.ListConversationEventsResponse" as const,
+
+  encode(message: ListConversationEventsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.events) {
+      ConversationEvent.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.coveredEventSeq !== "") {
+      writer.uint32(18).string(message.coveredEventSeq);
+    }
+    if (message.resetRequired !== false) {
+      writer.uint32(24).bool(message.resetRequired);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListConversationEventsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListConversationEventsResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.events.push(ConversationEvent.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.coveredEventSeq = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.resetRequired = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ListConversationEventsResponse {
+    return {
+      $type: ListConversationEventsResponse.$type,
+      events: globalThis.Array.isArray(object?.events)
+        ? object.events.map((e: any) => ConversationEvent.fromJSON(e))
+        : [],
+      coveredEventSeq: isSet(object.coveredEventSeq)
+        ? globalThis.String(object.coveredEventSeq)
+        : isSet(object.covered_event_seq)
+        ? globalThis.String(object.covered_event_seq)
+        : "",
+      resetRequired: isSet(object.resetRequired)
+        ? globalThis.Boolean(object.resetRequired)
+        : isSet(object.reset_required)
+        ? globalThis.Boolean(object.reset_required)
+        : false,
+    };
+  },
+
+  toJSON(message: ListConversationEventsResponse): unknown {
+    const obj: any = {};
+    if (message.events?.length) {
+      obj.events = message.events.map((e) => ConversationEvent.toJSON(e));
+    }
+    if (message.coveredEventSeq !== "") {
+      obj.coveredEventSeq = message.coveredEventSeq;
+    }
+    if (message.resetRequired !== false) {
+      obj.resetRequired = message.resetRequired;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListConversationEventsResponse>, I>>(base?: I): ListConversationEventsResponse {
+    return ListConversationEventsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListConversationEventsResponse>, I>>(
+    object: I,
+  ): ListConversationEventsResponse {
+    const message = createBaseListConversationEventsResponse();
+    message.events = object.events?.map((e) => ConversationEvent.fromPartial(e)) || [];
+    message.coveredEventSeq = object.coveredEventSeq ?? "";
+    message.resetRequired = object.resetRequired ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ListConversationEventsResponse.$type, ListConversationEventsResponse);
+
+function createBaseStreamConversationEventsRequest(): StreamConversationEventsRequest {
+  return {
+    $type: "anvilkit.control.v1.StreamConversationEventsRequest",
+    scope: undefined,
+    conversationId: "",
+    afterEventSeq: "",
+  };
+}
+
+export const StreamConversationEventsRequest: MessageFns<
+  StreamConversationEventsRequest,
+  "anvilkit.control.v1.StreamConversationEventsRequest"
+> = {
+  $type: "anvilkit.control.v1.StreamConversationEventsRequest" as const,
+
+  encode(message: StreamConversationEventsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.scope !== undefined) {
+      Scope.encode(message.scope, writer.uint32(10).fork()).join();
+    }
+    if (message.conversationId !== "") {
+      writer.uint32(18).string(message.conversationId);
+    }
+    if (message.afterEventSeq !== "") {
+      writer.uint32(26).string(message.afterEventSeq);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StreamConversationEventsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseStreamConversationEventsRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.scope = Scope.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.conversationId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.afterEventSeq = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): StreamConversationEventsRequest {
+    return {
+      $type: StreamConversationEventsRequest.$type,
+      scope: isSet(object.scope) ? Scope.fromJSON(object.scope) : undefined,
+      conversationId: isSet(object.conversationId)
+        ? globalThis.String(object.conversationId)
+        : isSet(object.conversation_id)
+        ? globalThis.String(object.conversation_id)
+        : "",
+      afterEventSeq: isSet(object.afterEventSeq)
+        ? globalThis.String(object.afterEventSeq)
+        : isSet(object.after_event_seq)
+        ? globalThis.String(object.after_event_seq)
+        : "",
+    };
+  },
+
+  toJSON(message: StreamConversationEventsRequest): unknown {
+    const obj: any = {};
+    if (message.scope !== undefined) {
+      obj.scope = Scope.toJSON(message.scope);
+    }
+    if (message.conversationId !== "") {
+      obj.conversationId = message.conversationId;
+    }
+    if (message.afterEventSeq !== "") {
+      obj.afterEventSeq = message.afterEventSeq;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StreamConversationEventsRequest>, I>>(base?: I): StreamConversationEventsRequest {
+    return StreamConversationEventsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StreamConversationEventsRequest>, I>>(
+    object: I,
+  ): StreamConversationEventsRequest {
+    const message = createBaseStreamConversationEventsRequest();
+    message.scope = (object.scope !== undefined && object.scope !== null) ? Scope.fromPartial(object.scope) : undefined;
+    message.conversationId = object.conversationId ?? "";
+    message.afterEventSeq = object.afterEventSeq ?? "";
+    return message;
+  },
+};
+
+messageTypeRegistry.set(StreamConversationEventsRequest.$type, StreamConversationEventsRequest);
+
+function createBaseStreamConversationEventsResponse(): StreamConversationEventsResponse {
+  return { $type: "anvilkit.control.v1.StreamConversationEventsResponse", event: undefined };
+}
+
+export const StreamConversationEventsResponse: MessageFns<
+  StreamConversationEventsResponse,
+  "anvilkit.control.v1.StreamConversationEventsResponse"
+> = {
+  $type: "anvilkit.control.v1.StreamConversationEventsResponse" as const,
+
+  encode(message: StreamConversationEventsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.event !== undefined) {
+      ConversationEvent.encode(message.event, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StreamConversationEventsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseStreamConversationEventsResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.event = ConversationEvent.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): StreamConversationEventsResponse {
+    return {
+      $type: StreamConversationEventsResponse.$type,
+      event: isSet(object.event) ? ConversationEvent.fromJSON(object.event) : undefined,
+    };
+  },
+
+  toJSON(message: StreamConversationEventsResponse): unknown {
+    const obj: any = {};
+    if (message.event !== undefined) {
+      obj.event = ConversationEvent.toJSON(message.event);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StreamConversationEventsResponse>, I>>(
+    base?: I,
+  ): StreamConversationEventsResponse {
+    return StreamConversationEventsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StreamConversationEventsResponse>, I>>(
+    object: I,
+  ): StreamConversationEventsResponse {
+    const message = createBaseStreamConversationEventsResponse();
+    message.event = (object.event !== undefined && object.event !== null)
+      ? ConversationEvent.fromPartial(object.event)
+      : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(StreamConversationEventsResponse.$type, StreamConversationEventsResponse);
+
 function createBaseTurn(): Turn {
   return {
     $type: "anvilkit.control.v1.Turn",
@@ -3649,7 +5669,14 @@ export const ClaimReplyWriterRequest: MessageFns<
 messageTypeRegistry.set(ClaimReplyWriterRequest.$type, ClaimReplyWriterRequest);
 
 function createBaseClaimReplyWriterResponse(): ClaimReplyWriterResponse {
-  return { $type: "anvilkit.control.v1.ClaimReplyWriterResponse", writerEpoch: "", turn: undefined, existing: false };
+  return {
+    $type: "anvilkit.control.v1.ClaimReplyWriterResponse",
+    writerEpoch: "",
+    turn: undefined,
+    existing: false,
+    lastProviderSeq: undefined,
+    originalStreamId: undefined,
+  };
 }
 
 export const ClaimReplyWriterResponse: MessageFns<
@@ -3667,6 +5694,12 @@ export const ClaimReplyWriterResponse: MessageFns<
     }
     if (message.existing !== false) {
       writer.uint32(24).bool(message.existing);
+    }
+    if (message.lastProviderSeq !== undefined) {
+      writer.uint32(34).string(message.lastProviderSeq);
+    }
+    if (message.originalStreamId !== undefined) {
+      writer.uint32(42).string(message.originalStreamId);
     }
     return writer;
   },
@@ -3708,6 +5741,22 @@ export const ClaimReplyWriterResponse: MessageFns<
             message.existing = reader.bool();
             continue;
           }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.lastProviderSeq = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.originalStreamId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -3730,6 +5779,16 @@ export const ClaimReplyWriterResponse: MessageFns<
         : "",
       turn: isSet(object.turn) ? Turn.fromJSON(object.turn) : undefined,
       existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+      lastProviderSeq: isSet(object.lastProviderSeq)
+        ? globalThis.String(object.lastProviderSeq)
+        : isSet(object.last_provider_seq)
+        ? globalThis.String(object.last_provider_seq)
+        : undefined,
+      originalStreamId: isSet(object.originalStreamId)
+        ? globalThis.String(object.originalStreamId)
+        : isSet(object.original_stream_id)
+        ? globalThis.String(object.original_stream_id)
+        : undefined,
     };
   },
 
@@ -3744,6 +5803,12 @@ export const ClaimReplyWriterResponse: MessageFns<
     if (message.existing !== false) {
       obj.existing = message.existing;
     }
+    if (message.lastProviderSeq !== undefined) {
+      obj.lastProviderSeq = message.lastProviderSeq;
+    }
+    if (message.originalStreamId !== undefined) {
+      obj.originalStreamId = message.originalStreamId;
+    }
     return obj;
   },
 
@@ -3755,6 +5820,8 @@ export const ClaimReplyWriterResponse: MessageFns<
     message.writerEpoch = object.writerEpoch ?? "";
     message.turn = (object.turn !== undefined && object.turn !== null) ? Turn.fromPartial(object.turn) : undefined;
     message.existing = object.existing ?? false;
+    message.lastProviderSeq = object.lastProviderSeq ?? undefined;
+    message.originalStreamId = object.originalStreamId ?? undefined;
     return message;
   },
 };
@@ -4013,6 +6080,7 @@ function createBaseRecordReplyOutcomeRequest(): RecordReplyOutcomeRequest {
     contentDigest: undefined,
     senderStatus: 0,
     failureCode: undefined,
+    fromBatches: false,
   };
 }
 
@@ -4052,6 +6120,9 @@ export const RecordReplyOutcomeRequest: MessageFns<
     }
     if (message.failureCode !== undefined) {
       writer.uint32(82).string(message.failureCode);
+    }
+    if (message.fromBatches !== false) {
+      writer.uint32(88).bool(message.fromBatches);
     }
     return writer;
   },
@@ -4149,6 +6220,14 @@ export const RecordReplyOutcomeRequest: MessageFns<
             message.failureCode = reader.string();
             continue;
           }
+          case 11: {
+            if (tag !== 88) {
+              break;
+            }
+
+            message.fromBatches = reader.bool();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4198,6 +6277,11 @@ export const RecordReplyOutcomeRequest: MessageFns<
         : isSet(object.failure_code)
         ? globalThis.String(object.failure_code)
         : undefined,
+      fromBatches: isSet(object.fromBatches)
+        ? globalThis.Boolean(object.fromBatches)
+        : isSet(object.from_batches)
+        ? globalThis.Boolean(object.from_batches)
+        : false,
     };
   },
 
@@ -4233,6 +6317,9 @@ export const RecordReplyOutcomeRequest: MessageFns<
     if (message.failureCode !== undefined) {
       obj.failureCode = message.failureCode;
     }
+    if (message.fromBatches !== false) {
+      obj.fromBatches = message.fromBatches;
+    }
     return obj;
   },
 
@@ -4255,6 +6342,7 @@ export const RecordReplyOutcomeRequest: MessageFns<
     message.contentDigest = object.contentDigest ?? undefined;
     message.senderStatus = object.senderStatus ?? 0;
     message.failureCode = object.failureCode ?? undefined;
+    message.fromBatches = object.fromBatches ?? false;
     return message;
   },
 };
@@ -4381,6 +6469,469 @@ export const RecordReplyOutcomeResponse: MessageFns<
 
 messageTypeRegistry.set(RecordReplyOutcomeResponse.$type, RecordReplyOutcomeResponse);
 
+function createBaseAppendReplyBatchRequest(): AppendReplyBatchRequest {
+  return {
+    $type: "anvilkit.control.v1.AppendReplyBatchRequest",
+    command: undefined,
+    binding: undefined,
+    turnId: "",
+    writerEpoch: "",
+    callId: "",
+    originalStreamId: "",
+    fromProviderSeq: "",
+    throughProviderSeq: "",
+    sourceFramesDigest: "",
+    text: undefined,
+    textDigest: undefined,
+  };
+}
+
+export const AppendReplyBatchRequest: MessageFns<
+  AppendReplyBatchRequest,
+  "anvilkit.control.v1.AppendReplyBatchRequest"
+> = {
+  $type: "anvilkit.control.v1.AppendReplyBatchRequest" as const,
+
+  encode(message: AppendReplyBatchRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.command !== undefined) {
+      CommandIdentity.encode(message.command, writer.uint32(10).fork()).join();
+    }
+    if (message.binding !== undefined) {
+      ExecutionBinding.encode(message.binding, writer.uint32(18).fork()).join();
+    }
+    if (message.turnId !== "") {
+      writer.uint32(26).string(message.turnId);
+    }
+    if (message.writerEpoch !== "") {
+      writer.uint32(34).string(message.writerEpoch);
+    }
+    if (message.callId !== "") {
+      writer.uint32(42).string(message.callId);
+    }
+    if (message.originalStreamId !== "") {
+      writer.uint32(50).string(message.originalStreamId);
+    }
+    if (message.fromProviderSeq !== "") {
+      writer.uint32(58).string(message.fromProviderSeq);
+    }
+    if (message.throughProviderSeq !== "") {
+      writer.uint32(66).string(message.throughProviderSeq);
+    }
+    if (message.sourceFramesDigest !== "") {
+      writer.uint32(74).string(message.sourceFramesDigest);
+    }
+    if (message.text !== undefined) {
+      writer.uint32(82).string(message.text);
+    }
+    if (message.textDigest !== undefined) {
+      writer.uint32(90).string(message.textDigest);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AppendReplyBatchRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAppendReplyBatchRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.command = CommandIdentity.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.binding = ExecutionBinding.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.turnId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.writerEpoch = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.callId = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.originalStreamId = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.fromProviderSeq = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.throughProviderSeq = reader.string();
+            continue;
+          }
+          case 9: {
+            if (tag !== 74) {
+              break;
+            }
+
+            message.sourceFramesDigest = reader.string();
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.text = reader.string();
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.textDigest = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AppendReplyBatchRequest {
+    return {
+      $type: AppendReplyBatchRequest.$type,
+      command: isSet(object.command) ? CommandIdentity.fromJSON(object.command) : undefined,
+      binding: isSet(object.binding) ? ExecutionBinding.fromJSON(object.binding) : undefined,
+      turnId: isSet(object.turnId)
+        ? globalThis.String(object.turnId)
+        : isSet(object.turn_id)
+        ? globalThis.String(object.turn_id)
+        : "",
+      writerEpoch: isSet(object.writerEpoch)
+        ? globalThis.String(object.writerEpoch)
+        : isSet(object.writer_epoch)
+        ? globalThis.String(object.writer_epoch)
+        : "",
+      callId: isSet(object.callId)
+        ? globalThis.String(object.callId)
+        : isSet(object.call_id)
+        ? globalThis.String(object.call_id)
+        : "",
+      originalStreamId: isSet(object.originalStreamId)
+        ? globalThis.String(object.originalStreamId)
+        : isSet(object.original_stream_id)
+        ? globalThis.String(object.original_stream_id)
+        : "",
+      fromProviderSeq: isSet(object.fromProviderSeq)
+        ? globalThis.String(object.fromProviderSeq)
+        : isSet(object.from_provider_seq)
+        ? globalThis.String(object.from_provider_seq)
+        : "",
+      throughProviderSeq: isSet(object.throughProviderSeq)
+        ? globalThis.String(object.throughProviderSeq)
+        : isSet(object.through_provider_seq)
+        ? globalThis.String(object.through_provider_seq)
+        : "",
+      sourceFramesDigest: isSet(object.sourceFramesDigest)
+        ? globalThis.String(object.sourceFramesDigest)
+        : isSet(object.source_frames_digest)
+        ? globalThis.String(object.source_frames_digest)
+        : "",
+      text: isSet(object.text) ? globalThis.String(object.text) : undefined,
+      textDigest: isSet(object.textDigest)
+        ? globalThis.String(object.textDigest)
+        : isSet(object.text_digest)
+        ? globalThis.String(object.text_digest)
+        : undefined,
+    };
+  },
+
+  toJSON(message: AppendReplyBatchRequest): unknown {
+    const obj: any = {};
+    if (message.command !== undefined) {
+      obj.command = CommandIdentity.toJSON(message.command);
+    }
+    if (message.binding !== undefined) {
+      obj.binding = ExecutionBinding.toJSON(message.binding);
+    }
+    if (message.turnId !== "") {
+      obj.turnId = message.turnId;
+    }
+    if (message.writerEpoch !== "") {
+      obj.writerEpoch = message.writerEpoch;
+    }
+    if (message.callId !== "") {
+      obj.callId = message.callId;
+    }
+    if (message.originalStreamId !== "") {
+      obj.originalStreamId = message.originalStreamId;
+    }
+    if (message.fromProviderSeq !== "") {
+      obj.fromProviderSeq = message.fromProviderSeq;
+    }
+    if (message.throughProviderSeq !== "") {
+      obj.throughProviderSeq = message.throughProviderSeq;
+    }
+    if (message.sourceFramesDigest !== "") {
+      obj.sourceFramesDigest = message.sourceFramesDigest;
+    }
+    if (message.text !== undefined) {
+      obj.text = message.text;
+    }
+    if (message.textDigest !== undefined) {
+      obj.textDigest = message.textDigest;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AppendReplyBatchRequest>, I>>(base?: I): AppendReplyBatchRequest {
+    return AppendReplyBatchRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AppendReplyBatchRequest>, I>>(object: I): AppendReplyBatchRequest {
+    const message = createBaseAppendReplyBatchRequest();
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandIdentity.fromPartial(object.command)
+      : undefined;
+    message.binding = (object.binding !== undefined && object.binding !== null)
+      ? ExecutionBinding.fromPartial(object.binding)
+      : undefined;
+    message.turnId = object.turnId ?? "";
+    message.writerEpoch = object.writerEpoch ?? "";
+    message.callId = object.callId ?? "";
+    message.originalStreamId = object.originalStreamId ?? "";
+    message.fromProviderSeq = object.fromProviderSeq ?? "";
+    message.throughProviderSeq = object.throughProviderSeq ?? "";
+    message.sourceFramesDigest = object.sourceFramesDigest ?? "";
+    message.text = object.text ?? undefined;
+    message.textDigest = object.textDigest ?? undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AppendReplyBatchRequest.$type, AppendReplyBatchRequest);
+
+function createBaseAppendReplyBatchResponse(): AppendReplyBatchResponse {
+  return {
+    $type: "anvilkit.control.v1.AppendReplyBatchResponse",
+    acceptedThroughProviderSeq: "",
+    chunkSeq: undefined,
+    assistantMessageId: undefined,
+    turn: undefined,
+    existing: false,
+    sealed: false,
+  };
+}
+
+export const AppendReplyBatchResponse: MessageFns<
+  AppendReplyBatchResponse,
+  "anvilkit.control.v1.AppendReplyBatchResponse"
+> = {
+  $type: "anvilkit.control.v1.AppendReplyBatchResponse" as const,
+
+  encode(message: AppendReplyBatchResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.acceptedThroughProviderSeq !== "") {
+      writer.uint32(10).string(message.acceptedThroughProviderSeq);
+    }
+    if (message.chunkSeq !== undefined) {
+      writer.uint32(18).string(message.chunkSeq);
+    }
+    if (message.assistantMessageId !== undefined) {
+      writer.uint32(26).string(message.assistantMessageId);
+    }
+    if (message.turn !== undefined) {
+      Turn.encode(message.turn, writer.uint32(34).fork()).join();
+    }
+    if (message.existing !== false) {
+      writer.uint32(40).bool(message.existing);
+    }
+    if (message.sealed !== false) {
+      writer.uint32(48).bool(message.sealed);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AppendReplyBatchResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAppendReplyBatchResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.acceptedThroughProviderSeq = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.chunkSeq = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.assistantMessageId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.turn = Turn.decode(reader, reader.uint32());
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.existing = reader.bool();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.sealed = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AppendReplyBatchResponse {
+    return {
+      $type: AppendReplyBatchResponse.$type,
+      acceptedThroughProviderSeq: isSet(object.acceptedThroughProviderSeq)
+        ? globalThis.String(object.acceptedThroughProviderSeq)
+        : isSet(object.accepted_through_provider_seq)
+        ? globalThis.String(object.accepted_through_provider_seq)
+        : "",
+      chunkSeq: isSet(object.chunkSeq)
+        ? globalThis.String(object.chunkSeq)
+        : isSet(object.chunk_seq)
+        ? globalThis.String(object.chunk_seq)
+        : undefined,
+      assistantMessageId: isSet(object.assistantMessageId)
+        ? globalThis.String(object.assistantMessageId)
+        : isSet(object.assistant_message_id)
+        ? globalThis.String(object.assistant_message_id)
+        : undefined,
+      turn: isSet(object.turn) ? Turn.fromJSON(object.turn) : undefined,
+      existing: isSet(object.existing) ? globalThis.Boolean(object.existing) : false,
+      sealed: isSet(object.sealed) ? globalThis.Boolean(object.sealed) : false,
+    };
+  },
+
+  toJSON(message: AppendReplyBatchResponse): unknown {
+    const obj: any = {};
+    if (message.acceptedThroughProviderSeq !== "") {
+      obj.acceptedThroughProviderSeq = message.acceptedThroughProviderSeq;
+    }
+    if (message.chunkSeq !== undefined) {
+      obj.chunkSeq = message.chunkSeq;
+    }
+    if (message.assistantMessageId !== undefined) {
+      obj.assistantMessageId = message.assistantMessageId;
+    }
+    if (message.turn !== undefined) {
+      obj.turn = Turn.toJSON(message.turn);
+    }
+    if (message.existing !== false) {
+      obj.existing = message.existing;
+    }
+    if (message.sealed !== false) {
+      obj.sealed = message.sealed;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AppendReplyBatchResponse>, I>>(base?: I): AppendReplyBatchResponse {
+    return AppendReplyBatchResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AppendReplyBatchResponse>, I>>(object: I): AppendReplyBatchResponse {
+    const message = createBaseAppendReplyBatchResponse();
+    message.acceptedThroughProviderSeq = object.acceptedThroughProviderSeq ?? "";
+    message.chunkSeq = object.chunkSeq ?? undefined;
+    message.assistantMessageId = object.assistantMessageId ?? undefined;
+    message.turn = (object.turn !== undefined && object.turn !== null) ? Turn.fromPartial(object.turn) : undefined;
+    message.existing = object.existing ?? false;
+    message.sealed = object.sealed ?? false;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AppendReplyBatchResponse.$type, AppendReplyBatchResponse);
+
 /**
  * The API is the only caller (architecture.md communication matrix). Scope
  * is the authenticated principal; a command's tenant and actor must be the
@@ -4471,7 +7022,10 @@ export const ConversationServiceService = {
    * Stops this turn's reply only (design 0001 §11.3): Control fences new
    * dispatch and cancels the turn's chat_turn operation at its current
    * revision; text already shown stays, and incurred usage stays in the
-   * ledger. A terminal turn answers itself unchanged.
+   * ledger. A terminal turn answers itself unchanged. D4a (DEC-070): a reply
+   * whose writer is claimed is sealed CANCELED in the stop transaction with
+   * its committed chunks as the canceled message, and the slot frees, while
+   * the send still meters to its end (DEC-068 Q3).
    */
   stopTurn: {
     path: "/anvilkit.control.v1.ConversationService/StopTurn" as const,
@@ -4481,6 +7035,55 @@ export const ConversationServiceService = {
     requestDeserialize: (value: Buffer): StopTurnRequest => StopTurnRequest.decode(value),
     responseSerialize: (value: StopTurnResponse): Buffer => Buffer.from(StopTurnResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): StopTurnResponse => StopTurnResponse.decode(value),
+  },
+  /**
+   * One message of the caller's conversation (D4). A STREAMING assistant
+   * message answers its committed chunks so far, with their content revision.
+   */
+  getMessage: {
+    path: "/anvilkit.control.v1.ConversationService/GetMessage" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetMessageRequest): Buffer => Buffer.from(GetMessageRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetMessageRequest => GetMessageRequest.decode(value),
+    responseSerialize: (value: GetMessageResponse): Buffer => Buffer.from(GetMessageResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetMessageResponse => GetMessageResponse.decode(value),
+  },
+  /**
+   * Lists durable conversation events after a cursor (D4, design 0001 §8.1).
+   * A cursor ahead of the covered sequence or a gap in the retained events
+   * answers reset_required with the covered_event_seq of a fresh snapshot.
+   */
+  listConversationEvents: {
+    path: "/anvilkit.control.v1.ConversationService/ListConversationEvents" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ListConversationEventsRequest): Buffer =>
+      Buffer.from(ListConversationEventsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ListConversationEventsRequest => ListConversationEventsRequest.decode(value),
+    responseSerialize: (value: ListConversationEventsResponse): Buffer =>
+      Buffer.from(ListConversationEventsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ListConversationEventsResponse =>
+      ListConversationEventsResponse.decode(value),
+  },
+  /**
+   * Streams durable conversation events after a cursor until the caller
+   * disconnects or the server drains; a conversation has no terminal state, so
+   * the stream does not end on its own. Slow consumers are disconnected; that
+   * never cancels a turn.
+   */
+  streamConversationEvents: {
+    path: "/anvilkit.control.v1.ConversationService/StreamConversationEvents" as const,
+    requestStream: false as const,
+    responseStream: true as const,
+    requestSerialize: (value: StreamConversationEventsRequest): Buffer =>
+      Buffer.from(StreamConversationEventsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): StreamConversationEventsRequest =>
+      StreamConversationEventsRequest.decode(value),
+    responseSerialize: (value: StreamConversationEventsResponse): Buffer =>
+      Buffer.from(StreamConversationEventsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): StreamConversationEventsResponse =>
+      StreamConversationEventsResponse.decode(value),
   },
 } as const;
 
@@ -4502,9 +7105,33 @@ export interface ConversationServiceServer extends UntypedServiceImplementation 
    * Stops this turn's reply only (design 0001 §11.3): Control fences new
    * dispatch and cancels the turn's chat_turn operation at its current
    * revision; text already shown stays, and incurred usage stays in the
-   * ledger. A terminal turn answers itself unchanged.
+   * ledger. A terminal turn answers itself unchanged. D4a (DEC-070): a reply
+   * whose writer is claimed is sealed CANCELED in the stop transaction with
+   * its committed chunks as the canceled message, and the slot frees, while
+   * the send still meters to its end (DEC-068 Q3).
    */
   stopTurn: handleUnaryCall<StopTurnRequest, StopTurnResponse>;
+  /**
+   * One message of the caller's conversation (D4). A STREAMING assistant
+   * message answers its committed chunks so far, with their content revision.
+   */
+  getMessage: handleUnaryCall<GetMessageRequest, GetMessageResponse>;
+  /**
+   * Lists durable conversation events after a cursor (D4, design 0001 §8.1).
+   * A cursor ahead of the covered sequence or a gap in the retained events
+   * answers reset_required with the covered_event_seq of a fresh snapshot.
+   */
+  listConversationEvents: handleUnaryCall<ListConversationEventsRequest, ListConversationEventsResponse>;
+  /**
+   * Streams durable conversation events after a cursor until the caller
+   * disconnects or the server drains; a conversation has no terminal state, so
+   * the stream does not end on its own. Slow consumers are disconnected; that
+   * never cancels a turn.
+   */
+  streamConversationEvents: handleServerStreamingCall<
+    StreamConversationEventsRequest,
+    StreamConversationEventsResponse
+  >;
 }
 
 export interface ConversationServiceClient extends Client {
@@ -4623,7 +7250,10 @@ export interface ConversationServiceClient extends Client {
    * Stops this turn's reply only (design 0001 §11.3): Control fences new
    * dispatch and cancels the turn's chat_turn operation at its current
    * revision; text already shown stays, and incurred usage stays in the
-   * ledger. A terminal turn answers itself unchanged.
+   * ledger. A terminal turn answers itself unchanged. D4a (DEC-070): a reply
+   * whose writer is claimed is sealed CANCELED in the stop transaction with
+   * its committed chunks as the canceled message, and the slot frees, while
+   * the send still meters to its end (DEC-068 Q3).
    */
   stopTurn(
     request: StopTurnRequest,
@@ -4640,6 +7270,60 @@ export interface ConversationServiceClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: StopTurnResponse) => void,
   ): ClientUnaryCall;
+  /**
+   * One message of the caller's conversation (D4). A STREAMING assistant
+   * message answers its committed chunks so far, with their content revision.
+   */
+  getMessage(
+    request: GetMessageRequest,
+    callback: (error: ServiceError | null, response: GetMessageResponse) => void,
+  ): ClientUnaryCall;
+  getMessage(
+    request: GetMessageRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetMessageResponse) => void,
+  ): ClientUnaryCall;
+  getMessage(
+    request: GetMessageRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetMessageResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Lists durable conversation events after a cursor (D4, design 0001 §8.1).
+   * A cursor ahead of the covered sequence or a gap in the retained events
+   * answers reset_required with the covered_event_seq of a fresh snapshot.
+   */
+  listConversationEvents(
+    request: ListConversationEventsRequest,
+    callback: (error: ServiceError | null, response: ListConversationEventsResponse) => void,
+  ): ClientUnaryCall;
+  listConversationEvents(
+    request: ListConversationEventsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ListConversationEventsResponse) => void,
+  ): ClientUnaryCall;
+  listConversationEvents(
+    request: ListConversationEventsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ListConversationEventsResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Streams durable conversation events after a cursor until the caller
+   * disconnects or the server drains; a conversation has no terminal state, so
+   * the stream does not end on its own. Slow consumers are disconnected; that
+   * never cancels a turn.
+   */
+  streamConversationEvents(
+    request: StreamConversationEventsRequest,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<StreamConversationEventsResponse>;
+  streamConversationEvents(
+    request: StreamConversationEventsRequest,
+    metadata?: Metadata,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<StreamConversationEventsResponse>;
 }
 
 export const ConversationServiceClient = makeGenericClientConstructor(
@@ -4701,6 +7385,8 @@ export const ConversationExecutionServiceService = {
    * stopped sender and the whole text; the other outcomes store a non-empty
    * prefix, if any, as a partial assistant message. The same command answers
    * the recorded outcome; a different outcome for a sealed turn conflicts.
+   * D4: with from_batches the sealed text is the committed batches, checked
+   * against content_digest when it is given.
    */
   recordReplyOutcome: {
     path: "/anvilkit.control.v1.ConversationExecutionService/RecordReplyOutcome" as const,
@@ -4712,6 +7398,26 @@ export const ConversationExecutionServiceService = {
     responseSerialize: (value: RecordReplyOutcomeResponse): Buffer =>
       Buffer.from(RecordReplyOutcomeResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): RecordReplyOutcomeResponse => RecordReplyOutcomeResponse.decode(value),
+  },
+  /**
+   * Commits one batch of the reply's original frames under the current writer
+   * epoch (design 0001 §8.2): the first batch starts at provider sequence 0,
+   * each later one at the committed watermark plus one; the same range and
+   * digests answer the first receipt; an overlap with other content, a gap or
+   * a changed stream identity is refused and the turn goes to reconciliation.
+   * A turn already sealed (a stop) answers sealed=true and stores nothing: the
+   * Activity stops relaying and leaves the send to meter to its end.
+   */
+  appendReplyBatch: {
+    path: "/anvilkit.control.v1.ConversationExecutionService/AppendReplyBatch" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AppendReplyBatchRequest): Buffer =>
+      Buffer.from(AppendReplyBatchRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AppendReplyBatchRequest => AppendReplyBatchRequest.decode(value),
+    responseSerialize: (value: AppendReplyBatchResponse): Buffer =>
+      Buffer.from(AppendReplyBatchResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AppendReplyBatchResponse => AppendReplyBatchResponse.decode(value),
   },
 } as const;
 
@@ -4737,8 +7443,20 @@ export interface ConversationExecutionServiceServer extends UntypedServiceImplem
    * stopped sender and the whole text; the other outcomes store a non-empty
    * prefix, if any, as a partial assistant message. The same command answers
    * the recorded outcome; a different outcome for a sealed turn conflicts.
+   * D4: with from_batches the sealed text is the committed batches, checked
+   * against content_digest when it is given.
    */
   recordReplyOutcome: handleUnaryCall<RecordReplyOutcomeRequest, RecordReplyOutcomeResponse>;
+  /**
+   * Commits one batch of the reply's original frames under the current writer
+   * epoch (design 0001 §8.2): the first batch starts at provider sequence 0,
+   * each later one at the committed watermark plus one; the same range and
+   * digests answer the first receipt; an overlap with other content, a gap or
+   * a changed stream identity is refused and the turn goes to reconciliation.
+   * A turn already sealed (a stop) answers sealed=true and stores nothing: the
+   * Activity stops relaying and leaves the send to meter to its end.
+   */
+  appendReplyBatch: handleUnaryCall<AppendReplyBatchRequest, AppendReplyBatchResponse>;
 }
 
 export interface ConversationExecutionServiceClient extends Client {
@@ -4791,6 +7509,8 @@ export interface ConversationExecutionServiceClient extends Client {
    * stopped sender and the whole text; the other outcomes store a non-empty
    * prefix, if any, as a partial assistant message. The same command answers
    * the recorded outcome; a different outcome for a sealed turn conflicts.
+   * D4: with from_batches the sealed text is the committed batches, checked
+   * against content_digest when it is given.
    */
   recordReplyOutcome(
     request: RecordReplyOutcomeRequest,
@@ -4806,6 +7526,30 @@ export interface ConversationExecutionServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: RecordReplyOutcomeResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Commits one batch of the reply's original frames under the current writer
+   * epoch (design 0001 §8.2): the first batch starts at provider sequence 0,
+   * each later one at the committed watermark plus one; the same range and
+   * digests answer the first receipt; an overlap with other content, a gap or
+   * a changed stream identity is refused and the turn goes to reconciliation.
+   * A turn already sealed (a stop) answers sealed=true and stores nothing: the
+   * Activity stops relaying and leaves the send to meter to its end.
+   */
+  appendReplyBatch(
+    request: AppendReplyBatchRequest,
+    callback: (error: ServiceError | null, response: AppendReplyBatchResponse) => void,
+  ): ClientUnaryCall;
+  appendReplyBatch(
+    request: AppendReplyBatchRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: AppendReplyBatchResponse) => void,
+  ): ClientUnaryCall;
+  appendReplyBatch(
+    request: AppendReplyBatchRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AppendReplyBatchResponse) => void,
   ): ClientUnaryCall;
 }
 

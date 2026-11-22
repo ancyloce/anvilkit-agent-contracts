@@ -823,6 +823,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{conversationId}/messages/{messageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One message of the caller's conversation
+         * @description D4 (DEC-070). A `streaming` assistant message answers the text committed so far, with its `contentRevision` and `throughChunkSeq`; a sealed one answers its sealed text. Another user's or tenant's message is NOT_FOUND with no body.
+         */
+        get: operations["getMessage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversationId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SSE of the caller's conversation events after a cursor
+         * @description Server-Sent Events (design 0001 §8, D4a, DEC-070). The stream opens with a `retry` field
+         *     (the reconnect interval in milliseconds, jittered). `id` carries the eventSeq cursor; the
+         *     SSE `event` field names the event type, and its `data` is a ConversationEventFrame:
+         *     `message.accepted`, `message.started`, `message.delta` (the text of one committed chunk),
+         *     `message.completed`, `message.failed`, `message.canceled`, `turn.changed` and
+         *     `conversation.changed`. Later phases add types; a client skips a type it does not know.
+         *     Only text committed in Control is sent. Reconnect with `Last-Event-ID` or `after`, each a
+         *     plain eventSeq; a request that carries both with different values is refused
+         *     INVALID_ARGUMENT. A cursor ahead of the conversation's events or past a gap yields one
+         *     `reset_required` event whose data is a ConversationResetFrame: read the conversation
+         *     (its `coveredEventSeq`) and continue from there. A stream the server ends on its own
+         *     (reason `server_shutdown`) ends with one `end` event whose data is a ConversationEndFrame
+         *     and carries no `id`; the client reconnects after the advertised `retry` interval with its
+         *     last event id, to any replica, and loses nothing. A conversation has no terminal state,
+         *     so the stream does not end on its own. Comment lines are heartbeats. Slow consumers are
+         *     disconnected; disconnection never stops a turn.
+         */
+        get: operations["streamConversationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{conversationId}/turns/{turnId}": {
         parameters: {
             query?: never;
@@ -1659,7 +1714,7 @@ export interface components {
         /** @enum {string} */
         ConversationStatus: "active" | "archived";
         ConversationTitle: string;
-        /** @description A personal conversation. `revision` moves on a rename, an archive, a restore and each accepted message; `lastMessageSeq` is "0" before the first message. */
+        /** @description A personal conversation. `revision` moves on a rename, an archive, a restore and each accepted message; `lastMessageSeq` is "0" before the first message. D4: on GET /conversations/{conversationId} only, `coveredEventSeq` is the last event the read covers ("0" before the first event; subscribe to the event stream after it, design 0001 §8.4) and `activeTurn` the open turn, read in the same transaction. */
         Conversation: {
             conversationId: components["schemas"]["Id"];
             tenantId: components["schemas"]["Id"];
@@ -1671,6 +1726,8 @@ export interface components {
             lastMessageSeq: components["schemas"]["Sequence"];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
+            coveredEventSeq?: components["schemas"]["Sequence"];
+            activeTurn?: components["schemas"]["Turn"];
         };
         ConversationPage: {
             conversations: components["schemas"]["Conversation"][];
@@ -1700,6 +1757,7 @@ export interface components {
             type: "text";
             text: string;
         };
+        /** @description D4: `contentRevision` is the version of the text, from 1, and moves with each committed chunk of a `streaming` assistant message; `throughChunkSeq` is the last committed chunk the text covers ("0" for a user message and for a reply stored whole). */
         Message: {
             messageId: components["schemas"]["Id"];
             conversationId: components["schemas"]["Id"];
@@ -1709,6 +1767,8 @@ export interface components {
             content: components["schemas"]["MessageContent"];
             contentDigest: components["schemas"]["Digest"];
             createdAt: components["schemas"]["Timestamp"];
+            contentRevision?: components["schemas"]["Sequence"];
+            throughChunkSeq?: components["schemas"]["Sequence"];
         };
         /** @description Messages in ascending messageSeq. `nextBeforeMessageSeq` is present when older messages exist; pass it as `beforeMessageSeq` for the page before this one. */
         MessagePage: {
@@ -1746,7 +1806,7 @@ export interface components {
          * @enum {string}
          */
         SenderStatus: "not_started" | "active" | "stopped" | "unknown";
-        /** @description One bounded assistant reply to one user message (design 0001 §4.1). `assistantMessageId` is present once the reply's text is stored; a turn that ended before any text has none. `finance` is the turn operation's finance state, never derived from the text. `operationId` names that chat_turn operation for the ledger; chat_turn is not a public operation kind in this phase, so /operations does not serve it. */
+        /** @description One bounded assistant reply to one user message (design 0001 §4.1). `assistantMessageId` is present once the reply's text is stored (since D4, once its first chunk is committed); a turn that ended before any text has none. `finance` is the turn operation's finance state, never derived from the text. `operationId` names that chat_turn operation for the ledger; chat_turn is not a public operation kind in this phase, so /operations does not serve it. */
         Turn: {
             turnId: components["schemas"]["Id"];
             conversationId: components["schemas"]["Id"];
@@ -1761,6 +1821,41 @@ export interface components {
             failureCode?: string;
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
+        };
+        /** @description The `data` of one SSE conversation event (design 0001 §8.1). The common fields are always present; each type adds its own: `message.accepted` messageId, messageSeq, role, turnId; `message.started` messageId, turnId; `message.delta` messageId, chunkSeq, contentRevision, text; `message.completed`, `message.failed` and `message.canceled` messageId, state, contentRevision, throughChunkSeq, contentDigest, turnState, failureCode; `turn.changed` turn; `conversation.changed` conversationRevision, status. No frame carries a prompt, provider reasoning or tool arguments. */
+        ConversationEventFrame: {
+            conversationId: components["schemas"]["Id"];
+            eventSeq: components["schemas"]["Sequence"];
+            /** @enum {string} */
+            eventType: "message.accepted" | "message.started" | "message.delta" | "message.completed" | "message.failed" | "message.canceled" | "turn.changed" | "conversation.changed";
+            occurredAt: components["schemas"]["Timestamp"];
+            messageId?: components["schemas"]["Id"];
+            messageSeq?: components["schemas"]["Sequence"];
+            role?: components["schemas"]["MessageRole"];
+            turnId?: components["schemas"]["Id"];
+            chunkSeq?: components["schemas"]["Sequence"];
+            contentRevision?: components["schemas"]["Sequence"];
+            /** @description One committed chunk's text, whole UTF-8 characters, at most 32768 bytes. */
+            text?: string;
+            state?: components["schemas"]["MessageState"];
+            throughChunkSeq?: components["schemas"]["Sequence"];
+            contentDigest?: components["schemas"]["Digest"];
+            turnState?: components["schemas"]["TurnState"];
+            failureCode?: string;
+            turn?: components["schemas"]["Turn"];
+            conversationRevision?: components["schemas"]["Revision"];
+            status?: components["schemas"]["ConversationStatus"];
+        };
+        /** @description The `data` of an SSE `reset_required` event on a conversation stream. */
+        ConversationResetFrame: {
+            conversationId: components["schemas"]["Id"];
+            coveredEventSeq: components["schemas"]["Sequence"];
+        };
+        /** @description The `data` of an SSE `end` event on a conversation stream; the stream closes after it and is resumed from the last event id. */
+        ConversationEndFrame: {
+            conversationId: components["schemas"]["Id"];
+            /** @enum {string} */
+            reason: "server_shutdown";
         };
         StopTurnRequest: {
             commandId: components["schemas"]["Id"];
@@ -1840,6 +1935,7 @@ export interface components {
         creditPoolId: components["schemas"]["Id"];
         conversationId: components["schemas"]["Id"];
         turnId: components["schemas"]["Id"];
+        messageId: components["schemas"]["Id"];
         /** @description Default 20 for conversations and 30 for messages. */
         historyLimit: number;
         budgetLevel: components["schemas"]["BudgetLevel"];
@@ -3443,6 +3539,64 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["Exhausted"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+                messageId: components["parameters"]["messageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The message. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    streamConversationEvents: {
+        parameters: {
+            query?: {
+                after?: components["schemas"]["Sequence"];
+            };
+            header?: {
+                "Last-Event-ID"?: components["schemas"]["Sequence"];
+            };
+            path: {
+                conversationId: components["parameters"]["conversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event stream. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            400: components["responses"]["InvalidArgument"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];
         };
     };

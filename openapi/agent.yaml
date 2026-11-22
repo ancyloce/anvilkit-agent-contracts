@@ -1310,6 +1310,72 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "429": { $ref: "#/components/responses/Exhausted" }
         "503": { $ref: "#/components/responses/Unavailable" }
+  /conversations/{conversationId}/messages/{messageId}:
+    get:
+      tags: [conversations]
+      operationId: getMessage
+      summary: One message of the caller's conversation
+      description: >-
+        D4 (DEC-070). A `streaming` assistant message answers the text committed so far, with
+        its `contentRevision` and `throughChunkSeq`; a sealed one answers its sealed text. Another
+        user's or tenant's message is NOT_FOUND with no body.
+      parameters:
+        - $ref: "#/components/parameters/conversationId"
+        - $ref: "#/components/parameters/messageId"
+      responses:
+        "200":
+          description: The message.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /conversations/{conversationId}/events:
+    get:
+      tags: [conversations]
+      operationId: streamConversationEvents
+      summary: SSE of the caller's conversation events after a cursor
+      description: |
+        Server-Sent Events (design 0001 §8, D4a, DEC-070). The stream opens with a `retry` field
+        (the reconnect interval in milliseconds, jittered). `id` carries the eventSeq cursor; the
+        SSE `event` field names the event type, and its `data` is a ConversationEventFrame:
+        `message.accepted`, `message.started`, `message.delta` (the text of one committed chunk),
+        `message.completed`, `message.failed`, `message.canceled`, `turn.changed` and
+        `conversation.changed`. Later phases add types; a client skips a type it does not know.
+        Only text committed in Control is sent. Reconnect with `Last-Event-ID` or `after`, each a
+        plain eventSeq; a request that carries both with different values is refused
+        INVALID_ARGUMENT. A cursor ahead of the conversation's events or past a gap yields one
+        `reset_required` event whose data is a ConversationResetFrame: read the conversation
+        (its `coveredEventSeq`) and continue from there. A stream the server ends on its own
+        (reason `server_shutdown`) ends with one `end` event whose data is a ConversationEndFrame
+        and carries no `id`; the client reconnects after the advertised `retry` interval with its
+        last event id, to any replica, and loses nothing. A conversation has no terminal state,
+        so the stream does not end on its own. Comment lines are heartbeats. Slow consumers are
+        disconnected; disconnection never stops a turn.
+      parameters:
+        - $ref: "#/components/parameters/conversationId"
+        - name: after
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/Sequence" }
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema: { $ref: "#/components/schemas/Sequence" }
+      responses:
+        "200":
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400": { $ref: "#/components/responses/InvalidArgument" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
   /conversations/{conversationId}/turns/{turnId}:
     get:
       tags: [conversations]
@@ -1409,6 +1475,11 @@ components:
       schema: { $ref: "#/components/schemas/Id" }
     turnId:
       name: turnId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/Id" }
+    messageId:
+      name: messageId
       in: path
       required: true
       schema: { $ref: "#/components/schemas/Id" }
@@ -2976,7 +3047,10 @@ components:
     Conversation:
       description: >-
         A personal conversation. `revision` moves on a rename, an archive, a restore and
-        each accepted message; `lastMessageSeq` is "0" before the first message.
+        each accepted message; `lastMessageSeq` is "0" before the first message. D4: on GET
+        /conversations/{conversationId} only, `coveredEventSeq` is the last event the read covers
+        ("0" before the first event; subscribe to the event stream after it, design 0001 §8.4) and
+        `activeTurn` the open turn, read in the same transaction.
       type: object
       additionalProperties: false
       required: [conversationId, tenantId, ownerActorId, status, revision, lastMessageSeq, createdAt, updatedAt]
@@ -2991,6 +3065,8 @@ components:
         lastMessageSeq: { $ref: "#/components/schemas/Sequence" }
         createdAt: { $ref: "#/components/schemas/Timestamp" }
         updatedAt: { $ref: "#/components/schemas/Timestamp" }
+        coveredEventSeq: { $ref: "#/components/schemas/Sequence" }
+        activeTurn: { $ref: "#/components/schemas/Turn" }
     ConversationPage:
       type: object
       additionalProperties: false
@@ -3042,6 +3118,10 @@ components:
           minLength: 1
           maxLength: 32768
     Message:
+      description: >-
+        D4: `contentRevision` is the version of the text, from 1, and moves with each committed
+        chunk of a `streaming` assistant message; `throughChunkSeq` is the last committed chunk the
+        text covers ("0" for a user message and for a reply stored whole).
       type: object
       additionalProperties: false
       required: [messageId, conversationId, messageSeq, role, state, content, contentDigest, createdAt]
@@ -3054,6 +3134,8 @@ components:
         content: { $ref: "#/components/schemas/MessageContent" }
         contentDigest: { $ref: "#/components/schemas/Digest" }
         createdAt: { $ref: "#/components/schemas/Timestamp" }
+        contentRevision: { $ref: "#/components/schemas/Sequence" }
+        throughChunkSeq: { $ref: "#/components/schemas/Sequence" }
     MessagePage:
       description: >-
         Messages in ascending messageSeq. `nextBeforeMessageSeq` is present when older
@@ -3112,7 +3194,8 @@ components:
     Turn:
       description: >-
         One bounded assistant reply to one user message (design 0001 §4.1). `assistantMessageId`
-        is present once the reply's text is stored; a turn that ended before any text has none.
+        is present once the reply's text is stored (since D4, once its first chunk is committed);
+        a turn that ended before any text has none.
         `finance` is the turn operation's finance state, never derived from the text.
         `operationId` names that chat_turn operation for the ledger; chat_turn is not a public
         operation kind in this phase, so /operations does not serve it.
@@ -3136,6 +3219,65 @@ components:
           maxLength: 64
         createdAt: { $ref: "#/components/schemas/Timestamp" }
         updatedAt: { $ref: "#/components/schemas/Timestamp" }
+    ConversationEventFrame:
+      description: >-
+        The `data` of one SSE conversation event (design 0001 §8.1). The common fields are always
+        present; each type adds its own: `message.accepted` messageId, messageSeq, role, turnId;
+        `message.started` messageId, turnId; `message.delta` messageId, chunkSeq, contentRevision,
+        text; `message.completed`, `message.failed` and `message.canceled` messageId, state,
+        contentRevision, throughChunkSeq, contentDigest, turnState, failureCode; `turn.changed`
+        turn; `conversation.changed` conversationRevision, status. No frame carries a prompt,
+        provider reasoning or tool arguments.
+      type: object
+      additionalProperties: false
+      required: [conversationId, eventSeq, eventType, occurredAt]
+      properties:
+        conversationId: { $ref: "#/components/schemas/Id" }
+        eventSeq: { $ref: "#/components/schemas/Sequence" }
+        eventType:
+          type: string
+          enum: [message.accepted, message.started, message.delta, message.completed, message.failed, message.canceled, turn.changed, conversation.changed]
+        occurredAt: { $ref: "#/components/schemas/Timestamp" }
+        messageId: { $ref: "#/components/schemas/Id" }
+        messageSeq: { $ref: "#/components/schemas/Sequence" }
+        role: { $ref: "#/components/schemas/MessageRole" }
+        turnId: { $ref: "#/components/schemas/Id" }
+        chunkSeq: { $ref: "#/components/schemas/Sequence" }
+        contentRevision: { $ref: "#/components/schemas/Sequence" }
+        text:
+          description: One committed chunk's text, whole UTF-8 characters, at most 32768 bytes.
+          type: string
+          minLength: 1
+          maxLength: 32768
+        state: { $ref: "#/components/schemas/MessageState" }
+        throughChunkSeq: { $ref: "#/components/schemas/Sequence" }
+        contentDigest: { $ref: "#/components/schemas/Digest" }
+        turnState: { $ref: "#/components/schemas/TurnState" }
+        failureCode:
+          type: string
+          minLength: 1
+          maxLength: 64
+        turn: { $ref: "#/components/schemas/Turn" }
+        conversationRevision: { $ref: "#/components/schemas/Revision" }
+        status: { $ref: "#/components/schemas/ConversationStatus" }
+    ConversationResetFrame:
+      description: The `data` of an SSE `reset_required` event on a conversation stream.
+      type: object
+      additionalProperties: false
+      required: [conversationId, coveredEventSeq]
+      properties:
+        conversationId: { $ref: "#/components/schemas/Id" }
+        coveredEventSeq: { $ref: "#/components/schemas/Sequence" }
+    ConversationEndFrame:
+      description: The `data` of an SSE `end` event on a conversation stream; the stream closes after it and is resumed from the last event id.
+      type: object
+      additionalProperties: false
+      required: [conversationId, reason]
+      properties:
+        conversationId: { $ref: "#/components/schemas/Id" }
+        reason:
+          type: string
+          enum: [server_shutdown]
     StopTurnRequest:
       type: object
       additionalProperties: false

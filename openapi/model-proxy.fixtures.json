@@ -232,6 +232,43 @@
         "updatedAt": "2026-11-19T23:03:00Z",
         "fencedAt": null
       }
+    },
+    {
+      "name": "an original text frame with its stream identity (D4a)",
+      "schema": "StreamFrame",
+      "valid": true,
+      "instance": {
+        "callId": "op_chat_1:reply:1",
+        "sequence": "3",
+        "type": "text",
+        "text": "Yes. The current",
+        "frameOrigin": "original",
+        "originalStreamId": "str_01JA"
+      }
+    },
+    {
+      "name": "a recovery frame of a reclaimed send (D4a)",
+      "schema": "StreamFrame",
+      "valid": true,
+      "instance": {
+        "callId": "op_chat_1:reply:1",
+        "sequence": "1",
+        "type": "error",
+        "outcome": "unknown",
+        "errorCode": "SENDER_LOST",
+        "frameOrigin": "recovery"
+      }
+    },
+    {
+      "name": "a frame with an unknown origin is rejected",
+      "schema": "StreamFrame",
+      "valid": false,
+      "instance": {
+        "callId": "op_chat_1:reply:1",
+        "sequence": "0",
+        "type": "admitted",
+        "frameOrigin": "replayed"
+      }
     }
   ]
 }

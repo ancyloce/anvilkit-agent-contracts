@@ -235,6 +235,42 @@
         "occurredAt": "2026-09-14T12:00:00Z", "correlationId": "req_01J9",
         "payload": { "kind": "memory.fact-confirmed", "factId": "mem-0123", "revision": "2", "state": "confirmed" }
       }
+    },
+    {
+      "name": "conversation.changed wake-up (D4a)",
+      "ref": "#/$defs/envelope",
+      "valid": true,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b20", "eventType": "conversation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.conversation.changed", "tenantId": "tenant_a",
+        "aggregateType": "conversation", "aggregateId": "conv_01JA", "aggregateRevision": "12",
+        "occurredAt": "2026-11-21T12:00:00Z", "correlationId": "req_01JA",
+        "payload": { "kind": "conversation.changed", "throughEventSeq": "12" }
+      }
+    },
+    {
+      "name": "conversation.changed carrying message text is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b21", "eventType": "conversation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-control", "subject": "anvilkit.control.conversation.changed", "tenantId": "tenant_a",
+        "aggregateType": "conversation", "aggregateId": "conv_01JA", "aggregateRevision": "12",
+        "occurredAt": "2026-11-21T12:00:00Z", "correlationId": "req_01JA",
+        "payload": { "kind": "conversation.changed", "throughEventSeq": "12", "text": "a reply" }
+      }
+    },
+    {
+      "name": "conversation.changed from another producer is rejected",
+      "ref": "#/$defs/envelope",
+      "valid": false,
+      "instance": {
+        "eventId": "0192a1b2-3c4d-7e5f-8a9b-0c1d2e3f4b22", "eventType": "conversation.changed", "schemaVersion": 1,
+        "producer": "anvilkit-agent-knowledge", "subject": "anvilkit.control.conversation.changed", "tenantId": "tenant_a",
+        "aggregateType": "conversation", "aggregateId": "conv_01JA", "aggregateRevision": "12",
+        "occurredAt": "2026-11-21T12:00:00Z", "correlationId": "req_01JA",
+        "payload": { "kind": "conversation.changed", "throughEventSeq": "12" }
+      }
     }
   ]
 }

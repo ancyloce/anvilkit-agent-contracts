@@ -6,8 +6,11 @@
 // logs or traces. The first slice stored user text messages and their
 // history; design D3 (DEC-068) adds assistant replies: each accepted user
 // message opens one turn with one chat_turn operation, which the Workflow's
-// chat Activity answers through ConversationExecutionService. Later phases add
-// their own fields, never by reinterpreting these.
+// chat Activity answers through ConversationExecutionService. Design D4a
+// (DEC-070) commits the reply's text in batches while it streams, keeps a
+// per-conversation event log the API serves as SSE, and seals a stopped reply's
+// committed prefix in the stop transaction. Later phases add their own fields,
+// never by reinterpreting these.
 syntax = "proto3";
 
 package anvilkit.control.v1;
@@ -69,6 +72,12 @@ message Message {
   // SHA-256 of the text's UTF-8 bytes.
   string content_digest = 7;
   google.protobuf.Timestamp created_at = 8;
+  // D4: the version of the text, from 1; it moves with each committed chunk of
+  // a STREAMING assistant message. "1" for a user message.
+  string content_revision = 9;
+  // D4: the last committed chunk the text covers; "0" for a user message and
+  // for a reply stored whole (D3).
+  string through_chunk_seq = 10;
 }
 
 message MessageReceipt {
@@ -104,8 +113,23 @@ service ConversationService {
   // Stops this turn's reply only (design 0001 §11.3): Control fences new
   // dispatch and cancels the turn's chat_turn operation at its current
   // revision; text already shown stays, and incurred usage stays in the
-  // ledger. A terminal turn answers itself unchanged.
+  // ledger. A terminal turn answers itself unchanged. D4a (DEC-070): a reply
+  // whose writer is claimed is sealed CANCELED in the stop transaction with
+  // its committed chunks as the canceled message, and the slot frees, while
+  // the send still meters to its end (DEC-068 Q3).
   rpc StopTurn(StopTurnRequest) returns (StopTurnResponse);
+  // One message of the caller's conversation (D4). A STREAMING assistant
+  // message answers its committed chunks so far, with their content revision.
+  rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
+  // Lists durable conversation events after a cursor (D4, design 0001 §8.1).
+  // A cursor ahead of the covered sequence or a gap in the retained events
+  // answers reset_required with the covered_event_seq of a fresh snapshot.
+  rpc ListConversationEvents(ListConversationEventsRequest) returns (ListConversationEventsResponse);
+  // Streams durable conversation events after a cursor until the caller
+  // disconnects or the server drains; a conversation has no terminal state, so
+  // the stream does not end on its own. Slow consumers are disconnected; that
+  // never cancels a turn.
+  rpc StreamConversationEvents(StreamConversationEventsRequest) returns (stream StreamConversationEventsResponse);
 }
 
 message CreateConversationRequest {
@@ -132,6 +156,11 @@ message GetConversationRequest {
 
 message GetConversationResponse {
   Conversation conversation = 1;
+  // D4: the last event this read covers; "0" before the first event. A client
+  // that reads this snapshot subscribes after it (design 0001 §8.4).
+  string covered_event_seq = 2;
+  // D4: the conversation's open turn, if any, read in the same transaction.
+  optional Turn active_turn = 3;
 }
 
 message ListConversationsRequest {
@@ -214,6 +243,132 @@ message ListMessagesResponse {
   repeated Message messages = 1;
   // Present when older messages exist.
   optional string next_before_message_seq = 2;
+}
+
+message GetMessageRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string conversation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string message_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetMessageResponse {
+  Message message = 1;
+}
+
+// ---- the conversation event log (design 0001 §8.1, D4a, DEC-070) ----
+
+// One durable event of a conversation, in event_seq order. The event rows
+// hold no body: a message.delta carries the text of its committed chunk, read
+// from Control's private chunk table when the event is served. Provider
+// sequences, chunk sequences and event sequences are separate domains.
+message ConversationEvent {
+  string conversation_id = 1;
+  // From 1; strictly increasing within the conversation.
+  string event_seq = 2;
+  // message.accepted, message.started, message.delta, message.completed,
+  // message.failed, message.canceled, turn.changed or conversation.changed.
+  // Later phases add types; a reader skips a type it does not know.
+  string event_type = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+  oneof payload {
+    MessageAcceptedPayload message_accepted = 10;
+    MessageStartedPayload message_started = 11;
+    MessageDeltaPayload message_delta = 12;
+    // message.completed, message.failed and message.canceled.
+    MessageSealedPayload message_sealed = 13;
+    TurnChangedPayload turn_changed = 14;
+    ConversationChangedPayload conversation_changed = 15;
+  }
+}
+
+// A user message was stored (message.accepted).
+message MessageAcceptedPayload {
+  string message_id = 1;
+  string message_seq = 2;
+  MessageRole role = 3;
+  // The reply's turn, where assistant replies are enabled.
+  optional string turn_id = 4;
+}
+
+// A reply's first text was committed; its assistant message id is reserved
+// (message.started).
+message MessageStartedPayload {
+  string message_id = 1;
+  string turn_id = 2;
+}
+
+// One committed chunk of a streaming reply (message.delta).
+message MessageDeltaPayload {
+  string message_id = 1;
+  // From 1; contiguous within the message.
+  string chunk_seq = 2;
+  // The message's content revision after this chunk.
+  string content_revision = 3;
+  // The chunk's text: 1 to 32768 bytes of UTF-8.
+  string text = 4;
+}
+
+// The assistant message was sealed: COMPLETED with the whole reply,
+// PARTIAL_FAILED or CANCELED with the committed prefix (message.completed,
+// message.failed, message.canceled).
+message MessageSealedPayload {
+  string message_id = 1;
+  MessageState state = 2;
+  string content_revision = 3;
+  string through_chunk_seq = 4;
+  // SHA-256 of the sealed text's UTF-8 bytes.
+  string content_digest = 5;
+  TurnState turn_state = 6;
+  optional string failure_code = 7;
+}
+
+// The turn's state, content, sender or finance changed (turn.changed). The
+// Turn carries no text.
+message TurnChangedPayload {
+  Turn turn = 1;
+}
+
+// The conversation was renamed, archived or restored (conversation.changed).
+message ConversationChangedPayload {
+  string conversation_revision = 1;
+  ConversationStatus status = 2;
+}
+
+message ListConversationEventsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string conversation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // Empty means from the beginning of retained history.
+  string after_event_seq = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+  // 0 means the default (200).
+  uint32 limit = 4 [(buf.validate.field).uint32.lte = 1000];
+}
+
+message ListConversationEventsResponse {
+  repeated ConversationEvent events = 1;
+  string covered_event_seq = 2;
+  bool reset_required = 3;
+}
+
+message StreamConversationEventsRequest {
+  Scope scope = 1 [(buf.validate.field).required = true];
+  string conversation_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string after_event_seq = 3 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})?$"];
+}
+
+message StreamConversationEventsResponse {
+  ConversationEvent event = 1;
 }
 
 // ---- assistant replies (design 0001 D3, DEC-068) ----
@@ -339,7 +494,17 @@ service ConversationExecutionService {
   // stopped sender and the whole text; the other outcomes store a non-empty
   // prefix, if any, as a partial assistant message. The same command answers
   // the recorded outcome; a different outcome for a sealed turn conflicts.
+  // D4: with from_batches the sealed text is the committed batches, checked
+  // against content_digest when it is given.
   rpc RecordReplyOutcome(RecordReplyOutcomeRequest) returns (RecordReplyOutcomeResponse);
+  // Commits one batch of the reply's original frames under the current writer
+  // epoch (design 0001 §8.2): the first batch starts at provider sequence 0,
+  // each later one at the committed watermark plus one; the same range and
+  // digests answer the first receipt; an overlap with other content, a gap or
+  // a changed stream identity is refused and the turn goes to reconciliation.
+  // A turn already sealed (a stop) answers sealed=true and stores nothing: the
+  // Activity stops relaying and leaves the send to meter to its end.
+  rpc AppendReplyBatch(AppendReplyBatchRequest) returns (AppendReplyBatchResponse);
 }
 
 // The sealed outcome of a turn's reply (design 0001 §7.4).
@@ -381,6 +546,12 @@ message ClaimReplyWriterResponse {
   string writer_epoch = 1;
   Turn turn = 2;
   bool existing = 3;
+  // D4: the last committed provider sequence; absent before the first batch,
+  // so a resuming writer starts at 0.
+  optional string last_provider_seq = 4;
+  // D4: the original stream the committed batches belong to; absent before
+  // the first batch.
+  optional string original_stream_id = 5;
 }
 
 message GetTurnContextRequest {
@@ -426,7 +597,8 @@ message RecordReplyOutcomeRequest {
     min_bytes: 1
     max_bytes: 32768
   }];
-  // SHA-256 of the text's UTF-8 bytes; present exactly when text is.
+  // SHA-256 of the text's UTF-8 bytes; present exactly when text is, except
+  // with from_batches.
   optional string content_digest = 8 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
   SenderStatus sender_status = 9 [(buf.validate.field).enum = {
     defined_only: true
@@ -437,6 +609,13 @@ message RecordReplyOutcomeRequest {
     min_len: 1
     max_len: 64
   }];
+  // D4: the sealed text is the turn's committed batches; text is absent.
+  // content_digest, when given, is their concatenation's digest and must
+  // match; absent, the committed batches are sealed as they stand (a writer
+  // that lost track of them after an inconsistent stream). The outcome must
+  // agree with them: a partial failure when any text was committed, a failure
+  // when none was.
+  bool from_batches = 11;
 }
 
 message RecordReplyOutcomeResponse {
@@ -446,3 +625,50 @@ message RecordReplyOutcomeResponse {
   bool existing = 3;
 }
 
+message AppendReplyBatchRequest {
+  CommandIdentity command = 1 [(buf.validate.field).required = true];
+  ExecutionBinding binding = 2 [(buf.validate.field).required = true];
+  string turn_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string writer_epoch = 4 [(buf.validate.field).string.pattern = "^[1-9][0-9]{0,19}$"];
+  // The turn's reply call; Control checks it against the turn's dispatch.
+  string call_id = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // The Model Proxy's original stream of the call (StreamFrame
+  // originalStreamId); fixed by the first batch.
+  string original_stream_id = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  // The inclusive range of original provider sequences, from 0.
+  string from_provider_seq = 7 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  string through_provider_seq = 8 [(buf.validate.field).string.pattern = "^(0|[1-9][0-9]{0,19})$"];
+  // SHA-256 over the range's original frames in canonical form.
+  string source_frames_digest = 9 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+  // The range's text: 1 to 32768 bytes of UTF-8, whole characters; absent for
+  // a textless range (admitted, usage), which gets no chunk.
+  optional string text = 10 [(buf.validate.field).string = {
+    min_bytes: 1
+    max_bytes: 32768
+  }];
+  // SHA-256 of the text's UTF-8 bytes; present exactly when text is.
+  optional string text_digest = 11 [(buf.validate.field).string.pattern = "^sha256:[0-9a-f]{64}$"];
+}
+
+message AppendReplyBatchResponse {
+  // The committed watermark: the last provider sequence stored for the turn.
+  string accepted_through_provider_seq = 1;
+  // The chunk this batch's text became; absent for a textless batch.
+  optional string chunk_seq = 2;
+  // The reply's reserved assistant message, once any text is committed.
+  optional string assistant_message_id = 3;
+  Turn turn = 4;
+  // The same range and digests were committed before: the first receipt.
+  bool existing = 5;
+  // The turn is sealed (a stop); nothing was stored.
+  bool sealed = 6;
+}

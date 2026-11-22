@@ -119,6 +119,24 @@ func (e ModelCallState) Valid() bool {
 	}
 }
 
+// Defines values for StreamFrameFrameOrigin.
+const (
+	Original StreamFrameFrameOrigin = "original"
+	Recovery StreamFrameFrameOrigin = "recovery"
+)
+
+// Valid indicates whether the value is a known member of the StreamFrameFrameOrigin enum.
+func (e StreamFrameFrameOrigin) Valid() bool {
+	switch e {
+	case Original:
+		return true
+	case Recovery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StreamFrameOutcome.
 const (
 	StreamFrameOutcomeCanceled  StreamFrameOutcome = "canceled"
@@ -262,12 +280,16 @@ type Sequence = string
 
 // StreamFrame One SSE `data` payload; `sequence` is monotonic per call and bounded by the route profile.
 type StreamFrame struct {
-	CallId    Id                  `json:"callId"`
-	ErrorCode *string             `json:"errorCode,omitempty"`
-	Outcome   *StreamFrameOutcome `json:"outcome,omitempty"`
-	Sequence  Sequence            `json:"sequence"`
-	Text      *string             `json:"text,omitempty"`
-	ToolCall  *struct {
+	CallId    Id      `json:"callId"`
+	ErrorCode *string `json:"errorCode,omitempty"`
+
+	// FrameOrigin D4a (design 0001 §8.2, DEC-070): `original` frames belong to the call's original stream (`originalStreamId`, sequences from 0); `recovery` frames carry recovery state only, never text, and never advance a reader's original watermark (the synthetic SENDER_LOST and PERMISSION_LOST frames). `originalStreamId` is created once with the call record and is present on original frames. Both are present only on a stream opened with `frame-identity=1` (createModelCall); an original frame of a call recorded before D4a has neither, and a chat reader then records its reply whole.
+	FrameOrigin      *StreamFrameFrameOrigin `json:"frameOrigin,omitempty"`
+	OriginalStreamId *Id                     `json:"originalStreamId,omitempty"`
+	Outcome          *StreamFrameOutcome     `json:"outcome,omitempty"`
+	Sequence         Sequence                `json:"sequence"`
+	Text             *string                 `json:"text,omitempty"`
+	ToolCall         *struct {
 		Arguments       *string `json:"arguments,omitempty"`
 		ArgumentsDigest Digest  `json:"argumentsDigest"`
 		Name            string  `json:"name"`
@@ -276,6 +298,9 @@ type StreamFrame struct {
 	Type  StreamFrameType `json:"type"`
 	Usage *Usage          `json:"usage,omitempty"`
 }
+
+// StreamFrameFrameOrigin D4a (design 0001 §8.2, DEC-070): `original` frames belong to the call's original stream (`originalStreamId`, sequences from 0); `recovery` frames carry recovery state only, never text, and never advance a reader's original watermark (the synthetic SENDER_LOST and PERMISSION_LOST frames). `originalStreamId` is created once with the call record and is present on original frames. Both are present only on a stream opened with `frame-identity=1` (createModelCall); an original frame of a call recorded before D4a has neither, and a chat reader then records its reply whole.
+type StreamFrameFrameOrigin string
 
 // StreamFrameOutcome defines model for StreamFrame.Outcome.
 type StreamFrameOutcome string
@@ -384,13 +409,13 @@ type ClientInterface interface {
 	// CreateModelCallWithBody performs a POST /model-calls (the `CreateModelCall` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 	CreateModelCallWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateModelCall performs a POST /model-calls (the `CreateModelCall` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 	CreateModelCall(ctx context.Context, body CreateModelCallJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetModelCall performs a GET /model-calls/{callId} (the `GetModelCall` operationId) request.
@@ -407,7 +432,7 @@ type ClientInterface interface {
 // CreateModelCallWithBody performs a POST /model-calls (the `CreateModelCall` operationId) request,
 // with any type of body and a specified content type.
 //
-// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 func (c *Client) CreateModelCallWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateModelCallRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -423,7 +448,7 @@ func (c *Client) CreateModelCallWithBody(ctx context.Context, contentType string
 // CreateModelCall performs a POST /model-calls (the `CreateModelCall` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 func (c *Client) CreateModelCall(ctx context.Context, body CreateModelCallJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateModelCallRequest(c.Server, body)
 	if err != nil {
@@ -621,7 +646,7 @@ type ClientWithResponsesInterface interface {
 	// CreateModelCallWithBodyWithResponse performs a POST /model-calls (the `CreateModelCall` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateModelCallWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModelCallResponse, error)
@@ -629,7 +654,7 @@ type ClientWithResponsesInterface interface {
 	// CreateModelCallWithResponse performs a POST /model-calls (the `CreateModelCall` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+	// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 	CreateModelCallWithResponse(ctx context.Context, body CreateModelCallJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModelCallResponse, error)
 
 	// GetModelCallWithResponse performs a GET /model-calls/{callId} (the `GetModelCall` operationId) request.
@@ -829,7 +854,7 @@ func (r CancelModelCallResponse) ContentType() string {
 // CreateModelCallWithBodyWithResponse performs a POST /model-calls (the `CreateModelCall` operationId) request,
 // with any type of body and a specified content type.
 //
-// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateModelCallWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModelCallResponse, error) {
@@ -843,7 +868,7 @@ func (c *ClientWithResponses) CreateModelCallWithBodyWithResponse(ctx context.Co
 // CreateModelCallWithResponse performs a POST /model-calls (the `CreateModelCall` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent.
+// Opens a model call and streams frames. The response is Server-Sent Events; the final frame is `done` or `error`. A lost response is queried by callId, never resent. D4a (DEC-070): a caller that reads the frames' stream identity sends `Accept: text/event-stream; frame-identity=1`; a Proxy that honours it answers `Content-Type: text/event-stream; frame-identity=1`, and the frames carry `frameOrigin` (all of them, except the original frames of a call recorded before D4a, which have no stream to name). Without the parameter the frames are as before D4a, so a reader validating an older contract never meets the members; a Proxy before D4a ignores it and answers the plain type.
 func (c *ClientWithResponses) CreateModelCallWithResponse(ctx context.Context, body CreateModelCallJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModelCallResponse, error) {
 	rsp, err := c.CreateModelCall(ctx, body, reqEditors...)
 	if err != nil {
@@ -1017,50 +1042,58 @@ func ParseCancelModelCallResponse(rsp *http.Response) (*CancelModelCallResponse,
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

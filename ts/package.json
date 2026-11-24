@@ -25,13 +25,13 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
     "@types/js-yaml": "4.0.9",
-    "@types/node": "26.5.1",
+    "@types/node": "24.13.5",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "js-yaml": "5.4.2",
     "openapi-typescript": "7.13.0",
     "ts-proto": "2.12.3",
     "typescript": "5.9.3",
-    "vitest": "5.0.0"
+    "vitest": "5.0.3"
   }
 }
